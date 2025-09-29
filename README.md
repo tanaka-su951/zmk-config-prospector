@@ -1,4 +1,4 @@
-> 🎉 **LATEST: v1.1.1 "Enhanced Experience" Released! (Aug 29, 2025)**
+ｈｈ> 🎉 **LATEST: v1.1.1 "Enhanced Experience" Released! (Aug 29, 2025)**
 >
 > **✨ MAJOR ENHANCEMENTS**: Complete 10-layer support (0-9), dynamic centering, and breakthrough Device Tree fallback system.
 > 
