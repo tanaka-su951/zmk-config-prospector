@@ -20,7 +20,7 @@ manifest:
     - name: zmk-dongle-display
       remote: englmaxi
       revision: main
-      import: west-vvv update
+      import: app/west.yml
 
   self:
     path: config
