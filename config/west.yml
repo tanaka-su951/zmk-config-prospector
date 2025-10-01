@@ -4,23 +4,23 @@ manifest:
       url-base: https://github.com/zmkfirmware
     - name: prospector
       url-base: https://github.com/t-ogura
+    - name: englmaxi
+      url-base: https://github.com/englmaxi
+
   projects:
     - name: zmk
       remote: zmkfirmware
       revision: main
-      import: app/west.yml
+
     - name: prospector-zmk-module
       remote: prospector
       revision: v1.1.1
       path: modules/prospector-zmk-module
-  remotes:
-    - name: englmaxi
-      url-base: https://github.com/englmaxi
-  projects:
+
     - name: zmk-dongle-display
       remote: englmaxi
       revision: main
-      import: app/west.yml
 
   self:
     path: config
+
