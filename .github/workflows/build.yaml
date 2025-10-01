@@ -28,7 +28,7 @@ jobs:
       run: west build -s app -b seeeduino_xiao_ble -DSHIELD="prospector_scanner"
 
     - name: Archive firmware
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble
         path: build/zephyr/zephyr.hex
