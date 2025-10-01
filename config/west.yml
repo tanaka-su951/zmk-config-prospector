@@ -1,40 +1,29 @@
-name: Build ZMK Firmware
+manifest:
+  remotes:
+    - name: zmkfirmware
+      url-base: https://github.com/zmkfirmware
+    - name: prospector
+      url-base: https://github.com/t-ogura
+    - name: englmaxi
+      url-base: https://github.com/englmaxi
 
-on:
-  push:
-    branches:
-      - main
+  projects:
+    - name: zmk
+      remote: zmkfirmware
+      revision: main
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+    - name: prospector-zmk-module
+      remote: prospector
+      revision: v1.1.1
+      path: modules/prospector-zmk-module
 
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: recursive
+    - name: zmk-dongle-display
+      remote: englmaxi
+      revision: main
 
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y git python3-pip ninja-build cmake
+  self:
+    path: config
 
-    - name: Install west
-      run: python3 -m pip install --upgrade west
-
-    - name: Initialize west workspace
-      run: |
-        west init -l .
-        west update
-
-    - name: Build firmware
-      run: west build -s app -b seeeduino_xiao_ble -DSHIELD="prospector_scanner"
-
-    - name: Archive firmware
-      uses: actions/upload-artifact@v3
-      with:
-        name: prospector_scanner-seeeduino_xiao_ble
-        path: build/zephyr/zephyr.hex
 
 
 
