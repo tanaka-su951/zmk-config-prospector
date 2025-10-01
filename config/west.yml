@@ -13,5 +13,15 @@ manifest:
       remote: prospector
       revision: v1.1.1
       path: modules/prospector-zmk-module
+      manifest:
+  remotes:
+    - name: englmaxi
+      url-base: https://github.com/englmaxi
+  projects:
+    - name: zmk-dongle-display
+      remote: englmaxi
+      revision: main
+      import: true
+
   self:
     path: config
