@@ -1,5 +1,34 @@
+name: Build ZMK Firmware
+
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y git python3-pip ninja-build cmake
+
+    - name: Install west
+      run: python3 -m pip install --upgrade west
+
+    - name: Initialize west workspace
+      run: |
+        west init -l .
+        west update
+
+    - name: Build firmware
+      run: west build -s app -b seeeduino_xiao_ble -DSHIELD="prospector_scanner"
+
+    - name: Archive firmware
+      uses: actions/upload-artifact@v3
+      with:
+        name: prospector_scanner-seeeduino_xiao_ble
+        path: build/zephyr/zephyr.hex
