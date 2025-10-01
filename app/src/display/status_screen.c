@@ -1,22 +1,30 @@
 #include <lvgl.h>
+#include "widgets/bongo_cat.h"
+
+/* Prospector の標準ウィジェット */
+#include <zmk/display/widgets/battery_status.h>
 #include <zmk/display/widgets/layer_status.h>
-#include <display/widgets/bongo_cat.h>
 
-static struct zmk_widget_layer_status layer_status;
-static struct zmk_widget_bongo_cat bongo_cat;
+static lv_obj_t *screen;
 
-lv_obj_t *zmk_display_status_screen(void) {
-    lv_obj_t *screen = lv_obj_create(NULL);
+/* 各ウィジェットのオブジェクト */
+static struct zmk_widget_battery battery_widget;
+static struct zmk_widget_layer_status layer_widget;
 
-    /* Bongo Cat */
-    zmk_widget_bongo_cat_init(&bongo_cat, screen);
-    lv_obj_align(zmk_widget_bongo_cat_obj(&bongo_cat),
-                 LV_ALIGN_TOP_MID, 0, 8);
+lv_obj_t *zmk_display_status_screen() {
+    screen = lv_obj_create(NULL);
 
-    /* Layer indicator */
-    zmk_widget_layer_status_init(&layer_status, screen);
-    lv_obj_align(zmk_widget_layer_status_obj(&layer_status),
-                 LV_ALIGN_BOTTOM_MID, 0, -2);
+    /* 1. 上段に Bongo Cat を配置 */
+    lv_obj_t *cat = bongo_cat_widget_create(screen);
+    lv_obj_align(cat, LV_ALIGN_TOP_MID, 0, 0);
+
+    /* 2. その下にレイヤー表示を配置 */
+    lv_obj_t *layer = zmk_widget_layer_status_init(&layer_widget, screen);
+    lv_obj_align(layer, LV_ALIGN_TOP_MID, 0, 20); // ← Y=20で少し下にずらす
+
+    /* 3. さらに右上にバッテリー表示 */
+    lv_obj_t *battery = zmk_widget_battery_status_init(&battery_widget, screen);
+    lv_obj_align(battery, LV_ALIGN_TOP_RIGHT, -2, 2);
 
     return screen;
 }
