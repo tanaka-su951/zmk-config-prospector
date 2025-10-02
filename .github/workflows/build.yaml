@@ -35,29 +35,32 @@ jobs:
           submodules: 'recursive'
           path: config # リポジトリ全体を 'config' フォルダにチェックアウト
 
-      # 2. westワークスペースを明示的に初期化し、モジュールを更新 (west.ymlをルートに移動)
-      - name: Initialize and Update ZMK modules
+      # 2. 💥 統合: west環境の初期化とビルドをまとめて実行
+      - name: Initialize, Update and Build ZMK firmware
         working-directory: config
         run: |
-          # 💥 最終パス修正: west.ymlをビルド実行前にルートに戻す
+          # west.yml をルートに戻す (ビルド環境を整える)
           mv west.yml ..
           cd ..
-          # 過去の不完全なZMKクローンを削除してクリーンアップ
+          
+          # 過去のZMKクローンを削除し、クリーンな環境から開始
           rm -rf zmk
+          
+          # west環境を初期化し、ZMK本体をダウンロード
           west init -l .
           west update --rebase
-          # 💥 追加: ファイルシステムが安定するのを待つ
+          
+          # ファイルシステムが安定するのを待つ (重要)
           sleep 5
-        
-      # 3. ZMKファームウェアのビルド
-      # 💥 最終修正: west updateの実行場所がルートになったため、ビルドもルートで行う
-      - name: Build ZMK firmware
-        run: west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
 
-      # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
+          # ビルドを実行: ZMK/appのソースコードをビルド
+          # west updateが成功すれば、zmk/appはルートに存在
+          west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
+        
+      # 3. ビルド成果物（ファームウェアファイル）をアーカイブ (ステップ番号を修正)
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
           name: prospector_scanner-seeeduino_xiao_ble
-          # ビルド結果のパスを build/zephyr/zephyr.uf2 に戻します (ルートからのパス)
+          # ビルド結果のパスを build/zephyr/zephyr.uf2 に設定
           path: build/zephyr/zephyr.uf2
