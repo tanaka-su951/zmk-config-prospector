@@ -14,6 +14,7 @@ jobs:
   build:
     # Dockerイメージを直接指定し、すべての依存関係のセットアップをスキップ
     container: zmkfirmware/zmk-build-arm:stable 
+    # ホストOSはそのまま
     runs-on: ubuntu-latest
     
     strategy:
@@ -22,24 +23,23 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. リポジトリのチェックアウト (Dockerコンテナ内で実行)
-      #    uses: actions/checkout@v4 はDockerコンテナ内では使用できないため、手動でクローン
-      - name: Checkout repository
-        run: |
-          apt update && apt install -y git
-          git clone --recurse-submodules $GITHUB_SERVER_URL/$GITHUB_REPOSITORY .
+      # 1. リポジトリのチェックアウト (標準アクションでサブモジュールを確実に取得)
+      #    このステップはホストOS (ubuntu-latest) 上で実行され、Dockerコンテナにマウントされます
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: true
 
       # 2. westワークスペース初期化とモジュール更新
-      #    コンテナ内では west がPATHに含まれているため、すぐに実行可能
-      - name: Initialize west workspace and update modules
-        run: west init -l config && west update
+      #    コンテナ内で実行。west initは不要で、west updateのみでOK (ZMK Dockerイメージのため)
+      - name: Update ZMK modules
+        run: west update
         
       # 3. ZMKファームウェアのビルド
       - name: Build ZMK firmware
         run: west build -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
 
       # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
-      #    Artifactsをアップロードするために、ホストOSのツールを使用
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
