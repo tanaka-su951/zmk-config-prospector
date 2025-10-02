@@ -1,63 +1,63 @@
 name: Build ZMK Firmware
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    # ソースコードを取得
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            git wget xz-utils file cmake ninja-build gperf ccache \
-            dfu-util device-tree-compiler python3-dev python3-pip \
-            python3-setuptools python3-wheel jq
+    # 依存関係をインストール
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y git python3-pip ninja-build cmake wget xz-utils file jq
 
-      - name: Download and install Zephyr SDK
-        run: |
-          echo "Fetching latest Zephyr SDK release tag..."
-          ZEPHYR_SDK_TAG=$(curl -s https://api.github.com/repos/zephyrproject-rtos/sdk-ng/releases/latest | jq -r '.tag_name')
-          echo "Latest Zephyr SDK tag: $ZEPHYR_SDK_TAG"
+    # west をインストール
+    - name: Install west
+      run: python3 -m pip install --upgrade west
 
-          # Linux x86_64 用の .run ファイルを探す
-          SDK_URL=$(curl -s https://api.github.com/repos/zephyrproject-rtos/sdk-ng/releases/latest \
-            | jq -r '.assets[] | select(.name | test("linux-x86_64-setup.run$")) | .browser_download_url')
+    # Zephyr SDK を自動取得してインストール
+    - name: Download and install Zephyr SDK
+      run: |
+        echo "キャッシュなし、SDKをダウンロードします"
+        ZEHPYR_SDK_TAG=$(curl -s https://api.github.com/repos/zephyrproject-rtos/sdk-ng/releases/latest | jq -r '.tag_name')
+        echo "Latest Zephyr SDK tag: $ZEHPYR_SDK_TAG"
+        SDK_VER=${ZEHPYR_SDK_TAG#v}
+        echo "Using SDK version: $SDK_VER"
 
-          echo "Downloading SDK from $SDK_URL"
-          wget "$SDK_URL" -O zephyr-sdk.run
-          chmod +x zephyr-sdk.run
+        DOWNLOAD_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/${ZEHPYR_SDK_TAG}/zephyr-sdk-${SDK_VER}_linux-x86_64-setup.run"
+        echo "Downloading from $DOWNLOAD_URL"
 
-          # インストール先を zephyr-sdk に指定
-          ./zephyr-sdk.run --quiet -- -d $GITHUB_WORKSPACE/zephyr-sdk
+        wget "$DOWNLOAD_URL" -O zephyr-sdk.run
+        chmod +x zephyr-sdk.run
+        ./zephyr-sdk.run --quiet -- -d $GITHUB_WORKSPACE/zephyr-sdk
 
-          echo "SDK installed to $GITHUB_WORKSPACE/zephyr-sdk"
-          echo "ZEPHYR_SDK_INSTALL_DIR=$GITHUB_WORKSPACE/zephyr-sdk" >> $GITHUB_ENV
-          echo "$GITHUB_WORKSPACE/zephyr-sdk" >> $GITHUB_PATH
+        echo "ZEPHYR_SDK_INSTALL_DIR=$GITHUB_WORKSPACE/zephyr-sdk" >> $GITHUB_ENV
+        echo "$GITHUB_WORKSPACE/zephyr-sdk" >> $GITHUB_PATH
 
-      - name: Install West
-        run: pip3 install --user west
+    # west ワークスペース初期化
+    - name: Initialize west workspace
+      run: |
+        west init -l config
+        west update
 
-      - name: Initialize West
-        run: |
-          west init -l app
-          west update
-          west zephyr-export
+    # Zephyr 環境設定
+    - name: Export Zephyr environment
+      run: |
+        west zephyr-export
 
-      - name: Build firmware (seeeduino_xiao_ble + prospector_scanner)
-        run: |
-          west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
+    # ファームウェアをビルド
+    - name: Build firmware
+      run: |
+        west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
 
-      - name: Upload firmware artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: firmware
-          path: build/zephyr/*.uf2
+    # ビルド成果物を保存
+    - name: Archive firmware
+      uses: actions/upload-ar
