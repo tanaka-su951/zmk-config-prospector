@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4   # v4 に更新
       with:
         submodules: recursive
 
@@ -15,20 +15,27 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y git python3-pip ninja-build cmake
-
-    - name: Install west
-      run: python3 -m pip install --upgrade west
+        python3 -m pip install --upgrade west
 
     - name: Initialize west workspace
       run: |
-        west init -l .
+        west init -l config   # config/west.yml を使用
         west update
 
     - name: Build firmware
       run: west build -s app -b seeeduino_xiao_ble -DSHIELD="prospector_scanner"
 
+    - name: Convert HEX to UF2
+      run: |
+        pip install uf2conv
+        python3 -m uf2conv build/zephyr/zephyr.hex \
+          --base 0x26000 \
+          --family 0xADA52840 \
+          --output build/zephyr/prospector_scanner-seeeduino_xiao_ble.uf2
+
     - name: Archive firmware
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble
-        path: build/zephyr/zephyr.hex
+        path: build/zephyr/prospector_scanner-seeeduino_xiao_ble.uf2
+
