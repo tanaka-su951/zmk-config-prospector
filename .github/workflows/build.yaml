@@ -13,52 +13,46 @@ jobs:
       with:
         submodules: recursive
 
-    # 必要な依存関係をインストール
+    # 依存関係をインストール
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y \
-          git \
-          python3-pip \
-          ninja-build \
-          cmake \
-          wget \
-          tar \
-          unzip
+        sudo apt install -y git python3-pip ninja-build cmake wget tar unzip
 
     # west をインストール
     - name: Install west
       run: python3 -m pip install --upgrade west
 
     # Zephyr SDK をダウンロードして展開
-    - name: Download and extract Zephyr SDK
+    - name: Install Zephyr SDK
       run: |
-        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v1.0.0-beta1/zephyr-sdk-1.0.0-beta1-linux-x86_64.tar.xz
-        tar -xf zephyr-sdk-1.0.0-beta1-linux-x86_64.tar.xz
-        mv zephyr-sdk-1.0.0-beta1 zephyr-sdk
+        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.4/zephyr-sdk-0.17.4-linux-x86_64.tar.xz
+        tar -xf zephyr-sdk-0.17.4-linux-x86_64.tar.xz
+        mv zephyr-sdk-0.17.4 zephyr-sdk
 
-    # Zephyr SDK の環境設定
+    # Zephyr SDK 環境設定
     - name: Set up Zephyr SDK environment
       run: |
-        source $PWD/zephyr-sdk/zephyr-env.sh
+        source zephyr-sdk/zephyr-env.sh
         echo "ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk" >> $GITHUB_ENV
 
-    # west ワークスペースの初期化
+    # west ワークスペース初期化
     - name: Initialize west workspace
       run: |
+        source $GITHUB_ENV
         west init -l config
         west update
 
-    # Zephyr SDK 環境のエクスポート
-    - name: Export Zephyr environment
+    # Zephyr 環境設定
+    - name: Set up Zephyr environment
       run: |
-        source $PWD/zephyr-sdk/zephyr-env.sh
+        source $GITHUB_ENV
         west zephyr-export
 
-    # ファームウェアのビルド
+    # ファームウェアをビルド
     - name: Build firmware
       run: |
-        source $PWD/zephyr-sdk/zephyr-env.sh
+        source $GITHUB_ENV
         west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
 
     # ビルド成果物をアーカイブ
