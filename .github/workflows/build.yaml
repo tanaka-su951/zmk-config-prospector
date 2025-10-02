@@ -28,21 +28,25 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. リポジトリのチェックアウトとサブモジュールの取得 (ホスト側で実行)
+      # 1. リポジトリのチェックアウトとサブモジュールの取得
+      #    path: ./config を指定することで、リポジトリを意図的にサブディレクトリにチェックアウトします。
       - name: Checkout repository and submodules
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive' # ZMKの依存関係をすべて取得
+          submodules: 'recursive'
+          path: config # <-- 💥 重要な変更: リポジトリ全体を 'config' フォルダにチェックアウトします
 
       # 2. westワークスペースを明示的に初期化し、モジュールを更新
-      #    west initを強制的に実行して、パスの問題を解決します。
+      #    west initはconfigディレクトリで行い、正しいパスにあるwest.ymlを参照させます。
       - name: Initialize and Update ZMK modules
+        working-directory: config # <-- ステップ単位で作業ディレクトリを 'config' に変更
         run: |
           west init -l .
           west update --rebase
         
       # 3. ZMKファームウェアのビルド
       - name: Build ZMK firmware
+        working-directory: config # <-- ステップ単位で作業ディレクトリを 'config' に変更
         run: west build -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
 
       # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
@@ -50,4 +54,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: prospector_scanner-seeeduino_xiao_ble
-          path: build/zephyr/zephyr.uf2
+          # ビルド結果が config/build/zephyr/zephyr.uf2 に生成されるためパスを変更
+          path: config/build/zephyr/zephyr.uf2
