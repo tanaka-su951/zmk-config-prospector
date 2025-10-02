@@ -1,4 +1,4 @@
-# ZMKビルドの最終安定版。パスの問題を無視してGitで依存関係を強制取得します。
+# ZMKビルドの最終安定版。ZMKコミュニティで最も実績のある構成に戻します。
 
 name: Build ZMK Firmware
 
@@ -13,12 +13,11 @@ on:
 
 jobs:
   build:
-    # ワークフロー全体でデフォルトの作業ディレクトリを設定
+    # ワークフロー全体でデフォルトの作業ディレクトリを設定 (ルートを指定)
     defaults:
       run:
         working-directory: ${{ github.workspace }}
         
-    # ホストOSでチェックアウトを処理
     runs-on: ubuntu-latest
     
     # Dockerコンテナを使用
@@ -30,30 +29,24 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. 💥 変更: リポジトリのチェックアウトのみ行う (サブモジュールなし)
-      - name: Checkout user configuration (no submodules)
+      # 1. リポジトリとサブモジュールをホストOSでチェックアウト
+      - name: Checkout user configuration and ZMK submodules
         uses: actions/checkout@v4
-        
-      # 2. 💥 統合: ZMK依存関係をルートに強制クローン＆ビルド
-      - name: Force Clone ZMK, Initialize and Build Firmware
-        env: # <--- 修正: ENVブロックを追加し、Zephyrの場所を強制指定
-          ZEPHYR_BASE: ${{ github.workspace }}/zephyr
+        with:
+          submodules: true
+          
+      # 2. ZMKの依存関係を更新し、環境を初期化
+      - name: Initialize and Update ZMK Dependencies
         run: |
-          # 認証情報を使用してZMK本体とZephyrを強制クローン (west.ymlの内容に基づく)
-          echo "Force cloning ZMK and dependencies..."
-          git clone --depth 1 https://github.com/zmkfirmware/zmk.git
-          git clone --depth 1 https://github.com/zephyrproject-rtos/zephyr.git
-          
-          # west環境を初期化し、残りのモジュールを更新
-          # ZEPHYR_BASEはenvブロックで設定済みのため、sourceコマンドは不要
+          # west.ymlがルートにあることを前提に、環境を更新
           west init -l .
-          west update
+          west update --rebase
           
-          # ビルドを実行: ZMK/appのソースコードをビルド
-          # 全てがルートにあるため、このパスは正しい
-          west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
+      # 3. ZMKアプリのソースコードをビルド
+      - name: Build ZMK firmware
+        run: west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
         
-      # 3. ビルド成果物（ファームウェアファイル）をアーカイブ
+      # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
