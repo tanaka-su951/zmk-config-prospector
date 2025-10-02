@@ -1,43 +1,28 @@
-name: Build ZMK Firmware
+manifest:
+  remotes:
+    - name: zmkfirmware
+      url-base: https://github.com/zmkfirmware
+    - name: prospector
+      url-base: https://github.com/t-ogura
+    - name: englmaxi
+      url-base: https://github.com/englmaxi
 
-on: [push, pull_request, workflow_dispatch]
+  projects:
+    - name: zmk
+      remote: zmkfirmware
+      revision: main
+      import: app/west.yml   # ← ここで Zephyr や HAL が取り込まれる
+    - name: prospector-zmk-module
+      remote: prospector
+      revision: v1.1.1
+      path: modules/prospector-zmk-module
+    - name: zmk-dongle-display
+      remote: englmaxi
+      revision: main
+      path: zmk-dongle-display
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+  self:
+    path: config
 
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y git python3-pip ninja-build cmake
-        python3 -m pip install --upgrade west
-
-    - name: Initialize west workspace
-      run: |
-        west init -l config
-        west update
-        west zephyr-export   # ← ここを追加
-
-    - name: Build firmware
-      run: west build -s app -b seeeduino_xiao_ble -DSHIELD="prospector_scanner"
-
-    - name: Convert HEX to UF2
-      run: |
-        pip install uf2conv
-        python3 -m uf2conv build/zephyr/zephyr.hex \
-          --base 0x26000 \
-          --family 0xADA52840 \
-          --output build/zephyr/prospector_scanner-seeeduino_xiao_ble.uf2
-
-    - name: Archive firmware
-      uses: actions/upload-artifact@v4
-      with:
-        name: prospector_scanner-seeeduino_xiao_ble
-        path: build/zephyr/prospector_scanner-seeeduino_xiao_ble.uf2
 
 
