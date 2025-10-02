@@ -17,32 +17,30 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        # 必要なツール（git, python, ninja, cmake, wget, tar, curl, jq）をインストール
         sudo apt install -y git python3-pip ninja-build cmake wget tar unzip curl jq
 
     # 3. west とその他のPython依存関係をインストール
     - name: Install west and initial Python dependencies
-      # westとその他の基本パッケージをインストール
       run: python3 -m pip install --upgrade west setuptools wheel
 
     # 4. west ワークスペース初期化とモジュール更新
     - name: Initialize west workspace and update modules
-      # ZMKの設定ファイル（configファイル）を元に初期化とモジュール更新を実行
-      # これにより、westはZephyr Toolchainも自動的に取得・インストールします。
       run: |
         west init -l config
         west update
 
     # 5. ZMK 固有の Python 依存関係をインストール
     - name: Install ZMK specific Python dependencies
-      # ZMKビルドに必要なPythonモジュールをインストール。
-      # リポジトリの構造に基づき、'app'ディレクトリ内にあるrequirementsファイルを使用。
-      # ZMKの推奨手順に従い、Zephyrの依存関係もここでまとめて処理されます。
       run: pip3 install -r app/requirements.txt
 
     # 6. Zephyr 環境変数を設定し、ZMK ファームウェアをビルド
     - name: Build ZMK firmware
       run: |
+        # 【重要】west topdirを使ってZephyrのインストールパスを取得し、ZEPHYR_BASEを設定
+        # これにより、'FATAL ERROR: could not find a Zephyr installation' を回避
+        ZEPHYR_BASE=$(west topdir)/zephyr
+        export ZEPHYR_BASE
+
         # Zephyrの環境変数をエクスポート（ツールチェインパスなどが設定される）
         west zephyr-export
 
@@ -54,5 +52,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble
-        # ビルド後の uf2 ファイルのパス
         path: build/zephyr/zephyr.uf2
