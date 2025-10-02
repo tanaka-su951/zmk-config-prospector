@@ -1,6 +1,57 @@
-Run west build -p -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
-  west build -p -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
-  shell: sh -e {0}
-ERROR: source directory "." does not contain a CMakeLists.txt; is this really what you want to build? (Use -s SOURCE_DIR to specify the application source directory)
-FATAL ERROR: refusing to proceed without --force due to above error
-Error: Process completed with exit code 1.
+# ZMKビルドの最終安定版。ホストOSでチェックアウトを完了させてからDockerコンテナを使用します。
+
+name: Build ZMK Firmware
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    # ワークフロー全体でデフォルトの作業ディレクトリを設定
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+        
+    # ホストOSでチェックアウトを処理
+    runs-on: ubuntu-latest
+    
+    # Dockerコンテナを使用
+    container: zmkfirmware/zmk-build-arm:stable
+    
+    strategy:
+      matrix:
+        board: [seeeduino_xiao_ble]
+        shield: [prospector_scanner]
+        
+    steps:
+      # 1. リポジトリのチェックアウトとサブモジュールの取得
+      - name: Checkout repository and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          path: config # リポジトリ全体を 'config' フォルダにチェックアウト
+
+      # 2. westワークスペースを明示的に初期化し、モジュールを更新
+      - name: Initialize and Update ZMK modules
+        working-directory: config
+        run: |
+          west init -l .
+          west update --rebase
+        
+      # 3. ZMKファームウェアのビルド
+      # 重要な修正: -s zmk/app を追加し、ZMKアプリケーションのソースパスを指定
+      - name: Build ZMK firmware
+        working-directory: config
+        run: west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
+
+      # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
+      - name: Archive firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: prospector_scanner-seeeduino_xiao_ble
+          # ビルド結果が config/build/zephyr/zephyr.uf2 に生成されるためパスを変更
+          path: config/build/zephyr/zephyr.uf2
