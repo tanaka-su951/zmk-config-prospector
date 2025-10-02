@@ -1,4 +1,4 @@
-# ZMKビルドの最終安定版。ZMKコミュニティで最も実績のある構成に戻します。
+# Final Diagnostic: ZMKビルドの失敗原因（パス認識/依存関係取得）を特定します。
 
 name: Build ZMK Firmware
 
@@ -33,20 +33,33 @@ jobs:
       - name: Checkout user configuration and ZMK submodules
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: true # ZMKとZephyrのGitリポジトリをクローン
           
-      # 2. ZMKの依存関係を更新し、環境を初期化
+      # 2. 💥 診断: Checkout直後のファイル構造を確認
+      - name: Diagnostic Check: Files after Submodule Checkout
+        run: |
+          echo "Listing files in workspace after checkout (looking for 'zmk'):"
+          ls -aR
+          
+      # 3. Initialize and Update ZMK Dependencies
       - name: Initialize and Update ZMK Dependencies
         run: |
-          # west.ymlがルートにあることを前提に、環境を更新
-          west init -l .
-          west update --rebase
+          echo "Running west init -l ."
+          west init -l .  # west.ymlを使用してワークスペースを初期化
+          echo "Running west update --rebase"
+          west update --rebase # 依存関係をフェッチ
           
-      # 3. ZMKアプリのソースコードをビルド
+      # 4. 💥 診断: west update直後のファイル構造を確認
+      - name: Diagnostic Check: Files after West Update
+        run: |
+          echo "Listing files in workspace after west update (checking for zmk/app):"
+          ls -aR
+          
+      # 5. Build ZMK firmware
       - name: Build ZMK firmware
         run: west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
         
-      # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
+      # 6. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
