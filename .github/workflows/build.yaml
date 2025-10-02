@@ -33,9 +33,9 @@ jobs:
       - name: Checkout user configuration and ZMK submodules
         uses: actions/checkout@v4
         with:
-          submodules: true # ZMKとZephyrのGitリポジトリをクローン
+          submodules: true
           
-      # 2. 💥 診断: Checkout直後のファイル構造を確認
+      # 2. 診断: Checkout直後のファイル構造を確認
       - name: Diagnostic Check: Files after Submodule Checkout
         run: |
           echo "Listing files in workspace after checkout (looking for 'zmk'):"
@@ -49,7 +49,7 @@ jobs:
           echo "Running west update --rebase"
           west update --rebase # 依存関係をフェッチ
           
-      # 4. 💥 診断: west update直後のファイル構造を確認
+      # 4. 診断: west update直後のファイル構造を確認
       - name: Diagnostic Check: Files after West Update
         run: |
           echo "Listing files in workspace after west update (checking for zmk/app):"
@@ -65,3 +65,4 @@ jobs:
         with:
           name: prospector_scanner-seeeduino_xiao_ble
           path: build/zephyr/zephyr.uf2
+
