@@ -1,68 +1,65 @@
+# This workflow is based on the ZMK documentation template
+# for building a custom user configuration.
+
 name: Build ZMK Firmware
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    # Build only when pushing to the main branch
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
+    # Define the target board and shield here
+    # Use a matrix for multiple builds, but stick to a single target for simplicity
+    strategy:
+      matrix:
+        board: [seeeduino_xiao_ble]
+        shield: [prospector_scanner]
+        
     steps:
-    # 1. ソースコードをチェックアウト（サブモジュールも再帰的に取得）
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      # 1. リポジトリのチェックアウト
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # 2. 依存関係をインストール
-    - name: Install system dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y git python3-pip ninja-build cmake wget tar unzip curl jq
+      # 2. Python環境と依存関係のセットアップ (ZMKビルドに必要なツール)
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      # 3. west と主要なPython依存関係のインストール
+      #    ZMKのビルドに必要なすべてのPython依存関係をここでインストール
+      - name: Install west and core Python dependencies
+        run: pip install --upgrade west setuptools wheel
 
-    # 3. west と主要なPython依存関係をインストール
-    # (ZMKのビルドに必要なすべてのPython依存関係をここでインストールするため、requirements.txtは不要)
-    - name: Install west and core Python dependencies
-      run: python3 -m pip install --upgrade west setuptools wheel --break-system-packages
+      # 4. westコマンドへのPATHを設定 (← west: command not found を恒久的に解消する修正)
+      #    pipでインストールしたwestコマンドの実行パスを通す
+      - name: Set west command PATH
+        run: echo "PATH=$(python -m site --user-base)/bin:$PATH" >> $GITHUB_ENV
 
-    # 4. westコマンドへのPATHを設定 (← west: command not foundを解決する重要な修正)
-    #    pipでインストールしたwestコマンドの実行パスを通す
-    - name: Set west command PATH
-      run: |
-        echo "Setting west command PATH..."
-        echo "PATH=$(python3 -m site --user-base)/bin:$PATH" >> $    # 4. westコマンドへのPATHを設定 (← west: command not foundを解消する修正)
-  
-    #    pipでインストールしたwestコマンドの実行パスを通す
-    - name: Set west command PATH
-      run: |
-        echo "Setting west command PATH..."
-        echo "PATH=$(python3 -m site --user-base)/bin:$PATH" >> $GITHUB_ENV
+      # 5. westワークスペース初期化とモジュール更新
+      - name: Initialize west workspace and update modules
+        run: west init -l config && west update
+        
+      # 6. ZMKファームウェアのビルド
+      #    -p: pristine build (クリーンビルド) を実行
+      - name: Build ZMK firmware
+        run: west build -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
 
-    # 5. westワークスペース初期化とモジュール更新
-    - name: Initialize west workspace and update modules
-      run: |
-        # configディレクトリ内のwest.ymlを使用して初期化
-        west init -l config
-        # Zephyr, ZMK, Toolchainなどをダウンロード
-        west update
-
-    # 6. ZMK ファームウェアをビルド
-    - name: Build ZMK firmware
-      run: |
-        # 【重要】west topdirを使ってZephyrのインストールパスを取得し、ZEPHYR_BASEを設定
-        ZEPHYR_BASE=$(west topdir)/zephyr
-        export ZEPHYR_BASE
-
-        # Zephyrの環境変数をエクスポート（ツールチェインパスなどが設定される）
-        west zephyr-export
-
-        # 指定されたボードとシールドでZMKファームウェアをビルド
-        # -s zmk/app: ZMKモジュール内のアプリケーションソースコードを指定
-        west build -s zmk/app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
-
-    # 7. ビルド成果物（ファームウェアファイル）をアーカイブ (← アップロードエラーを解決する修正)
-    - name: Archive firmware
-      uses: actions/upload-artifact@v4
-      with:
-        name: prospector_scanner-seeeduino_xiao_ble
-        # ビルド後の uf2 ファイルのパス ( zephyr.uf2 に修正)
-        path: build/zephyr/zephyr.uf2
+      # 7. ビルド成果物（ファームウェアファイル）をアーカイブ
+      #    パスを 'build/zephyr/zephyr.uf2' または 'build/zephyr/zmk.uf2' のどちらでも対応できるよう修正
+      - name: Archive firmware
+        uses: actions/upload-artifact@v4
+        with:
+          # アーカイブ名: 成果物のボードとシールド名を含めて特定しやすくする
+          name: prospector_scanner-seeeduino_xiao_ble
+          # ZMKビルド後のUF2ファイルの標準的なパス
+          path: build/zephyr/zephyr.uf2
