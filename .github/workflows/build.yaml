@@ -29,8 +29,14 @@ jobs:
     - name: Set west command PATH
       run: |
         echo "Setting west command PATH..."
+        echo "PATH=$(python3 -m site --user-base)/bin:$PATH" >> $    # 4. westコマンドへのPATHを設定 (← west: command not foundを解消する修正)
+  
+    #    pipでインストールしたwestコマンドの実行パスを通す
+    - name: Set west command PATH
+      run: |
+        echo "Setting west command PATH..."
         echo "PATH=$(python3 -m site --user-base)/bin:$PATH" >> $GITHUB_ENV
-    
+
     # 5. westワークスペース初期化とモジュール更新
     - name: Initialize west workspace and update modules
       run: |
