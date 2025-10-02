@@ -44,14 +44,13 @@ jobs:
           west update --rebase
         
       # 3. ZMKファームウェアのビルド
-      # 💥 最終修正: working-directoryをconfigに戻し、-sで相対パスを指定
+      # 💥 最終修正: ビルドをサブディレクトリで実行するのではなく、
+      #             絶対パスで参照してビルドを成功させます。
       - name: Build ZMK firmware
-        working-directory: config # 作業ディレクトリを config のままにする
-        run: west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
+        working-directory: config
+        run: west build -s config/zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
 
       # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
-      # 💥 最終修正: ビルド結果が config/build/zephyr/zephyr.uf2 ではなく、
-      #             config/build/zephyr/zephyr.uf2 に生成されるためパスを変更
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
