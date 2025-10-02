@@ -1,12 +1,14 @@
-# ZMKビルドの最終安定版。ホストOSでチェックアウトを完了させてからDockerコンテナを使用します。
+# ZMKビルドの最終安定版。パスの問題を無視してGitで依存関係を強制取得します。
 
 name: Build ZMK Firmware
 
 on:
   push:
     branches: [ main ]
+    
   pull_request:
     branches: [ main ]
+    
   workflow_dispatch:
 
 jobs:
@@ -28,39 +30,29 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. リポジトリのチェックアウトとサブモジュールの取得
-      - name: Checkout repository and submodules
+      # 1. 💥 変更: リポジトリのチェックアウトのみ行う (サブモジュールなし)
+      - name: Checkout user configuration (no submodules)
         uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          path: config # リポジトリ全体を 'config' フォルダにチェックアウト
-
-      # 2. 💥 統合: west環境の初期化とビルドをまとめて実行
-      - name: Initialize, Update and Build ZMK firmware
-        working-directory: config
+        
+      # 2. 💥 統合: ZMK依存関係をルートに強制クローン＆ビルド
+      - name: Force Clone ZMK, Initialize and Build Firmware
         run: |
-          # west.yml をルートに戻す (ビルド環境を整える)
-          mv west.yml ..
-          cd ..
+          # 認証情報を使用してZMK本体とZephyrを強制クローン (west.ymlの内容に基づく)
+          echo "Force cloning ZMK and dependencies..."
+          git clone --depth 1 https://github.com/zmkfirmware/zmk.git
+          git clone --depth 1 https://github.com/zephyrproject-rtos/zephyr.git
           
-          # 過去のZMKクローンを削除し、クリーンな環境から開始
-          rm -rf zmk
-          
-          # west環境を初期化し、ZMK本体をダウンロード
+          # west環境を初期化し、残りのモジュールを更新
           west init -l .
-          west update --rebase
+          west update
           
-          # ファイルシステムが安定するのを待つ (重要)
-          sleep 5
-
           # ビルドを実行: ZMK/appのソースコードをビルド
-          # west updateが成功すれば、zmk/appはルートに存在
+          # 全てがルートにあるため、このパスは正しい
           west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
         
-      # 3. ビルド成果物（ファームウェアファイル）をアーカイブ (ステップ番号を修正)
+      # 3. ビルド成果物（ファームウェアファイル）をアーカイブ
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
           name: prospector_scanner-seeeduino_xiao_ble
-          # ビルド結果のパスを build/zephyr/zephyr.uf2 に設定
           path: build/zephyr/zephyr.uf2
