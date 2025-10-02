@@ -43,10 +43,10 @@ jobs:
           west update --rebase
         
       # 3. ZMKファームウェアのビルド
-      # 重要な修正: -s zmk/app を追加し、ZMKアプリケーションのソースパスを指定
+      # 💥 最終修正: -s に環境変数 ZEPHYR_BASE を利用した絶対パスを指定します
       - name: Build ZMK firmware
         working-directory: config
-        run: west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
+        run: west build -s $ZEPHYR_BASE/../zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
 
       # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
       - name: Archive firmware
