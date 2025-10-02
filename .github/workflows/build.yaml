@@ -1,45 +1,56 @@
 name: Build ZMK Firmware
 
-on:
-  [push, pull_request, workflow_dispatch]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+    # ソースコードをチェックアウト
     - name: Checkout repository
       uses: actions/checkout@v3
       with:
         submodules: recursive
 
+    # 依存関係をインストール
     - name: Install dependencies
       run: |
         sudo apt update
         sudo apt install -y git python3-pip ninja-build cmake wget tar unzip
 
+    # west をインストール
     - name: Install west
       run: python3 -m pip install --upgrade west
 
-    - name: Download and setup Zephyr SDK
+    # Zephyr SDK をダウンロードして展開
+    - name: Install Zephyr SDK
       run: |
         wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.4/zephyr-sdk-0.17.4-x86_64-linux-ubuntu22.tar.gz
-        tar xvf zephyr-sdk-0.17.4-x86_64-linux-ubuntu22.tar.gz
+        tar xzf zephyr-sdk-0.17.4-x86_64-linux-ubuntu22.tar.gz
         export ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk-0.17.4
-        echo "export ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk-0.17.4" >> $GITHUB_ENV
 
+    # west ワークスペース初期化
     - name: Initialize west workspace
       run: |
         west init -l config
-        west update --fetch-opt=--recurse-submodules
+        west update
 
-    - name: Build firmware (UF2)
+    # Zephyr SDK 環境変数を設定
+    - name: Export Zephyr environment
       run: |
-        west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
-        cp build/zephyr/zephyr.uf2 ./prospector_scanner-seeeduino_xiao_ble.uf2
+        export ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk-0.17.4
+        west zephyr-export
 
-    - name: Upload UF2 artifact
+    # ファームウェアをビルド
+    - name: Build firmware
+      run: |
+        export ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk-0.17.4
+        west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
+
+    # ビルド成果物をアーカイブ
+    - name: Archive firmware
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble
-        path: prospector_scanner-seeeduino_xiao_ble.uf2
+        path: build/zephyr/zephyr.uf2
