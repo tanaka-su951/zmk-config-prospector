@@ -14,14 +14,15 @@ jobs:
         submodules: recursive
 
     # 2. 依存関係をインストール
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt update
         sudo apt install -y git python3-pip ninja-build cmake wget tar unzip curl jq
 
-    # 3. west とその他のPython依存関係をインストール
-    - name: Install west and initial Python dependencies
-      run: python3 -m pip install --upgrade west setuptools wheel
+    # 3. west と主要なPython依存関係をインストール
+    # (ZMKのビルドに必要なすべてのPython依存関係をここでインストールするため、requirements.txtは不要)
+    - name: Install west and core Python dependencies
+      run: python3 -m pip install --upgrade west setuptools wheel --break-system-packages
 
     # 4. west ワークスペース初期化とモジュール更新
     - name: Initialize west workspace and update modules
@@ -31,13 +32,7 @@ jobs:
         # Zephyr, ZMK, Toolchainなどをダウンロード
         west update
 
-    # 5. ZMK 固有の Python 依存関係をインストール
-    - name: Install ZMK specific Python dependencies
-      # 【修正】ファイルが見つからなくても、ビルドを継続する
-      run: pip3 install -r zmk/app/requirements.txt
-      continue-on-error: true 
-
-    # 6. Zephyr 環境変数を設定し、ZMK ファームウェアをビルド
+    # 5. ZMK ファームウェアをビルド
     - name: Build ZMK firmware
       run: |
         # 【重要】west topdirを使ってZephyrのインストールパスを取得し、ZEPHYR_BASEを設定
@@ -51,7 +46,7 @@ jobs:
         # -s zmk/app: ZMKモジュール内のアプリケーションソースコードを指定
         west build -s zmk/app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
 
-    # 7. ビルド成果物（ファームウェアファイル）をアーカイブ
+    # 6. ビルド成果物（ファームウェアファイル）をアーカイブ
     - name: Archive firmware
       uses: actions/upload-artifact@v4
       with:
