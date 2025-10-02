@@ -23,7 +23,12 @@ jobs:
     # (ZMKのビルドに必要なすべてのPython依存関係をここでインストールするため、requirements.txtは不要)
     - name: Install west and core Python dependencies
       run: python3 -m pip install --upgrade west setuptools wheel --break-system-packages
-
+    # 4. westコマンドへのPATHを設定
+    #    pipでインストールしたwestコマンドの実行パスを通す
+    - name: Set west command PATH
+      run: |
+        echo "Setting west command PATH..."
+        echo "PATH=$(python3 -m site --user-base)/bin:$PATH" >> $GITHUB_ENV
     # 4. west ワークスペース初期化とモジュール更新
     - name: Initialize west workspace and update modules
       run: |
