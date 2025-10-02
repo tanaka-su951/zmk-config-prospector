@@ -33,8 +33,9 @@ jobs:
 
     # 5. ZMK 固有の Python 依存関係をインストール
     - name: Install ZMK specific Python dependencies
-      # 【修正】ZMKモジュール内の要件ファイルを参照する
+      # 【修正】ファイルが見つからなくても、ビルドを継続する
       run: pip3 install -r zmk/app/requirements.txt
+      continue-on-error: true 
 
     # 6. Zephyr 環境変数を設定し、ZMK ファームウェアをビルド
     - name: Build ZMK firmware
