@@ -65,4 +65,3 @@ jobs:
         with:
           name: prospector_scanner-seeeduino_xiao_ble
           path: build/zephyr/zephyr.uf2
-
