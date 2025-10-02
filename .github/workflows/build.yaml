@@ -23,13 +23,15 @@ jobs:
     # (ZMKのビルドに必要なすべてのPython依存関係をここでインストールするため、requirements.txtは不要)
     - name: Install west and core Python dependencies
       run: python3 -m pip install --upgrade west setuptools wheel --break-system-packages
-    # 4. westコマンドへのPATHを設定
+
+    # 4. westコマンドへのPATHを設定 (← west: command not foundを解決する重要な修正)
     #    pipでインストールしたwestコマンドの実行パスを通す
     - name: Set west command PATH
       run: |
         echo "Setting west command PATH..."
         echo "PATH=$(python3 -m site --user-base)/bin:$PATH" >> $GITHUB_ENV
-    # 4. west ワークスペース初期化とモジュール更新
+    
+    # 5. westワークスペース初期化とモジュール更新
     - name: Initialize west workspace and update modules
       run: |
         # configディレクトリ内のwest.ymlを使用して初期化
@@ -37,7 +39,7 @@ jobs:
         # Zephyr, ZMK, Toolchainなどをダウンロード
         west update
 
-    # 5. ZMK ファームウェアをビルド
+    # 6. ZMK ファームウェアをビルド
     - name: Build ZMK firmware
       run: |
         # 【重要】west topdirを使ってZephyrのインストールパスを取得し、ZEPHYR_BASEを設定
@@ -51,10 +53,10 @@ jobs:
         # -s zmk/app: ZMKモジュール内のアプリケーションソースコードを指定
         west build -s zmk/app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
 
-    # 6. ビルド成果物（ファームウェアファイル）をアーカイブ
+    # 7. ビルド成果物（ファームウェアファイル）をアーカイブ (← アップロードエラーを解決する修正)
     - name: Archive firmware
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble
-        # ビルド後の uf2 ファイルのパス
-        path: build/zephyr/zmk.uf2
+        # ビルド後の uf2 ファイルのパス ( zephyr.uf2 に修正)
+        path: build/zephyr/zephyr.uf2
