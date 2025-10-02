@@ -24,8 +24,8 @@ jobs:
     - name: Install west
       run: python3 -m pip install --upgrade west
 
-    # 4. 最新 Zephyr SDK を GitHub リリースから取得・展開 (修正済み)
-    - name: Download and extract latest Zephyr SDK
+    # 4. 最新 Zephyr SDK を GitHub リリースから取得・展開・セットアップ
+    - name: Download, extract, and setup latest Zephyr SDK
       run: |
         echo "Fetching latest Zephyr SDK release tag..."
         # GitHub APIを使用して最新リリースのタグ名を取得
@@ -35,7 +35,7 @@ jobs:
         # タグの先頭の 'v' を削除してバージョン番号を抽出
         SDK_VER=${ZEPHYR_SDK_TAG#v}
         
-        # 404エラーを回避するため、ファイル名にアンダースコア '_' を使用して構築
+        # ファイル名を構築（アンダースコア '_' を使用）
         FILE_NAME="zephyr-sdk-${SDK_VER}_linux-x86_64.tar.xz"
         
         # x86_64 Linux 用 SDKのダウンロードURLを構築
@@ -48,6 +48,11 @@ jobs:
         # 展開し、ディレクトリ名を zephyr-sdk に統一
         tar -xf "$FILE_NAME"
         mv zephyr-sdk-${SDK_VER} zephyr-sdk
+        
+        # 【重要】SDKに含まれるセットアップスクリプトを実行し、環境ファイルを準備
+        # これにより、zephyr-env.shなどが生成され、ツールチェインがインストールされます。
+        echo "Running Zephyr SDK setup script to finalize installation..."
+        ./zephyr-sdk/setup.sh -t all
 
     # 5. SDKのインストールディレクトリを環境変数に設定し、後のステップで利用できるようにする
     - name: Set SDK Installation Directory
@@ -73,7 +78,6 @@ jobs:
         west zephyr-export
 
         # 指定されたボードとシールドでZMKファームウェアをビルド
-        # ボード: seeeduino_xiao_ble, シールド: prospector_scanner
         west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
       shell: bash # sourceコマンドが機能するように明示的にbashシェルを使用
 
