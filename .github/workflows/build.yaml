@@ -24,7 +24,7 @@ jobs:
         west zephyr-export   # Zephyr コマンドを有効化
 
     - name: Build firmware
-      run: west build -b seeeduino_xiao_ble -DSHIELD=prospector_scanner
+      run: west build -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
 
     - name: Convert HEX to UF2
       run: |
@@ -33,13 +33,5 @@ jobs:
           --base 0x26000 \
           --family 0xADA52840 \
           --output build/zephyr/prospector_scanner-seeeduino_xiao_ble.uf2
-
-    - name: Archive firmware
-      uses: actions/upload-artifact@v4
-      with:
-        name: prospector_scanner-seeeduino_xiao_ble
-        path: build/zephyr/prospector_scanner-seeeduino_xiao_ble.uf2
-
-
 
 
