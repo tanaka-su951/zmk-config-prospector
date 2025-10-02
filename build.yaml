@@ -7,33 +7,47 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # 1. コードをチェックアウト
     - uses: actions/checkout@v4
       with:
         submodules: recursive
 
+    # 2. 依存ツールのインストール
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y git python3-pip ninja-build cmake
-        python3 -m pip install --upgrade west
+        sudo apt install -y git python3-pip ninja-build cmake wget
+        python3 -m pip install --upgrade west uf2conv
 
+    # 3. Zephyr SDK のインストール
+    - name: Install Zephyr SDK
+      run: |
+        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.0/zephyr-sdk-0.16.0-linux-x86_64-setup.run
+        chmod +x zephyr-sdk-0.16.0-linux-x86_64-setup.run
+        sudo ./zephyr-sdk-0.16.0-linux-x86_64-setup.run -- -d $HOME/zephyr-sdk-0.16.0
+        echo "ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk-0.16.0" >> $GITHUB_ENV
+        echo "$HOME/zephyr-sdk-0.16.0/arm-zephyr-eabi/bin:$PATH" >> $GITHUB_ENV
+
+    # 4. west workspace 初期化
     - name: Initialize west workspace
       run: |
         west init -l config
         west update
         west zephyr-export
 
+    # 5. ファームウェアビルド
     - name: Build firmware
       run: west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
 
+    # 6. HEX → UF2 変換
     - name: Convert HEX to UF2
       run: |
-        pip install uf2conv
-        python3 -m uf2conv build/zephyr/zephyr.hex \
+        uf2conv build/zephyr/zephyr.hex \
           --base 0x26000 \
           --family 0xADA52840 \
           --output build/zephyr/prospector_scanner-seeeduino_xiao_ble.uf2
 
+    # 7. UF2 成果物をアップロード
     - name: Archive firmware
       uses: actions/upload-artifact@v4
       with:
