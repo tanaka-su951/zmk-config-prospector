@@ -1,4 +1,4 @@
-# ZMKビルドの最終安定版。認証エラーを回避するため、手動でサブモジュールをクローンします。
+# ZMKビルドの最終安定版。ホストOSでチェックアウトを完了させてからDockerコンテナを使用します。
 
 name: Build ZMK Firmware
 
@@ -11,10 +11,11 @@ on:
 
 jobs:
   build:
-    # ZMK安定版Dockerイメージを使用
-    container: zmkfirmware/zmk-build-arm:stable 
-    # ホストOSはそのまま
+    # ホストOSでチェックアウトを処理
     runs-on: ubuntu-latest
+    
+    # Dockerコンテナを使用
+    container: zmkfirmware/zmk-build-arm:stable
     
     strategy:
       matrix:
@@ -22,19 +23,15 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. リポジトリのチェックアウト（認証エラーを避けるため、手動でサブモジュールを再帰的にクローン）
-      #    $GITHUB_TOKENを使用して認証を確実に行います。
-      - name: Checkout repository with recursive submodules
-        run: |
-          # Gitが利用可能か確認 (Dockerコンテナ内にGitは入っている)
-          git --version
-          
-          # サブモジュールも含めてリポジトリを再帰的にクローン
-          # 環境変数 GITHUB_TOKEN を使用して、認証の問題を回避
-          git clone --recurse-submodules https://${{ secrets.GITHUB_TOKEN }}@github.com/$GITHUB_REPOSITORY .
+      # 1. リポジトリのチェックアウトとサブモジュールの取得 (ホスト側で実行)
+      #    このステップではコンテナ外で実行し、認証の問題を回避します。
+      - name: Checkout repository and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive' # ZMKの依存関係をすべて取得
 
       # 2. westワークスペース初期化とモジュール更新
-      #    ZMK Dockerイメージを使用しているため、これだけでOK
+      #    チェックアウト結果がコンテナにマウントされるため、これでOK
       - name: Update ZMK modules
         run: west update
         
