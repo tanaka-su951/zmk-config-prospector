@@ -1,5 +1,4 @@
-# This workflow uses the stable ZMK Docker image, which includes all necessary tools (west, Python, Zephyr SDK).
-# This is the most reliable way to build ZMK firmware.
+# ZMKビルドの最終安定版。認証エラーを回避するため、手動でサブモジュールをクローンします。
 
 name: Build ZMK Firmware
 
@@ -12,7 +11,7 @@ on:
 
 jobs:
   build:
-    # Dockerイメージを直接指定し、すべての依存関係のセットアップをスキップ
+    # ZMK安定版Dockerイメージを使用
     container: zmkfirmware/zmk-build-arm:stable 
     # ホストOSはそのまま
     runs-on: ubuntu-latest
@@ -23,15 +22,19 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. リポジトリのチェックアウト (標準アクションでサブモジュールを確実に取得)
-      #    このステップはホストOS (ubuntu-latest) 上で実行され、Dockerコンテナにマウントされます
-      - name: Checkout repository with submodules
-        uses: actions/checkout@v4
-        with:
-          submodules: true
+      # 1. リポジトリのチェックアウト（認証エラーを避けるため、手動でサブモジュールを再帰的にクローン）
+      #    $GITHUB_TOKENを使用して認証を確実に行います。
+      - name: Checkout repository with recursive submodules
+        run: |
+          # Gitが利用可能か確認 (Dockerコンテナ内にGitは入っている)
+          git --version
+          
+          # サブモジュールも含めてリポジトリを再帰的にクローン
+          # 環境変数 GITHUB_TOKEN を使用して、認証の問題を回避
+          git clone --recurse-submodules https://${{ secrets.GITHUB_TOKEN }}@github.com/$GITHUB_REPOSITORY .
 
       # 2. westワークスペース初期化とモジュール更新
-      #    コンテナ内で実行。west initは不要で、west updateのみでOK (ZMK Dockerイメージのため)
+      #    ZMK Dockerイメージを使用しているため、これだけでOK
       - name: Update ZMK modules
         run: west update
         
@@ -44,4 +47,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: prospector_scanner-seeeduino_xiao_ble
+          # ZMKのビルド結果は通常 zephyr.uf2 になります。
           path: build/zephyr/zephyr.uf2
