@@ -19,14 +19,14 @@ jobs:
         sudo apt install -y git python3-pip ninja-build cmake
         python3 -m pip install --upgrade west
 
-    # 3. west workspace の初期化
+    # 3. west workspace 初期化
     - name: Initialize west workspace
       run: |
-        west init -l config      # config/west.yml を使用
+        west init -l config
         west update
-        west zephyr-export       # Zephyr コマンドを有効化
+        west zephyr-export
 
-    # 4. ファームウェアのビルド
+    # 4. ファームウェアビルド
     - name: Build firmware
       run: west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
 
