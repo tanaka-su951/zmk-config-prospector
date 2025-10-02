@@ -21,10 +21,10 @@ jobs:
       run: |
         west init -l config
         west update
-        west zephyr-export   # ← ここを追加
+        west zephyr-export   # Zephyr コマンドを有効化
 
     - name: Build firmware
-      run: west build -s app -b seeeduino_xiao_ble -DSHIELD="prospector_scanner"
+      run: west build -b seeeduino_xiao_ble -DSHIELD=prospector_scanner
 
     - name: Convert HEX to UF2
       run: |
@@ -39,6 +39,7 @@ jobs:
       with:
         name: prospector_scanner-seeeduino_xiao_ble
         path: build/zephyr/prospector_scanner-seeeduino_xiao_ble.uf2
+
 
 
 
