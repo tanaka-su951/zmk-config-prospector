@@ -29,23 +29,20 @@ jobs:
         with:
           submodules: 'recursive' # ZMKの依存関係をすべて取得
 
-      # 2. westワークスペース初期化とモジュール更新
-      #    working-directory を指定し、 west.yml があるリポジトリのルートで実行することを保証します。
-      - name: Update ZMK modules
-        working-directory: ${{ github.workspace }} # <-- 修正箇所: working-directory を使用
-        # ZMK Config リポジトリが ZMK 本体をサブモジュールとして扱うため、
-        # west update は ZMK/Zephyr の依存関係を取得します。
-        run: west update --rebase
+      # 2. 【デバッグ用】現在のパスとファイルを再帰的に表示
+      #    west.yml や config/ がどこにあるかを確認します。
+      - name: Debug: List current directory structure
+        working-directory: ${{ github.workspace }}
+        run: ls -aR
         
-      # 3. ZMKファームウェアのビルド
-      - name: Build ZMK firmware
-        working-directory: ${{ github.workspace }} # <-- 修正箇所: working-directory を使用
-        run: west build -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
+      # 3. ZMKファームウェアのビルド (一時的にスキップ)
+      # - name: Build ZMK firmware
+      #   working-directory: ${{ github.workspace }}
+      #   run: west build -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
 
-      # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
-      - name: Archive firmware
-        uses: actions/upload-artifact@v4
-        with:
-          name: prospector_scanner-seeeduino_xiao_ble
-          # ZMKのビルド結果は通常 zephyr.uf2 になります。
-          path: build/zephyr/zephyr.uf2
+      # 4. ビルド成果物（ファームウェアファイル）をアーカイブ (一時的にスキップ)
+      # - name: Archive firmware
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: prospector_scanner-seeeduino_xiao_ble
+      #     path: build/zephyr/zephyr.uf2
