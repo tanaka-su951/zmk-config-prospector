@@ -20,69 +20,40 @@ jobs:
         # 必要なツール（git, python, ninja, cmake, wget, tar, curl, jq）をインストール
         sudo apt install -y git python3-pip ninja-build cmake wget tar unzip curl jq
 
-    # 3. west をインストール
-    - name: Install west
-      run: python3 -m pip install --upgrade west
-
-    # 4. 最新 Zephyr SDK を GitHub リリースから取得・展開・セットアップ
-    - name: Download, extract, and setup latest Zephyr SDK
-      run: |
-        echo "Fetching latest Zephyr SDK release tag..."
-        # GitHub APIを使用して最新リリースのタグ名を取得
-        ZEPHYR_SDK_TAG=$(curl -s https://api.github.com/repos/zephyrproject-rtos/sdk-ng/releases/latest | jq -r '.tag_name')
-        echo "Latest Zephyr SDK tag: $ZEPHYR_SDK_TAG"
-
-        # タグの先頭の 'v' を削除してバージョン番号を抽出
-        SDK_VER=${ZEPHYR_SDK_TAG#v}
-        
-        # ファイル名を構築（アンダースコア '_' を使用）
-        FILE_NAME="zephyr-sdk-${SDK_VER}_linux-x86_64.tar.xz"
-        
-        # x86_64 Linux 用 SDKのダウンロードURLを構築
-        SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/${ZEPHYR_SDK_TAG}/${FILE_NAME}"
-        echo "Downloading Zephyr SDK from $SDK_URL"
-        
-        # ファイル名を明示してダウンロード
-        wget -O "$FILE_NAME" "$SDK_URL"
-
-        # 展開し、ディレクトリ名を zephyr-sdk に統一
-        tar -xf "$FILE_NAME"
-        mv zephyr-sdk-${SDK_VER} zephyr-sdk
-        
-        # 【重要】SDKに含まれるセットアップスクリプトを実行し、環境ファイルを準備
-        echo "Running Zephyr SDK setup script to finalize installation..."
-        # -t all で全てのツールチェインをインストール
-        ./zephyr-sdk/setup.sh -t all
-        
-        # 【デバッグ情報】SDKディレクトリの内容を出力 - zephyr-env.shの存在を確認します
-        echo "--- Contents of zephyr-sdk/ after setup.sh ---"
-        ls -l zephyr-sdk/
-        
-        # SDKのインストールディレクトリを環境変数に設定し、後のステップで利用できるようにする
-        echo "ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk" >> $GITHUB_ENV
-
-    # 6. west ワークスペース初期化
-    - name: Initialize west workspace
+    # 3. west とその他のPython依存関係をインストール
+    - name: Install west and Python dependencies
+      # westとZephyrの依存パッケージをインストール
+      run: python3 -m pip install --upgrade west setuptools wheel
+      
+    # 4. west ワークスペース初期化とモジュール更新
+    - name: Initialize west workspace and update modules
       # ZMKの設定ファイル（configファイル）を元に初期化とモジュール更新を実行
       run: |
         west init -l config
         west update
 
-    # 7. Zephyr 環境変数を設定し、ZMK ファームウェアをビルド
-    - name: Build firmware
-      # `source` コマンドは `run` ブロックと同じシェルセッションで実行する必要があるため、全てを結合
+    # 5. 【重要】Zephyr Toolchain（SDK）をwest経由で自動インストール
+    - name: Install Zephyr Toolchain via west
       run: |
-        # SDK環境スクリプトを読み込み、ツールチェインのパスを設定
-        source ${{ env.ZEPHYR_SDK_INSTALL_DIR }}/zephyr-env.sh
+        # west経由でZephyr SDKをインストールするディレクトリを設定
+        echo "Setting toolchain path for west..."
+        west config -f .west/config zephyr.toolchain-variant zephyr
         
-        # westの設定をエクスポート
+        # Zephyr Toolchainをインストール
+        echo "Installing Zephyr toolchains..."
+        west update
+
+    # 6. Zephyr 環境変数を設定し、ZMK ファームウェアをビルド
+    - name: Build ZMK firmware
+      run: |
+        # Zephyrの環境変数をエクスポート（ツールチェインパスなどが設定される）
         west zephyr-export
 
         # 指定されたボードとシールドでZMKファームウェアをビルド
+        # -s app はZMKのリポジトリ構造に合わせています
         west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
-      shell: bash # sourceコマンドが機能するように明示的にbashシェルを使用
 
-    # 8. ビルド成果物（ファームウェアファイル）をアーカイブ
+    # 7. ビルド成果物（ファームウェアファイル）をアーカイブ
     - name: Archive firmware
       uses: actions/upload-artifact@v4
       with:
