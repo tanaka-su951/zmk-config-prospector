@@ -42,8 +42,12 @@ jobs:
           # 💥 最終パス修正: west.ymlをビルド実行前にルートに戻す
           mv west.yml ..
           cd ..
+          # 過去の不完全なZMKクローンを削除してクリーンアップ
+          rm -rf zmk
           west init -l .
           west update --rebase
+          # 💥 追加: ファイルシステムが安定するのを待つ
+          sleep 5
         
       # 3. ZMKファームウェアのビルド
       # 💥 最終修正: west updateの実行場所がルートになったため、ビルドもルートで行う
