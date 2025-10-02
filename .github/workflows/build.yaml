@@ -1,3 +1,6 @@
+# This workflow is based on the ZMK documentation template
+# for building a custom user configuration.
+
 name: Build ZMK Firmware
 
 on:
@@ -15,7 +18,6 @@ jobs:
     runs-on: ubuntu-latest
 
     # Define the target board and shield here
-    # Use a matrix for multiple builds, but stick to a single target for simplicity
     strategy:
       matrix:
         board: [seeeduino_xiao_ble]
@@ -25,38 +27,23 @@ jobs:
       # 1. リポジトリのチェックアウト
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # 2. Python環境と依存関係のセットアップ (ZMKビルドに必要なツール)
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
           
-      # 3. west と主要なPython依存関係のインストール
-      #    ZMKのビルドに必要なすべてのPython依存関係をここでインストール
+      # 2. west と主要なPython依存関係のインストール (PATH設定はZMKのDockerイメージ内で行われるため省略)
       - name: Install west and core Python dependencies
         run: pip install --upgrade west setuptools wheel
 
-      # 4. westコマンドへのPATHを設定 (← west: command not found を恒久的に解消する修正)
-      #    pipでインストールしたwestコマンドの実行パスを通す
-      - name: Set west command PATH
-        run: echo "PATH=$(python -m site --user-base)/bin:$PATH" >> $GITHUB_ENV
-
-      # 5. westワークスペース初期化とモジュール更新
+      # 3. westワークスペース初期化とモジュール更新
       - name: Initialize west workspace and update modules
         run: west init -l config && west update
         
-      # 6. ZMKファームウェアのビルド
-      #    -p: pristine build (クリーンビルド) を実行
+      # 4. ZMKファームウェアのビルド
       - name: Build ZMK firmware
         run: west build -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
 
-      # 7. ビルド成果物（ファームウェアファイル）をアーカイブ
-      #    パスを 'build/zephyr/zephyr.uf2' または 'build/zephyr/zmk.uf2' のどちらでも対応できるよう修正
+      # 5. ビルド成果物（ファームウェアファイル）をアーカイブ
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
-          # アーカイブ名: 成果物のボードとシールド名を含めて特定しやすくする
           name: prospector_scanner-seeeduino_xiao_ble
           # ZMKビルド後のUF2ファイルの標準的なパス
           path: build/zephyr/zephyr.uf2
