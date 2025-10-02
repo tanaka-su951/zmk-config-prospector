@@ -29,16 +29,17 @@ jobs:
         
     steps:
       # 1. リポジトリのチェックアウトとサブモジュールの取得 (ホスト側で実行)
-      #    このステップはホストで行われるため、defaultsの影響を受けません。
       - name: Checkout repository and submodules
         uses: actions/checkout@v4
         with:
           submodules: 'recursive' # ZMKの依存関係をすべて取得
 
-      # 2. westワークスペース初期化とモジュール更新
-      #    defaults:run:working-directory の設定により、正しいパスで実行されます。
-      - name: Update ZMK modules
-        run: west update --rebase
+      # 2. westワークスペースを明示的に初期化し、モジュールを更新
+      #    west initを強制的に実行して、パスの問題を解決します。
+      - name: Initialize and Update ZMK modules
+        run: |
+          west init -l .
+          west update --rebase
         
       # 3. ZMKファームウェアのビルド
       - name: Build ZMK firmware
