@@ -7,57 +7,64 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # ソースコードをチェックアウト
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      with:
-        submodules: recursive
+      # ソースコードをチェックアウト
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
-    # 依存関係をインストール
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y git python3-pip ninja-build cmake wget tar unzip
+      # 依存関係をインストール
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git python3-pip ninja-build cmake wget tar xz-utils unzip jq
 
-    # west をインストール
-    - name: Install west
-      run: python3 -m pip install --upgrade west
+      # west をインストール
+      - name: Install west
+        run: python3 -m pip install --upgrade west
 
-    # Zephyr SDK をダウンロードして展開
-    - name: Install Zephyr SDK
-      run: |
-        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.4/zephyr-sdk-0.17.4-linux-x86_64.tar.xz
-        tar -xf zephyr-sdk-0.17.4-linux-x86_64.tar.xz
-        mv zephyr-sdk-0.17.4 zephyr-sdk
+      # Zephyr SDK のキャッシュ
+      - name: Cache Zephyr SDK
+        id: cache-sdk
+        uses: actions/cache@v3
+        with:
+          path: zephyr-sdk
+          key: zephyr-sdk-latest
 
-    # Zephyr SDK 環境設定
-    - name: Set up Zephyr SDK environment
-      run: |
-        source zephyr-sdk/zephyr-env.sh
-        echo "ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk" >> $GITHUB_ENV
+      # Zephyr SDK をダウンロード・展開・環境設定
+      - name: Setup Zephyr SDK
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
+        run: |
+          echo "キャッシュなし、SDKをダウンロードします"
+          ZEHPYR_SDK_TAG=$(curl -s https://api.github.com/repos/zephyrproject-rtos/sdk-ng/releases/latest | jq -r '.tag_name')
+          echo "Latest Zephyr SDK tag: $ZEHPYR_SDK_TAG"
+          wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/${ZEHPYR_SDK_TAG}/zephyr-sdk-${ZEHPYR_SDK_TAG}-linux-x86_64.tar.xz
+          tar -xf zephyr-sdk-${ZEHPYR_SDK_TAG}-linux-x86_64.tar.xz
+          mv zephyr-sdk-${ZEHPYR_SDK_TAG} zephyr-sdk
+        shell: bash
 
-    # west ワークスペース初期化
-    - name: Initialize west workspace
-      run: |
-        source $GITHUB_ENV
-        west init -l config
-        west update
+      # Zephyr SDK 環境変数設定
+      - name: Export Zephyr environment
+        run: |
+          export ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk
+          source $ZEPHYR_SDK_INSTALL_DIR/zephyr-env.sh
+          west zephyr-export
 
-    # Zephyr 環境設定
-    - name: Set up Zephyr environment
-      run: |
-        source $GITHUB_ENV
-        west zephyr-export
+      # west ワークスペース初期化
+      - name: Initialize west workspace
+        run: |
+          west init -l config
+          west update
 
-    # ファームウェアをビルド
-    - name: Build firmware
-      run: |
-        source $GITHUB_ENV
-        west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
+      # ファームウェアをビルド
+      - name: Build firmware
+        run: |
+          export ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk
+          west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
 
-    # ビルド成果物をアーカイブ
-    - name: Archive firmware
-      uses: actions/upload-artifact@v4
-      with:
-        name: prospector_scanner-seeeduino_xiao_ble
-        path: build/zephyr/zephyr.uf2
+      # ビルド成果物をアーカイブ
+      - name: Archive firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: prospector_scanner-seeeduino_xiao_ble
+          path: build/zephyr/zephyr.uf2
