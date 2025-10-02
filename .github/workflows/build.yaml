@@ -33,14 +33,13 @@ jobs:
 
     # 5. ZMK 固有の Python 依存関係をインストール
     - name: Install ZMK specific Python dependencies
-      # ZMK configリポジトリの標準的な要件ファイルを使用
-      run: pip3 install -r app/requirements.txt
+      # 【修正】ZMKモジュール内の要件ファイルを参照する
+      run: pip3 install -r zmk/app/requirements.txt
 
     # 6. Zephyr 環境変数を設定し、ZMK ファームウェアをビルド
     - name: Build ZMK firmware
       run: |
         # 【重要】west topdirを使ってZephyrのインストールパスを取得し、ZEPHYR_BASEを設定
-        # ZMK Configリポジトリでは通常 'zmk' がトップディレクトリになるため、その配下の 'zephyr' を指定
         ZEPHYR_BASE=$(west topdir)/zephyr
         export ZEPHYR_BASE
 
