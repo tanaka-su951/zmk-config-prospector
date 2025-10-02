@@ -24,16 +24,15 @@ jobs:
         
     steps:
       # 1. リポジトリのチェックアウトとサブモジュールの取得 (ホスト側で実行)
-      #    このステップではコンテナ外で実行し、認証の問題を回避します。
       - name: Checkout repository and submodules
         uses: actions/checkout@v4
         with:
           submodules: 'recursive' # ZMKの依存関係をすべて取得
 
       # 2. westワークスペース初期化とモジュール更新
-      #    チェックアウト結果がコンテナにマウントされるため、これでOK
+      #    --rebase を追加し、依存関係を最初からダウンロードし直すことを強制します。
       - name: Update ZMK modules
-        run: west update
+        run: west update --rebase
         
       # 3. ZMKファームウェアのビルド
       - name: Build ZMK firmware
