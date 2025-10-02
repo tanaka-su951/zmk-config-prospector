@@ -50,14 +50,15 @@ jobs:
         mv zephyr-sdk-${SDK_VER} zephyr-sdk
         
         # 【重要】SDKに含まれるセットアップスクリプトを実行し、環境ファイルを準備
-        # これにより、zephyr-env.shなどが生成され、ツールチェインがインストールされます。
         echo "Running Zephyr SDK setup script to finalize installation..."
+        # -t all で全てのツールチェインをインストール
         ./zephyr-sdk/setup.sh -t all
-
-    # 5. SDKのインストールディレクトリを環境変数に設定し、後のステップで利用できるようにする
-    - name: Set SDK Installation Directory
-      run: |
-        # SDKディレクトリの絶対パスをGITHUB_ENVに保存
+        
+        # 【デバッグ情報】SDKディレクトリの内容を出力 - zephyr-env.shの存在を確認します
+        echo "--- Contents of zephyr-sdk/ after setup.sh ---"
+        ls -l zephyr-sdk/
+        
+        # SDKのインストールディレクトリを環境変数に設定し、後のステップで利用できるようにする
         echo "ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk" >> $GITHUB_ENV
 
     # 6. west ワークスペース初期化
