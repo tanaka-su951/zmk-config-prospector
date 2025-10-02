@@ -11,6 +11,11 @@ on:
 
 jobs:
   build:
+    # ワークフロー全体でデフォルトの作業ディレクトリを設定
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+        
     # ホストOSでチェックアウトを処理
     runs-on: ubuntu-latest
     
@@ -24,19 +29,19 @@ jobs:
         
     steps:
       # 1. リポジトリのチェックアウトとサブモジュールの取得 (ホスト側で実行)
+      #    このステップはホストで行われるため、defaultsの影響を受けません。
       - name: Checkout repository and submodules
         uses: actions/checkout@v4
         with:
           submodules: 'recursive' # ZMKの依存関係をすべて取得
 
       # 2. westワークスペース初期化とモジュール更新
+      #    defaults:run:working-directory の設定により、正しいパスで実行されます。
       - name: Update ZMK modules
-        working-directory: ${{ github.workspace }}
         run: west update --rebase
         
       # 3. ZMKファームウェアのビルド
       - name: Build ZMK firmware
-        working-directory: ${{ github.workspace }}
         run: west build -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
 
       # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
