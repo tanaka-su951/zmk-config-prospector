@@ -26,18 +26,21 @@ jobs:
     # 4. west ワークスペース初期化とモジュール更新
     - name: Initialize west workspace and update modules
       run: |
+        # configディレクトリ内のwest.ymlを使用して初期化
         west init -l config
+        # Zephyr, ZMK, Toolchainなどをダウンロード
         west update
 
     # 5. ZMK 固有の Python 依存関係をインストール
     - name: Install ZMK specific Python dependencies
+      # ZMK configリポジトリの標準的な要件ファイルを使用
       run: pip3 install -r app/requirements.txt
 
     # 6. Zephyr 環境変数を設定し、ZMK ファームウェアをビルド
     - name: Build ZMK firmware
       run: |
         # 【重要】west topdirを使ってZephyrのインストールパスを取得し、ZEPHYR_BASEを設定
-        # これにより、'FATAL ERROR: could not find a Zephyr installation' を回避
+        # ZMK Configリポジトリでは通常 'zmk' がトップディレクトリになるため、その配下の 'zephyr' を指定
         ZEPHYR_BASE=$(west topdir)/zephyr
         export ZEPHYR_BASE
 
@@ -45,11 +48,13 @@ jobs:
         west zephyr-export
 
         # 指定されたボードとシールドでZMKファームウェアをビルド
-        west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
+        # -s zmk/app: ZMKモジュール内のアプリケーションソースコードを指定
+        west build -s zmk/app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
 
     # 7. ビルド成果物（ファームウェアファイル）をアーカイブ
     - name: Archive firmware
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble
-        path: build/zephyr/zephyr.uf2
+        # ビルド後の uf2 ファイルのパス
+        path: build/zephyr/zmk.uf2
