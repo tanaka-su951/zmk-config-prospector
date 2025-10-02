@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4   # v4 に更新
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
 
@@ -19,8 +19,9 @@ jobs:
 
     - name: Initialize west workspace
       run: |
-        west init -l config   # config/west.yml を使用
+        west init -l config
         west update
+        west zephyr-export   # ← ここを追加
 
     - name: Build firmware
       run: west build -s app -b seeeduino_xiao_ble -DSHIELD="prospector_scanner"
@@ -38,4 +39,5 @@ jobs:
       with:
         name: prospector_scanner-seeeduino_xiao_ble
         path: build/zephyr/prospector_scanner-seeeduino_xiao_ble.uf2
+
 
