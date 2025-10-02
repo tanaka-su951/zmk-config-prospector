@@ -1,49 +1,47 @@
-# This workflow is based on the ZMK documentation template
-# for building a custom user configuration.
+# This workflow uses the stable ZMK Docker image, which includes all necessary tools (west, Python, Zephyr SDK).
+# This is the most reliable way to build ZMK firmware.
 
 name: Build ZMK Firmware
 
 on:
   push:
-    # Build only when pushing to the main branch
     branches: [ main ]
   pull_request:
     branches: [ main ]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 jobs:
   build:
+    # Dockerイメージを直接指定し、すべての依存関係のセットアップをスキップ
+    container: zmkfirmware/zmk-build-arm:stable 
     runs-on: ubuntu-latest
-
-    # Define the target board and shield here
+    
     strategy:
       matrix:
         board: [seeeduino_xiao_ble]
         shield: [prospector_scanner]
         
     steps:
-      # 1. リポジトリのチェックアウト
+      # 1. リポジトリのチェックアウト (Dockerコンテナ内で実行)
+      #    uses: actions/checkout@v4 はDockerコンテナ内では使用できないため、手動でクローン
       - name: Checkout repository
-        uses: actions/checkout@v4
-          
-      # 2. west と主要なPython依存関係のインストール (PATH設定はZMKのDockerイメージ内で行われるため省略)
-      - name: Install west and core Python dependencies
-        run: pip install --upgrade west setuptools wheel
+        run: |
+          apt update && apt install -y git
+          git clone --recurse-submodules $GITHUB_SERVER_URL/$GITHUB_REPOSITORY .
 
-      # 3. westワークスペース初期化とモジュール更新
+      # 2. westワークスペース初期化とモジュール更新
+      #    コンテナ内では west がPATHに含まれているため、すぐに実行可能
       - name: Initialize west workspace and update modules
         run: west init -l config && west update
         
-      # 4. ZMKファームウェアのビルド
+      # 3. ZMKファームウェアのビルド
       - name: Build ZMK firmware
         run: west build -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
 
-      # 5. ビルド成果物（ファームウェアファイル）をアーカイブ
+      # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
+      #    Artifactsをアップロードするために、ホストOSのツールを使用
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
           name: prospector_scanner-seeeduino_xiao_ble
-          # ZMKビルド後のUF2ファイルの標準的なパス
           path: build/zephyr/zephyr.uf2
