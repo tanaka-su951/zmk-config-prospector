@@ -7,25 +7,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # 1. コードをチェックアウト
     - uses: actions/checkout@v4
       with:
         submodules: recursive
 
+    # 2. 依存ツールのインストール
     - name: Install dependencies
       run: |
         sudo apt update
         sudo apt install -y git python3-pip ninja-build cmake
         python3 -m pip install --upgrade west
 
+    # 3. west workspace の初期化
     - name: Initialize west workspace
       run: |
-        west init -l config
+        west init -l config      # config/west.yml を使用
         west update
-        west zephyr-export   # Zephyr コマンドを有効化
+        west zephyr-export       # Zephyr コマンドを有効化
 
+    # 4. ファームウェアのビルド
     - name: Build firmware
-      run: west build -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
+      run: west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
 
+    # 5. HEX → UF2 変換
     - name: Convert HEX to UF2
       run: |
         pip install uf2conv
@@ -34,4 +39,9 @@ jobs:
           --family 0xADA52840 \
           --output build/zephyr/prospector_scanner-seeeduino_xiao_ble.uf2
 
-
+    # 6. UF2 成果物をアップロード
+    - name: Archive firmware
+      uses: actions/upload-artifact@v4
+      with:
+        name: prospector_scanner-seeeduino_xiao_ble
+        path: build/zephyr/prospector_scanner-seeeduino_xiao_ble.uf2
