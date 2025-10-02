@@ -1,6 +1,3 @@
-# This workflow is based on the ZMK documentation template
-# for building a custom user configuration.
-
 name: Build ZMK Firmware
 
 on:
