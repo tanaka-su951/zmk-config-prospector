@@ -29,9 +29,16 @@ jobs:
         with:
           submodules: 'recursive' # ZMKの依存関係をすべて取得
 
+      # --- 修正箇所: 作業ディレクトリの強制変更 ---
+      # Dockerコンテナ環境で west のパス認識を修正するため、リポジトリのルートに移動します。
+      - name: Force change working directory
+        run: cd ${{ github.workspace }}/zmk-config-prospector
+        
       # 2. westワークスペース初期化とモジュール更新
       #    --rebase を追加し、依存関係を最初からダウンロードし直すことを強制します。
       - name: Update ZMK modules
+        # ZMK Config リポジトリが ZMK 本体をサブモジュールとして扱うため、
+        # west update は ZMK/Zephyr の依存関係を取得します。
         run: west update --rebase
         
       # 3. ZMKファームウェアのビルド
