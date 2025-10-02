@@ -39,6 +39,7 @@ jobs:
       - name: Initialize and Update ZMK modules
         working-directory: config
         run: |
+          # 💥 最終修正: west.yml がカレントディレクトリにあることを明示的に伝える
           west init -l .
           west update --rebase
         
