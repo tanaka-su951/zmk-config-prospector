@@ -1,63 +1,57 @@
+# ZMKビルドの最終安定版。ホストOSでチェックアウトを完了させてからDockerコンテナを使用します。
+
 name: Build ZMK Firmware
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
+    # ワークフロー全体でデフォルトの作業ディレクトリを設定
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+        
+    # ホストOSでチェックアウトを処理
     runs-on: ubuntu-latest
-
+    
+    # Dockerコンテナを使用
+    container: zmkfirmware/zmk-build-arm:stable
+    
+    strategy:
+      matrix:
+        board: [seeeduino_xiao_ble]
+        shield: [prospector_scanner]
+        
     steps:
-    # ソースコードを取得
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      with:
-        submodules: recursive
+      # 1. リポジトリのチェックアウトとサブモジュールの取得
+      - name: Checkout repository and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          path: config # リポジトリ全体を 'config' フォルダにチェックアウト
 
-    # 依存関係をインストール
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y git python3-pip ninja-build cmake wget xz-utils file jq
+      # 2. westワークスペースを明示的に初期化し、モジュールを更新
+      - name: Initialize and Update ZMK modules
+        working-directory: config
+        run: |
+          west init -l .
+          west update --rebase
+        
+      # 3. ZMKファームウェアのビルド
+      # 重要な修正: -s zmk/app を追加し、ZMKアプリケーションのソースパスを指定
+      - name: Build ZMK firmware
+        working-directory: config
+        run: west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
 
-    # west をインストール
-    - name: Install west
-      run: python3 -m pip install --upgrade west
-
-    # Zephyr SDK を自動取得してインストール
-    - name: Download and install Zephyr SDK
-      run: |
-        echo "キャッシュなし、SDKをダウンロードします"
-        ZEHPYR_SDK_TAG=$(curl -s https://api.github.com/repos/zephyrproject-rtos/sdk-ng/releases/latest | jq -r '.tag_name')
-        echo "Latest Zephyr SDK tag: $ZEHPYR_SDK_TAG"
-        SDK_VER=${ZEHPYR_SDK_TAG#v}
-        echo "Using SDK version: $SDK_VER"
-
-        DOWNLOAD_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/${ZEHPYR_SDK_TAG}/zephyr-sdk-${SDK_VER}_linux-x86_64-setup.run"
-        echo "Downloading from $DOWNLOAD_URL"
-
-        wget "$DOWNLOAD_URL" -O zephyr-sdk.run
-        chmod +x zephyr-sdk.run
-        ./zephyr-sdk.run --quiet -- -d $GITHUB_WORKSPACE/zephyr-sdk
-
-        echo "ZEPHYR_SDK_INSTALL_DIR=$GITHUB_WORKSPACE/zephyr-sdk" >> $GITHUB_ENV
-        echo "$GITHUB_WORKSPACE/zephyr-sdk" >> $GITHUB_PATH
-
-    # west ワークスペース初期化
-    - name: Initialize west workspace
-      run: |
-        west init -l config
-        west update
-
-    # Zephyr 環境設定
-    - name: Export Zephyr environment
-      run: |
-        west zephyr-export
-
-    # ファームウェアをビルド
-    - name: Build firmware
-      run: |
-        west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
-
-    # ビルド成果物を保存
-    - name: Archive firmware
-      uses: actions/upload-ar
+      # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
+      - name: Archive firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: prospector_scanner-seeeduino_xiao_ble
+          # ビルド結果が config/build/zephyr/zephyr.uf2 に生成されるためパスを変更
+          path: config/build/zephyr/zephyr.uf2
