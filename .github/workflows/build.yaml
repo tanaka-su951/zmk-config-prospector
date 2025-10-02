@@ -36,17 +36,16 @@ jobs:
         
       # 2. 💥 統合: ZMK依存関係をルートに強制クローン＆ビルド
       - name: Force Clone ZMK, Initialize and Build Firmware
+        env: # <--- 修正: ENVブロックを追加し、Zephyrの場所を強制指定
+          ZEPHYR_BASE: ${{ github.workspace }}/zephyr
         run: |
           # 認証情報を使用してZMK本体とZephyrを強制クローン (west.ymlの内容に基づく)
           echo "Force cloning ZMK and dependencies..."
           git clone --depth 1 https://github.com/zmkfirmware/zmk.git
           git clone --depth 1 https://github.com/zephyrproject-rtos/zephyr.git
           
-          # 💥 修正: ZEPHYR_BASE を手動でクローンしたパスに強制設定
-          export ZEPHYR_BASE=$PWD/zephyr
-          
           # west環境を初期化し、残りのモジュールを更新
-          # west init は実行済みだが、念のため再実行
+          # ZEPHYR_BASEはenvブロックで設定済みのため、sourceコマンドは不要
           west init -l .
           west update
           
