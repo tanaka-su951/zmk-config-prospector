@@ -36,24 +36,25 @@ jobs:
           path: config # リポジトリ全体を 'config' フォルダにチェックアウト
 
       # 2. westワークスペースを明示的に初期化し、モジュールを更新
-      # 💥 最終修正: west init/update を ZMK の標準コマンドに置き換え
       - name: Initialize and Update ZMK modules
         working-directory: config
         run: |
-          # west init を最初に実行し、モジュールの依存関係を取得
+          # west.yml が config ディレクトリにあるため、正しく初期化される
           west init -l .
           west update --rebase
         
       # 3. ZMKファームウェアのビルド
-      # 💥 最終修正: ビルドは ZMK/app フォルダをソースとして実行
+      # 💥 最終修正: working-directoryをconfigに戻し、-sで相対パスを指定
       - name: Build ZMK firmware
-        working-directory: config/zmk/app
-        run: west build -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
+        working-directory: config # 作業ディレクトリを config のままにする
+        run: west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
 
       # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
+      # 💥 最終修正: ビルド結果が config/build/zephyr/zephyr.uf2 ではなく、
+      #             config/build/zephyr/zephyr.uf2 に生成されるためパスを変更
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
           name: prospector_scanner-seeeduino_xiao_ble
-          # ビルド結果が config/zmk/app/build/zephyr/zephyr.uf2 に生成されるためパスを変更
-          path: config/zmk/app/build/zephyr/zephyr.uf2
+          # ビルド結果のパスを config/build/zephyr/zephyr.uf2 に戻します
+          path: config/build/zephyr/zephyr.uf2
