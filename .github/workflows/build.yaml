@@ -22,38 +22,34 @@ jobs:
 
     # 3. west とその他のPython依存関係をインストール
     - name: Install west and initial Python dependencies
-      # westとZephyrの依存パッケージをインストール
+      # westとその他の基本パッケージをインストール
       run: python3 -m pip install --upgrade west setuptools wheel
 
     # 4. west ワークスペース初期化とモジュール更新
     - name: Initialize west workspace and update modules
       # ZMKの設定ファイル（configファイル）を元に初期化とモジュール更新を実行
+      # これにより、westはZephyr Toolchainも自動的に取得・インストールします。
       run: |
         west init -l config
         west update
 
-    # 5. Zephyr Toolchain（SDK）をwest経由で自動インストール
-    - name: Install Zephyr Toolchain
-      run: |
-        # west updateによって依存関係が解決され、必要なツールチェインが自動的にインストールされます。
-        echo "Toolchain dependencies installed via west update in previous step."
-        
-    # 6. 【重要】Zephyr環境向けの追加Python依存関係をインストール
-    - name: Install remaining Zephyr/ZMK Python dependencies
-      # west zephyr-export の前に、ビルドに必要なPythonモジュールをインストール
-      run: pip3 install -r zephyr/scripts/requirements.txt
+    # 5. ZMK 固有の Python 依存関係をインストール
+    - name: Install ZMK specific Python dependencies
+      # ZMKビルドに必要なPythonモジュールをインストール。
+      # リポジトリの構造に基づき、'app'ディレクトリ内にあるrequirementsファイルを使用。
+      # ZMKの推奨手順に従い、Zephyrの依存関係もここでまとめて処理されます。
+      run: pip3 install -r app/requirements.txt
 
-    # 7. Zephyr 環境変数を設定し、ZMK ファームウェアをビルド
+    # 6. Zephyr 環境変数を設定し、ZMK ファームウェアをビルド
     - name: Build ZMK firmware
       run: |
         # Zephyrの環境変数をエクスポート（ツールチェインパスなどが設定される）
         west zephyr-export
 
         # 指定されたボードとシールドでZMKファームウェアをビルド
-        # -s app はZMKのリポジトリ構造に合わせています
         west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
 
-    # 8. ビルド成果物（ファームウェアファイル）をアーカイブ
+    # 7. ビルド成果物（ファームウェアファイル）をアーカイブ
     - name: Archive firmware
       uses: actions/upload-artifact@v4
       with:
