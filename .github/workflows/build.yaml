@@ -42,7 +42,11 @@ jobs:
           git clone --depth 1 https://github.com/zmkfirmware/zmk.git
           git clone --depth 1 https://github.com/zephyrproject-rtos/zephyr.git
           
+          # 💥 修正: ZEPHYR_BASE を手動でクローンしたパスに強制設定
+          export ZEPHYR_BASE=$PWD/zephyr
+          
           # west環境を初期化し、残りのモジュールを更新
+          # west init は実行済みだが、念のため再実行
           west init -l .
           west update
           
