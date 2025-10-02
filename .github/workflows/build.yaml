@@ -4,53 +4,39 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
-    # ソースコードをチェックアウト
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      with:
-        submodules: recursive
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
-    # 依存関係をインストール
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y git python3-pip ninja-build cmake wget tar unzip
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git python3-pip ninja-build cmake wget tar unzip
+          python3 -m pip install --upgrade pip
+          python3 -m pip install west
 
-    # west をインストール
-    - name: Install west
-      run: python3 -m pip install --upgrade west
+      - name: Download and extract Zephyr SDK
+        run: |
+          wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.4/zephyr-sdk-0.17.4_linux-x86_64.tar.xz
+          tar -xf zephyr-sdk-0.17.4_linux-x86_64.tar.xz
+          echo "ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk-0.17.4" >> $GITHUB_ENV
 
-    # Zephyr SDK をダウンロードして展開
-    - name: Install Zephyr SDK
-      run: |
-        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.4/zephyr-sdk-0.17.4-x86_64-linux-ubuntu22.tar.gz
-        tar xzf zephyr-sdk-0.17.4-x86_64-linux-ubuntu22.tar.gz
-        export ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk-0.17.4
+      - name: Initialize west workspace
+        run: |
+          west init -l config
+          west update
 
-    # west ワークスペース初期化
-    - name: Initialize west workspace
-      run: |
-        west init -l config
-        west update
+      - name: Build firmware
+        run: |
+          source $ZEPHYR_SDK_INSTALL_DIR/zephyr-env.sh
+          west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
 
-    # Zephyr SDK 環境変数を設定
-    - name: Export Zephyr environment
-      run: |
-        export ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk-0.17.4
-        west zephyr-export
-
-    # ファームウェアをビルド
-    - name: Build firmware
-      run: |
-        export ZEPHYR_SDK_INSTALL_DIR=$PWD/zephyr-sdk-0.17.4
-        west build -s app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner
-
-    # ビルド成果物をアーカイブ
-    - name: Archive firmware
-      uses: actions/upload-artifact@v4
-      with:
-        name: prospector_scanner-seeeduino_xiao_ble
-        path: build/zephyr/zephyr.uf2
+      - name: Archive firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: prospector_scanner-seeeduino_xiao_ble
+          path: build/zephyr/zephyr.uf2
