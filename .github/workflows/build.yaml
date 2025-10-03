@@ -59,15 +59,18 @@ jobs:
       # 2. 💥 最終修正: ビルドを分離したステップで実行 (環境変数が設定済み)
       - name: Build ZMK firmware
         run: |
-          echo "Starting west build..."
-          
-          # 💥 修正: west init を実行し、zmk/app の west.yml を使ってワークスペースを強制的に再初期化
-          # これにより、west build が workspace 内で実行されていると認識される
           echo "Re-initializing west workspace..."
+          # west init を実行し、zmk/app の west.yml を使ってワークスペースを強制的に再初期化
           west init -l zmk/app
           
-          # 環境変数が設定されている状態でビルドコマンドを実行
-          west build -s zmk/app -p \
+          # 💥 修正: westが指定した通り、作業ディレクトリをzmkに移動
+          echo "Changing directory to zmk and running west update..."
+          cd zmk
+          west update
+          
+          # ZMKアプリは zmk/app ではなく、ルートの zmk フォルダ内にある
+          echo "Starting west build from zmk directory..."
+          west build -s app -p \
              -b ${{ matrix.board }} \
              -- -DSHIELD=${{ matrix.shield }}
         
@@ -76,4 +79,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: prospector_scanner-seeeduino_xiao_ble
-          path: build/zephyr/zephyr.uf2
+          # ビルド成果物は zmk/build/zephyr/zephyr.uf2 に生成される
+          path: zmk/build/zephyr/zephyr.uf2
