@@ -1,6 +1,6 @@
 # ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
 
-name: Build ZMK Firmware (Final Final Attempt)
+name: Build ZMK Firmware (Absolute Path Fix)
 
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
         
     steps:
       # 1. ユーザー設定リポジトリをチェックアウト
-      - name: Checkout user configuration (This repo)
+      - name: Checkout user configuration (Config as Root)
         uses: actions/checkout@v4
         with:
           path: user-config # ユーザー設定ファイルを 'user-config' フォルダにチェックアウト
@@ -45,12 +45,11 @@ jobs:
           
           # A. ZMKの公式 west.yml をルートにコピー (ダウンロードコマンドを回避)
           cp zmk-source/app/west.yml .
-          rm -rf zmk-source # 不要になったフォルダを削除
+          rm -rf zmk-source
 
           # B. ユーザー設定ファイル (user-configフォルダ内のもの) をルートに移動
-          # これにより、ユーザーのwest.yml（存在する場合）もルートに来る
           mv user-config/* . 2>/dev/null || true
-          rm -rf user-config # 不要になったフォルダを削除
+          rm -rf user-config
           
           # C. west init/update を実行し、ZephyrとZMK本体をクローン
           # ルートのwest.ymlが処理される
@@ -62,13 +61,20 @@ jobs:
           mkdir -p config
           mv *.dts* *.overlay* *.keymap* *.c *.h config/ 2>/dev/null || true
           
-      # 4. Build ZMK firmware (west buildを使用)
-      - name: Build ZMK firmware (Standard West Build)
+      # 4. Build ZMK firmware (絶対パスと--build-dirの強制)
+      - name: Build ZMK firmware (Absolute Path Injection)
         shell: bash
         run: |
           echo "Starting west build..."
-          # west build を実行。この段階でワークスペースは完全にセットアップされているはず。
-          west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
+          # $GITHUB_WORKSPACE は /__w/zmk-config-prospector/zmk-config-prospector を指します
+          WORKSPACE_ROOT="$(pwd)" 
+          ZMK_APP_PATH="${WORKSPACE_ROOT}/zmk/app"
+          
+          # 絶対パスでビルドを強制し、ビルドディレクトリも明示的に指定
+          west build -s "${ZMK_APP_PATH}" -p \
+             -b ${{ matrix.board }} \
+             --build-dir "${WORKSPACE_ROOT}/build" \
+             -- -DSHIELD=${{ matrix.shield }}
         
       # 5. Archive firmware
       - name: Archive firmware
