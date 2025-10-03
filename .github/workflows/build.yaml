@@ -1,6 +1,6 @@
 # ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
 
-name: Build ZMK Firmware (Final Working Setup)
+name: Build ZMK Firmware (Final Bash Shell Fix)
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
     
     # 環境変数をすべてのステップで設定
     env:
-      # 環境変数 $ZEPHYR_BASE はDockerの内部パスではなく、westでクローンされたパスに設定
+      # 環境変数 $ZEPHYR_BASE をwestでクローンされた実パスに設定
       ZEPHYR_BASE: ${{ github.workspace }}/zephyr
       
     strategy:
@@ -34,19 +34,19 @@ jobs:
         with:
           submodules: false
           
-      # 2. ZMK公式ワークスペースの設定と依存関係の更新
-      - name: Setup ZMK Workspace and Update Dependencies
+      # 2. ZMK公式ワークスペースの設定と依存関係の更新 (BASHを使用)
+      - name: Setup ZMK Workspace and Update Dependencies (BASH SHELL)
+        shell: bash
         run: |
           echo "Setting up ZMK workspace..."
 
           # A. west init/update を実行し、ZephyrとZMK本体をクローン
-          # ユーザーのwest.ymlがルートにあるため、これがワークスペースになる
           west init -l .
           west update --rebase
           
-          # B. Zephyr環境スクリプトを読み込み (正しいクローンパスを使用)
-          # スクリプトは $ZEPHYR_BASE (つまり ${{ github.workspace }}/zephyr) の下にある
-          . $ZEPHYR_BASE/zephyr-env.sh
+          # B. Zephyr環境スクリプトを読み込み (BASHで実行)
+          echo "Sourcing Zephyr environment from: $ZEPHYR_BASE/zephyr-env.sh"
+          source "$ZEPHYR_BASE/zephyr-env.sh"
           
       # 3. Build ZMK firmware (cmakeを直接呼び出し、パスを強制注入)
       - name: Build ZMK firmware
