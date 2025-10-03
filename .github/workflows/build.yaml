@@ -1,6 +1,6 @@
 # ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
 
-name: Build ZMK Firmware (Path Verification)
+name: Build ZMK Firmware (Final Final Attempt)
 
 on:
   push:
@@ -24,38 +24,53 @@ jobs:
         
     steps:
       # 1. ユーザー設定リポジトリをチェックアウト
-      - name: Checkout user configuration (Config as Root)
+      - name: Checkout user configuration (This repo)
         uses: actions/checkout@v4
         with:
+          path: user-config # ユーザー設定ファイルを 'user-config' フォルダにチェックアウト
           submodules: false
           
-      # 2. ZMKワークスペースの完全なセットアップと診断 (BASH SHELL)
-      - name: Setup ZMK Workspace and Update Dependencies (BASH SHELL)
+      # 2. ZMK本体リポジトリをチェックアウトし、west.ymlを取得
+      - name: Get ZMK's official west.yml
+        uses: actions/checkout@v4
+        with:
+          repository: zmkfirmware/zmk
+          path: zmk-source # ZMKリポジトリを 'zmk-source' フォルダにチェックアウト
+          
+      # 3. ZMKワークスペースの設定と依存関係の更新
+      - name: Setup ZMK Workspace and Update Dependencies
         shell: bash
         run: |
           echo "Setting up ZMK workspace..."
-
-          # A. ZMKの公式 west.yml をダウンロードし、ルートのユーザーのものを上書き
-          # これにより、ユーザーのwest.ymlによる予期せぬパス設定をリセットします。
-          wget https://raw.githubusercontent.com/zmkfirmware/zmk/main/app/west.yml -O west.yml
           
-          # B. west init/update を実行し、ZephyrとZMK本体をクローン
+          # A. ZMKの公式 west.yml をルートにコピー (ダウンロードコマンドを回避)
+          cp zmk-source/app/west.yml .
+          rm -rf zmk-source # 不要になったフォルダを削除
+
+          # B. ユーザー設定ファイル (user-configフォルダ内のもの) をルートに移動
+          # これにより、ユーザーのwest.yml（存在する場合）もルートに来る
+          mv user-config/* . 2>/dev/null || true
+          rm -rf user-config # 不要になったフォルダを削除
+          
+          # C. west init/update を実行し、ZephyrとZMK本体をクローン
+          # ルートのwest.ymlが処理される
           west init -l .
           west update --rebase
           
-          # C. 診断: Zephyrディレクトリの存在と内容を再確認 (クローン成功の最終確認)
-          echo "Verifying 'zephyr/' directory contents:"
-          ls -al zephyr/
+          # D. ZMKの標準的な設定方法に対応するため、ユーザー設定ファイルを config フォルダに移動
+          echo "Moving user files to config/..."
+          mkdir -p config
+          mv *.dts* *.overlay* *.keymap* *.c *.h config/ 2>/dev/null || true
           
-      # 3. Build ZMK firmware (west buildを使用)
+      # 4. Build ZMK firmware (west buildを使用)
       - name: Build ZMK firmware (Standard West Build)
         shell: bash
         run: |
           echo "Starting west build..."
-          # west build を実行
+          # west build を実行。この段階でワークスペースは完全にセットアップされているはず。
           west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
         
-      # 4. Archive firmware
+      # 5. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
