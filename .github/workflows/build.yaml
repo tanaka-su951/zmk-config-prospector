@@ -1,58 +1,19 @@
-# ZMKビルドの最終安定版。ホストOSでチェックアウトを完了させてからDockerコンテナを使用します。
+# ZMKの標準的な外部ビルドワークフローを使用します。
+# ワークフロー参照先を、ZMKが推奨する最新の 'zmk-config' リポジトリに変更しました。
 
 name: Build ZMK Firmware
 
 on:
   push:
     branches: [ main ]
+    
   pull_request:
     branches: [ main ]
+    
   workflow_dispatch:
 
 jobs:
   build:
-    # ワークフロー全体でデフォルトの作業ディレクトリを設定
-    defaults:
-      run:
-        working-directory: ${{ github.workspace }}
-        
-    # ホストOSでチェックアウトを処理
-    runs-on: ubuntu-latest
-    
-    # Dockerコンテナを使用
-    container: zmkfirmware/zmk-build-arm:stable
-    
-    strategy:
-      matrix:
-        board: [seeeduino_xiao_ble]
-        shield: [prospector_scanner]
-        
-    steps:
-      # 1. リポジトリのチェックアウトとサブモジュールの取得
-      - name: Checkout repository and submodules
-        uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          path: config # リポジトリ全体を 'config' フォルダにチェックアウト
-
-      # 2. westワークスペースを明示的に初期化し、モジュールを更新
-      - name: Initialize and Update ZMK modules
-        working-directory: config
-        run: |
-          # west.yml が config ディレクトリにあるため、正しく初期化される
-          west init -l .
-          west update --rebase
-        
-      # 3. ZMKファームウェアのビルド
-      # 💥 最終修正: working-directoryはconfigのまま、-sで現在の場所からの相対パスを指定
-      - name: Build ZMK firmware
-        working-directory: config
-        run: west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
-
-      # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
-      - name: Archive firmware
-        uses: actions/upload-artifact@v4
-        with:
-          name: prospector_scanner-seeeduino_xiao_ble
-          # ビルド結果のパスを config/build/zephyr/zephyr.uf2 に戻します
-          path: config/build/zephyr/zephyr.uf2
+    # ZMKの外部ワークフローを呼び出す
+    # 正しいパス: zmkfirmware/zmk-config/.github/workflows/build-config.yml@main
+    uses: zmkfirmware/zmk-config/.github/workflows/build-config.yml@main
