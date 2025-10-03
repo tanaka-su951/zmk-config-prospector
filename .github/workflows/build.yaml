@@ -13,14 +13,8 @@ on:
 
 jobs:
   build:
-    # ワークフロー全体でデフォルトの作業ディレクトリを設定 (ルートを指定)
-    defaults:
-      run:
-        working-directory: ${{ github.workspace }}
-        
+    # Dockerコンテナを使用しますが、defaults:run は空にしてパス認識を柔軟にします
     runs-on: ubuntu-latest
-    
-    # ZMKビルド用Dockerコンテナを使用
     container: zmkfirmware/zmk-build-arm:stable
     
     strategy:
@@ -29,28 +23,33 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. リポジトリとサブモジュールをチェックアウト
-      - name: Checkout user configuration and ZMK submodules
+      # 1. リポジトリをチェックアウト
+      # submodules: false に設定し、west update に任せる
+      - name: Checkout user configuration
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: false
           
-      # 2. 依存関係の初期化、更新、ビルドの実行（全てを単一のセッションで実行）
-      # west updateが成功すれば、zmk/appフォルダは必ず存在します。
+      # 2. 依存関係の初期化、更新、ビルドの実行（全てを config フォルダ内で完結）
       - name: Initialize, Update Dependencies, and Build
         run: |
-          # ワークスペースの初期化と依存関係の更新
-          echo "Running west init and update..."
+          # ワークスペースを config フォルダで初期化
+          echo "Running west init..."
           west init -l .
+          
+          # west updateを実行し、zmk/zephyr本体をconfigフォルダ内にクローン
+          echo "Running west update..."
           west update --rebase
           
-          # ZMKファームウェアのビルドを実行
+          # ZMKファームウェアのビルドを実行 (ソースは zmk/app)
           echo "Running west build..."
+          # self: path: config のため、ビルドはconfigフォルダ内で行う
           west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
           
       # 3. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
+          # west buildの出力先は config フォルダ内の build です
           name: ${{ matrix.shield }}-${{ matrix.board }}
           path: build/zephyr/zephyr.uf2
