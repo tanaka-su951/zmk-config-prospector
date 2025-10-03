@@ -1,6 +1,6 @@
-# ZMKファームウェア ビルドワークフロー (環境の不安定性を排除する最終手段)
+# ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
 
-name: Build ZMK Firmware (Final Bash Fix)
+name: Build ZMK Firmware (Final CMake Path Fix)
 
 on:
   push:
@@ -19,8 +19,8 @@ jobs:
     
     # 環境変数をすべてのステップで設定
     env:
-      # Zephyrのパスを強制的に設定
-      ZEPHYR_BASE: ${{ github.workspace }}/zephyr 
+      # Dockerコンテナ内のZephyrの場所 (このパスは固定)
+      ZEPHYR_BASE: /opt/zmk/zephyr
       
     strategy:
       matrix:
@@ -29,60 +29,50 @@ jobs:
         
     steps:
       # 1. ユーザー設定リポジトリをチェックアウト
-      - name: Checkout user configuration
+      # submodules: true は使用しない (ZMK公式のwest updateに任せる)
+      - name: Checkout user configuration (Config as Root)
         uses: actions/checkout@v4
         with:
           submodules: false
           
-      # 2. ZMKとZephyrリポジトリの手動クローンと設定
-      - name: Manual Clone ZMK/Zephyr Repositories and Setup
+      # 2. ZMK公式ワークスペースの設定と依存関係の更新
+      - name: Setup ZMK Workspace and Update Dependencies
         run: |
-          echo "Cloning ZMK and Zephyr repositories manually..."
-          
-          # A. ZMKとZephyrのコアリポジトリをクローン
-          git clone --depth 1 https://github.com/zmkfirmware/zmk.git zmk
-          git clone --depth 1 https://github.com/zephyrproject-rtos/zephyr.git zephyr
-          
-          # B. ZMKのサブモジュールとして含まれるプロジェクトを手動でクローン
-          mkdir -p modules
-          git clone --depth 1 https://github.com/t-ogura/prospector-zmk-module.git modules/prospector-zmk-module
-          git clone --depth 1 https://github.com/englmaxi/zmk-dongle-display.git modules/zmk-dongle-display
-          
-          echo "Setting up configuration directory..."
-          # C. ZMKの推奨構成に合わせて、すべてのユーザーファイルを 'config' フォルダに移動
-          mkdir -p config
-          # .git, .github, zmk, zephyr, modules 以外のファイルを config/ に移動
-          find . -maxdepth 1 -not -name 'config' -not -name 'zmk' -not -name 'zephyr' -not -name 'modules' -not -name '.git' -not -name '.github' -exec mv {} config/ \; 2>/dev/null || true
-          
-          # D. Zephyr環境スクリプトを読み込み、環境変数を設定 (別ステップで処理)
-          
-      # 3. Initialize Zephyr Environment (Bashを強制使用)
-      - name: Initialize Zephyr Environment (Force Bash)
-        # BASH を明示的に指定することで、Bad Substitution エラーを回避します
-        shell: bash
-        run: |
-          source "$ZEPHYR_BASE/zephyr-env.sh"
+          echo "Setting up ZMK workspace..."
 
-      # 4. Build ZMK firmware (cmake を直接呼び出し)
-      - name: Build ZMK firmware via CMake
+          # A. west init を実行し、ZephyrとZMK本体をクローン
+          # ユーザーのwest.ymlがルートにあるため、これがワークスペースになる
+          west init -l .
+          west update --rebase
+          
+          # B. Zephyr環境スクリプトを読み込み (CMakeに必要な変数を設定)
+          # ZMK Dockerイメージではbash互換でなければならない
+          # $ZEPHYR_BASE は/opt/zmk/zephyr を指しているはず
+          . $ZEPHYR_BASE/zephyr-env.sh
+          
+      # 3. Build ZMK firmware (west build の代わりに cmake を直接呼び出し)
+      - name: Build ZMK firmware
         run: |
           echo "Starting CMake build..."
           
-          # CMakeを直接呼び出し
-          # ZMKのソースは zmk/app、設定は config/ にあります
+          # 環境変数 $ZEPHYR_BASE の値
+          ZEPHYR_BASE_PATH=${{ env.ZEPHYR_BASE }}
+          
+          # CMakeを直接呼び出し、Zephyrの設定ファイルパスを強制注入
+          # -DZEPHYR_CMAKE_MODULES で設定ファイルへのパスを明示
           cmake -B build -S zmk/app \
               -GNinja \
               -DBOARD=${{ matrix.board }} \
               -DSHIELD=${{ matrix.shield }} \
-              -DAPP_DIR=${{ github.workspace }}/config
+              -DZEPHYR_CMAKE_MODULES=$ZEPHYR_BASE_PATH/cmake/modules
               
           # Ninjaでビルドを実行
           ninja -C build
         
-      # 5. Archive firmware
+      # 4. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.shield }}-${{ matrix.board }}
-          # ビルド成果物はルートの 'build/zephyr/zephyr.uf2' に出力される
+          # ビルド成果物はルートの 'build' フォルダに出力される
           path: build/zephyr/zephyr.uf2
