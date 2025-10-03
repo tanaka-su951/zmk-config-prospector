@@ -1,6 +1,6 @@
-# ZMKファームウェア ビルドワークフロー (環境に依存しない単一ステップ構成)
+# ZMKファームウェア ビルドワークフロー (環境の不安定性を排除する最終手段)
 
-name: Build ZMK Firmware (Integrated Single Step)
+name: Build ZMK Firmware (Manual Clone & CMake)
 
 on:
   push:
@@ -19,7 +19,8 @@ jobs:
     
     # 環境変数をすべてのステップで設定
     env:
-      APP_DIR: ${{ github.workspace }}
+      # Zephyrのパスを強制的に設定
+      ZEPHYR_BASE: ${{ github.workspace }}/zephyr 
       
     strategy:
       matrix:
@@ -28,31 +29,58 @@ jobs:
         
     steps:
       # 1. ユーザー設定リポジトリをチェックアウト
-      # サブモジュールをクローンし、west.ymlとconfigフォルダをルートに配置
-      - name: Checkout user configuration and ZMK submodules
+      # サブモジュールは無効にし、手動でクローンします
+      - name: Checkout user configuration
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: false
           
-      # 2. Workspace Initialization and Build (すべてを一つのシェルセッションで実行)
-      - name: Initialize, Update, and Build
+      # 2. ZMKとZephyrリポジトリの手動クローンと設定
+      - name: Manual Clone ZMK/Zephyr Repositories
         run: |
-          echo "Forcing workspace initialization and update..."
+          echo "Cloning ZMK and Zephyr repositories manually..."
           
-          # ワークスペース初期化と依存関係更新を強制実行
-          # west.ymlがルートにあることが前提
-          west init -l .
-          west update --rebase
+          # A. ZMKのコアリポジトリをクローン
+          git clone --depth 1 https://github.com/zmkfirmware/zmk.git zmk
           
-          echo "Starting west build for ${{ matrix.shield }} on ${{ matrix.board }}"
-          # west build を実行 (ソースは zmk/app)
-          # west init/update が成功すれば zmk/app は存在します
-          west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
+          # B. Zephyrリポジトリをクローン (ZMKが使用するバージョンに合わせる)
+          # ZMKの west.yml からバージョンを抽出することが理想だが、今回は stable に依存
+          git clone --depth 1 https://github.com/zephyrproject-rtos/zephyr.git zephyr
           
-      # 3. Archive firmware
+          # C. ZMKのサブモジュールとして含まれるプロジェクトを手動でクローン
+          # あなたの west.yml に含まれるモジュールもここで手動クローンが必要です
+          git clone --depth 1 https://github.com/t-ogura/prospector-zmk-module.git modules/prospector-zmk-module
+          git clone --depth 1 https://github.com/englmaxi/zmk-dongle-display.git modules/zmk-dongle-display
+          
+          echo "Setting up configuration directory..."
+          # D. ZMKの推奨構成に合わせて、すべてのユーザーファイルを 'config' フォルダに移動
+          mkdir -p config
+          find . -maxdepth 1 -not -name 'config' -not -name 'zmk' -not -name 'zephyr' -not -name 'modules' -not -name '.git' -not -name '.github' -exec mv {} config/ \; 2>/dev/null || true
+          
+          # E. Zephyr環境スクリプトを読み込み、環境変数を設定
+          . $ZEPHYR_BASE/zephyr-env.sh
+          
+      # 3. Build ZMK firmware (west build の代わりに cmake を直接呼び出し)
+      - name: Build ZMK firmware via CMake
+        # ZMKのソースは zmk/app、設定は config/ にあります
+        run: |
+          echo "Starting CMake build..."
+          
+          # CMakeを直接呼び出し
+          # -DAPP_DIR は ZMK設定ディレクトリを明示的に指定するために使用
+          cmake -B build -S zmk/app \
+              -GNinja \
+              -DBOARD=${{ matrix.board }} \
+              -DSHIELD=${{ matrix.shield }} \
+              -DAPP_DIR=${{ github.workspace }}/config
+              
+          # Ninjaでビルドを実行
+          ninja -C build
+        
+      # 4. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.shield }}-${{ matrix.board }}
-          # ビルド成果物はルートの 'build/zephyr/zephyr.uf2' に出力されます
+          # ビルド成果物はルートの 'build/zephyr/zephyr.uf2' に出力される
           path: build/zephyr/zephyr.uf2
