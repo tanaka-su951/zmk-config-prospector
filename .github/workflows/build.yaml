@@ -1,48 +1,20 @@
-# ZMKビルドの最終安定版。ホストOSでチェックアウトを完了させてからDockerコンテナを使用します。
+# ZMKの標準的な外部ビルドワークフローを使用
+# このファイルは、リポジトリのルートに ZMK の依存関係を設定するための
+# west.yml, app/, CMakeLists.txt などが存在することを前提とします。
 
 name: Build ZMK Firmware
 
 on:
   push:
     branches: [ main ]
+    
   pull_request:
     branches: [ main ]
+    
   workflow_dispatch:
 
 jobs:
   build:
-    # ホストOSでチェックアウトを処理
-    runs-on: ubuntu-latest
-    
-    # Dockerコンテナを使用
-    container: zmkfirmware/zmk-build-arm:stable
-    
-    strategy:
-      matrix:
-        board: [seeeduino_xiao_ble]
-        shield: [prospector_scanner]
-        
-    steps:
-      # 1. リポジトリのチェックアウトとサブモジュールの取得 (ホスト側で実行)
-      #    このステップではコンテナ外で実行し、認証の問題を回避します。
-      - name: Checkout repository and submodules
-        uses: actions/checkout@v4
-        with:
-          submodules: 'recursive' # ZMKの依存関係をすべて取得
-
-      # 2. westワークスペース初期化とモジュール更新
-      #    チェックアウト結果がコンテナにマウントされるため、これでOK
-      - name: Update ZMK modules
-        run: west update
-        
-      # 3. ZMKファームウェアのビルド
-      - name: Build ZMK firmware
-        run: west build -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
-
-      # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
-      - name: Archive firmware
-        uses: actions/upload-artifact@v4
-        with:
-          name: prospector_scanner-seeeduino_xiao_ble
-          # ZMKのビルド結果は通常 zephyr.uf2 になります。
-          path: build/zephyr/zephyr.uf2
+    # ZMKの外部ワークフローを呼び出す
+    # このワークフローが全ての環境設定とビルド処理を自動で行います
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
