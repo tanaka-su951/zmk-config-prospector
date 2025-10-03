@@ -13,8 +13,14 @@ on:
 
 jobs:
   build:
-    # Dockerコンテナを使用しますが、defaults:run は空にしてパス認識を柔軟にします
+    # ワークフロー全体でデフォルトの作業ディレクトリを設定 (ルートを指定)
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+        
     runs-on: ubuntu-latest
+    
+    # ZMKビルド用Dockerコンテナを使用
     container: zmkfirmware/zmk-build-arm:stable
     
     strategy:
@@ -24,32 +30,36 @@ jobs:
         
     steps:
       # 1. リポジトリをチェックアウト
-      # submodules: false に設定し、west update に任せる
       - name: Checkout user configuration
         uses: actions/checkout@v4
         with:
           submodules: false
           
-      # 2. 依存関係の初期化、更新、ビルドの実行（全てを config フォルダ内で完結）
-      - name: Initialize, Update Dependencies, and Build
+      # 2. 依存関係の初期化と更新 (クリーンビルド用)
+      - name: Initialize and Update ZMK Dependencies
         run: |
-          # ワークスペースを config フォルダで初期化
-          echo "Running west init..."
-          west init -l .
+          # 過去の汚染を避けるため、不要なファイルを削除します。
+          # rm -rf zephyr zmk modules tools bootloader
           
-          # west updateを実行し、zmk/zephyr本体をconfigフォルダ内にクローン
-          echo "Running west update..."
+          echo "Running west init and update..."
+          # west.ymlはルートにあることが前提
+          west init -l .
           west update --rebase
           
-          # ZMKファームウェアのビルドを実行 (ソースは zmk/app)
-          echo "Running west build..."
-          # self: path: config のため、ビルドはconfigフォルダ内で行う
-          west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
+      # 3. Build ZMK firmware
+      - name: Build ZMK firmware
+        # ビルド前に作業ディレクトリを強制的にルートにリセット
+        run: |
+          echo "Forcing directory change to root before build..."
+          # west init/update でパスが変わった可能性をリセット
+          cd ${{ github.workspace }}
           
-      # 3. Archive firmware
+          # ビルドを実行 (ソースは zmk/app)
+          west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
+        
+      # 4. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
-          # west buildの出力先は config フォルダ内の build です
           name: ${{ matrix.shield }}-${{ matrix.board }}
           path: build/zephyr/zephyr.uf2
