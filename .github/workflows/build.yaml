@@ -1,4 +1,4 @@
-# Final Diagnostic: ZMKビルドの失敗原因（パス認識/依存関係取得）を特定します。
+# Final Diagnostic: ZMKビルドの失敗原因を特定します。
 
 name: Build ZMK Firmware
 
@@ -13,14 +13,12 @@ on:
 
 jobs:
   build:
-    # ワークフロー全体でデフォルトの作業ディレクトリを設定 (ルートを指定)
     defaults:
       run:
         working-directory: ${{ github.workspace }}
         
     runs-on: ubuntu-latest
     
-    # Dockerコンテナを使用
     container: zmkfirmware/zmk-build-arm:stable
     
     strategy:
@@ -29,7 +27,7 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. リポジトリとサブモジュールをホストOSでチェックアウト
+      # 1. リポジトリとサブモジュールをチェックアウト
       - name: Checkout user configuration and ZMK submodules
         uses: actions/checkout@v4
         with:
@@ -37,23 +35,17 @@ jobs:
           
       # 2. 診断: Checkout直後のファイル構造を確認
       - name: Diagnostic Check: Files after Submodule Checkout
-        run: |
-          echo "Listing files in workspace after checkout (looking for 'zmk'):"
-          ls -aR
+        run: ls -aR
           
       # 3. Initialize and Update ZMK Dependencies
       - name: Initialize and Update ZMK Dependencies
         run: |
-          echo "Running west init -l ."
-          west init -l .  # west.ymlを使用してワークスペースを初期化
-          echo "Running west update --rebase"
-          west update --rebase # 依存関係をフェッチ
+          west init -l .
+          west update --rebase
           
-      # 4. 診断: west update直後のファイル構造を確認
+      # 4. 診断: west update直後のファイル構造を確認 (zmk/appの存在確認)
       - name: Diagnostic Check: Files after West Update
-        run: |
-          echo "Listing files in workspace after west update (checking for zmk/app):"
-          ls -aR
+        run: ls -aR
           
       # 5. Build ZMK firmware
       - name: Build ZMK firmware
