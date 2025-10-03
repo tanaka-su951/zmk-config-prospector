@@ -1,6 +1,6 @@
 # ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
 
-name: Build ZMK Firmware (Absolute Path Fix)
+name: Build ZMK Firmware (The Final Test)
 
 on:
   push:
@@ -24,59 +24,47 @@ jobs:
         
     steps:
       # 1. ユーザー設定リポジトリをチェックアウト
-      - name: Checkout user configuration (Config as Root)
+      # submodules: false にすることで、既存のzmkサブモジュールによる混乱を防ぐ
+      - name: Checkout user configuration (This repo)
         uses: actions/checkout@v4
         with:
-          path: user-config # ユーザー設定ファイルを 'user-config' フォルダにチェックアウト
           submodules: false
           
-      # 2. ZMK本体リポジトリをチェックアウトし、west.ymlを取得
-      - name: Get ZMK's official west.yml
-        uses: actions/checkout@v4
-        with:
-          repository: zmkfirmware/zmk
-          path: zmk-source # ZMKリポジトリを 'zmk-source' フォルダにチェックアウト
-          
-      # 3. ZMKワークスペースの設定と依存関係の更新
-      - name: Setup ZMK Workspace and Update Dependencies
+      # 2. ZMKワークスペースの完全なセットアップとビルド
+      - name: Setup ZMK Workspace and Build
         shell: bash
         run: |
           echo "Setting up ZMK workspace..."
           
-          # A. ZMKの公式 west.yml をルートにコピー (ダウンロードコマンドを回避)
-          cp zmk-source/app/west.yml .
-          rm -rf zmk-source
-
-          # B. ユーザー設定ファイル (user-configフォルダ内のもの) をルートに移動
-          mv user-config/* . 2>/dev/null || true
-          rm -rf user-config
+          # A. ZMKの公式 west.yml をダウンロード (wgetが動かないためcurlを使用)
+          # ZMKの標準ワークスペース設定を強制的にルートに配置
+          curl -sS https://raw.githubusercontent.com/zmkfirmware/zmk/main/app/west.yml -o west.yml
           
-          # C. west init/update を実行し、ZephyrとZMK本体をクローン
-          # ルートのwest.ymlが処理される
+          # B. west init/update を実行し、ZephyrとZMK本体をクローン
+          # この時点で、ZMK本体は zmk/ フォルダにクローンされます
           west init -l .
           west update --rebase
+          
+          # C. 診断: zmk/app ディレクトリの存在を最終確認
+          echo "Verifying zmk/app directory:"
+          ls -al zmk/app
           
           # D. ZMKの標準的な設定方法に対応するため、ユーザー設定ファイルを config フォルダに移動
           echo "Moving user files to config/..."
           mkdir -p config
+          
+          # ユーザーリポジトリ内のファイルを config/ に移動
+          # west.yml は ZMK公式のものを残すため移動しない
           mv *.dts* *.overlay* *.keymap* *.c *.h config/ 2>/dev/null || true
           
-      # 4. Build ZMK firmware (絶対パスと--build-dirの強制)
-      - name: Build ZMK firmware (Absolute Path Injection)
-        shell: bash
-        run: |
+          # E. Build ZMK firmware
           echo "Starting west build..."
-          # $GITHUB_WORKSPACE は /__w/zmk-config-prospector/zmk-config-prospector を指します
-          WORKSPACE_ROOT="$(pwd)" 
-          ZMK_APP_PATH="${WORKSPACE_ROOT}/zmk/app"
-          
-          # 絶対パスでビルドを強制し、ビルドディレクトリも明示的に指定
-          west build -s "${ZMK_APP_PATH}" -p \
+          # 絶対パスではなく、west init/updateで認識された標準の zmk/app パスを使用
+          west build -s zmk/app -p \
              -b ${{ matrix.board }} \
-             --build-dir "${WORKSPACE_ROOT}/build" \
              -- -DSHIELD=${{ matrix.shield }}
         
-      # 5. Archive firmware
+      # 3. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
