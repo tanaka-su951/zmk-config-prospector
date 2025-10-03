@@ -1,6 +1,6 @@
 # ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
 
-name: Build ZMK Firmware (Workspace Reset & Build)
+name: Build ZMK Firmware (Standard West Build)
 
 on:
   push:
@@ -17,11 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     container: zmkfirmware/zmk-build-arm:stable
     
-    # 環境変数をすべてのステップで設定
-    env:
-      # 環境変数 $ZEPHYR_BASE をwestでクローンされた実パスに設定
-      ZEPHYR_BASE: ${{ github.workspace }}/zephyr
-      
     strategy:
       matrix:
         board: [seeeduino_xiao_ble]
@@ -34,36 +29,30 @@ jobs:
         with:
           submodules: false
           
-      # 2. ZMKワークスペースの完全なセットアップとビルド (BASH SHELL)
-      - name: Setup Workspace, Update Dependencies, and Build
+      # 2. ZMKワークスペースの完全なセットアップ (BASH SHELL)
+      - name: Setup ZMK Workspace and Update Dependencies (BASH SHELL)
         shell: bash
         run: |
           echo "Setting up ZMK workspace..."
 
           # A. west init/update を実行し、ZephyrとZMK本体をクローン
-          # ZMKのベストプラクティスに従い、ワークスペースをクリーンに初期化
+          # ユーザーのwest.ymlがルートにあるため、これがワークスペースになる
           west init -l .
           west update --rebase
           
-          # B. Zephyr環境スクリプトを読み込み (BASHで実行)
-          # west update が成功すれば、このファイルは必ず存在する
-          echo "Sourcing Zephyr environment from: $ZEPHYR_BASE/zephyr-env.sh"
-          source "$ZEPHYR_BASE/zephyr-env.sh"
+          # B. 診断: Zephyrディレクトリの存在と内容を確認 (west update成功の確認)
+          echo "Listing Zephyr directory contents:"
+          ls -al zephyr/
           
-          # C. Build ZMK firmware (cmakeを直接呼び出し、パスを強制注入)
-          echo "Starting CMake build..."
-          
-          # CMakeを直接呼び出し、Zephyrの設定ファイルパスを強制注入
-          cmake -B build -S zmk/app \
-              -GNinja \
-              -DBOARD=${{ matrix.board }} \
-              -DSHIELD=${{ matrix.shield }} \
-              -DZEPHYR_CMAKE_MODULES=$ZEPHYR_BASE/cmake/modules
-              
-          # D. Ninjaでビルドを実行
-          ninja -C build
+      # 3. Build ZMK firmware (west buildを使用)
+      - name: Build ZMK firmware (Standard West Build)
+        shell: bash
+        run: |
+          echo "Starting west build..."
+          # west build は内部で環境変数を処理するはず。手動での 'source' は不要。
+          west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
         
-      # 3. Archive firmware
+      # 4. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
