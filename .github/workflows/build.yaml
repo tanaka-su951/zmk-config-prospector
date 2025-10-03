@@ -1,4 +1,4 @@
-# ZMKビルドの最終安定版。パスの問題を無視してGitで依存関係を強制取得します。
+# ZMKビルドの最終安定版。west init/updateを排除し、手動で依存関係を強制取得します。
 
 name: Build ZMK Firmware
 
@@ -30,38 +30,30 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. 💥 変更: ZMK本体の依存関係を強制クローン (Zephyrの場所も明確化)
-      - name: Force Clone ZMK and Zephyr Dependencies
+      # 1. 💥 修正: 必要なすべてのリポジトリを強制クローン (west init/updateを回避)
+      - name: Force Clone ZMK, Zephyr, and User Configuration
         env:
           ZEPHYR_BASE: ${{ github.workspace }}/zephyr
         run: |
           echo "Force cloning ZMK and dependencies..."
+          
+          # ZMK/Zephyr/User Configを直接クローン
           git clone --depth 1 https://github.com/zmkfirmware/zmk.git
           git clone --depth 1 https://github.com/zephyrproject-rtos/zephyr.git
+          git clone --depth 1 https://github.com/tanaka-su951/zmk-config-prospector.git config # 自身のconfigリポジトリをconfigフォルダにクローン
           
-          # west環境を初期化し、残りのモジュールを更新
-          west init -l .
-          west update
+          # ユーザー設定ファイルをzmk/appの横に配置（config/の内容をルートに移動）
+          echo "Moving user files to root for build context..."
+          mv config/* . 2>/dev/null || true
+          rm -rf config # configフォルダは空になったので削除
           
-      # 2. 💥 修正: ユーザー設定リポジトリをconfigフォルダにクローン
-      - name: Checkout User Configuration into config/
-        uses: actions/checkout@v4
-        with:
-          repository: tanaka-su951/zmk-config-prospector # 自身のconfigリポジトリを指定
-          path: config # configフォルダにチェックアウト
-          
-      # 3. 💥 最終ビルド
-      - name: Build ZMK firmware
-        env:
-          ZEPHYR_BASE: ${{ github.workspace }}/zephyr
-        run: |
+          # ZMKの標準的なビルドコマンドを実行
           echo "Starting west build..."
-          # west init/updateで認識された標準の zmk/app パスを使用
           west build -s zmk/app -p \
              -b ${{ matrix.board }} \
              -- -DSHIELD=${{ matrix.shield }}
         
-      # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
+      # 2. ビルド成果物（ファームウェアファイル）をアーカイブ
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
