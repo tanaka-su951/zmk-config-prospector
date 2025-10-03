@@ -52,16 +52,20 @@ jobs:
           echo "Sourcing Zephyr environment..."
           . zephyr/zephyr-env.sh
           
-          # 💥 修正: WEST_EXTENSION_PATH を次のステップのために出力
+          # 💥 修正: WEST_EXTENSION_PATH と PATH を次のステップのために出力
           echo "WEST_EXTENSION_PATH=$PWD/zmk/app" >> $GITHUB_ENV
+          echo "PATH=/usr/local/bin:$PATH" >> $GITHUB_ENV # west が /usr/local/bin にあると仮定
           
-          # west コマンドのパスを次のステップのために出力
-          echo "PATH=/usr/local/bin:$PATH" >> $GITHUB_ENV
-
-      # 2. 💥 修正: ビルドを分離したステップで実行 (すべての環境変数が設定済み)
+      # 2. 💥 最終修正: ビルドを分離したステップで実行 (環境変数が設定済み)
       - name: Build ZMK firmware
         run: |
           echo "Starting west build..."
+          
+          # 💥 修正: west init を実行し、zmk/app の west.yml を使ってワークスペースを強制的に再初期化
+          # これにより、west build が workspace 内で実行されていると認識される
+          echo "Re-initializing west workspace..."
+          west init -l zmk/app
+          
           # 環境変数が設定されている状態でビルドコマンドを実行
           west build -s zmk/app -p \
              -b ${{ matrix.board }} \
