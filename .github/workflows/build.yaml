@@ -60,19 +60,18 @@ jobs:
       - name: Build ZMK firmware
         run: |
           echo "Re-initializing west workspace..."
-          # west init を実行し、zmk/app の west.yml を使ってワークスペースを強制的に再初期化
           west init -l zmk/app
           
-          # 💥 修正: westが指定した通り、作業ディレクトリをzmkに移動
           echo "Changing directory to zmk and running west update..."
           cd zmk
           west update
           
           # ZMKアプリは zmk/app ではなく、ルートの zmk フォルダ内にある
-          echo "Starting west build from zmk directory..."
+          echo "Starting west build from zmk directory with custom overlay..."
           west build -s app -p \
              -b ${{ matrix.board }} \
-             -- -DSHIELD=${{ matrix.shield }}
+             -- -DSHIELD=${{ matrix.shield }} \
+             -DEXTRA_DTC_OVERLAY_FILE=../${{ matrix.shield }}.overlay
         
       # 3. ビルド成果物（ファームウェアファイル）をアーカイブ
       - name: Archive firmware
