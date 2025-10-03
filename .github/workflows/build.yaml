@@ -1,6 +1,4 @@
-# ZMKビルドの最終安定版。ホストOSでチェックアウトを完了させてからDockerコンテナを使用します。
-
-name: Build ZMK Firmware
+name: ZMK Custom Config Build
 
 on:
   push:
@@ -11,38 +9,62 @@ on:
 
 jobs:
   build:
-    # ホストOSでチェックアウトを処理
+    # 標準の Ubuntu ランナーを使用
     runs-on: ubuntu-latest
     
-    # Dockerコンテナを使用
-    container: zmkfirmware/zmk-build-arm:stable
-    
-    strategy:
-      matrix:
-        board: [seeeduino_xiao_ble]
-        shield: [prospector_scanner]
-        
+    # ZMKビルドに必要なツールをインストール
     steps:
-      # 1. リポジトリのチェックアウトとサブモジュールの取得 (ホスト側で実行)
-      #    このステップではコンテナ外で実行し、認証の問題を回避します。
-      - name: Checkout repository and submodules
+      - name: Checkout ZMK Config
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive' # ZMKの依存関係をすべて取得
-
-      # 2. westワークスペース初期化とモジュール更新
-      #    チェックアウト結果がコンテナにマウントされるため、これでOK
-      - name: Update ZMK modules
-        run: west update
-        
-      # 3. ZMKファームウェアのビルド
-      - name: Build ZMK firmware
-        run: west build -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
-
-      # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
-      - name: Archive firmware
+          # サブモジュールを再帰的にチェックアウト
+          fetch-depth: 0
+          
+      # 1. ビルドツールチェインのインストール
+      - name: Install ZMK Build Dependencies
+        run: |
+          sudo apt update
+          # ZMKに必要な基本的な依存関係とツールをインストール
+          sudo apt install -y python3-pip git wget ccache
+          pip install west
+          
+          # Zephyr SDK (v0.17.4) をダウンロードし、インストール (最新のURLと形式を使用)
+          wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.4/zephyr-sdk-0.17.4_linux-x86_64.tar.xz
+          tar xvf zephyr-sdk-0.17.4_linux-x86_64.tar.xz
+          ./zephyr-sdk-0.17.4/setup.sh -t riscv32-zephyr-elf -t arm-zephyr-eabi
+          
+      # 2. westワークスペースの初期化と更新
+      - name: Initialize and Update ZMK Workspace
+        # ルートにあるwest.ymlを使用して、ZMKとそのモジュールを取得
+        run: |
+          west init -l . 
+          west update
+          # ZMKのPython要件を追加でインストール
+          pip install -r zmk/requirements.txt || true 
+          
+      # 3. Zephyr環境変数の設定
+      - name: Source Zephyr Environment
+        # CMakeがSDKとツールチェーンを見つけるための環境変数を設定
+        run: |
+          echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
+          # SDKバージョンに合わせてパスを修正
+          echo "ZEPHYR_SDK_INSTALL_DIR=/home/runner/zephyr-sdk-0.17.4" >> $GITHUB_ENV
+          
+      # 4. ZMK ファームウェアのビルド
+      - name: Build ZMK Firmware
+        # ZMK/app へのパス、ボード名、シールド名を指定
+        run: |
+          west build -s zmk/app -d build \
+            -b seeeduino_xiao_ble \
+            -- -DSHIELD=prospector_scanner \
+            -DZMK_CONFIG=$GITHUB_WORKSPACE
+            
+      # 5. ビルド成果物のアップロード
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: prospector_scanner-seeeduino_xiao_ble
-          # ZMKのビルド結果は通常 zephyr.uf2 になります。
-          path: build/zephyr/zephyr.uf2
+          name: seeeduino_xiao_ble-prospector_scanner
+          # ビルド結果のパス
+          path: build/zephyr/zmk.uf2
+          if-no-files-found: error
+          retention-days: 7
