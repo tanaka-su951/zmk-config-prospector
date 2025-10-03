@@ -1,6 +1,6 @@
-# ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
+# ZMKビルドの最終安定版。パスの問題を無視してGitで依存関係を強制取得します。
 
-name: Build ZMK Firmware (The Final Test)
+name: Build ZMK Firmware
 
 on:
   push:
@@ -13,8 +13,15 @@ on:
 
 jobs:
   build:
-    # ZMKビルド用Dockerコンテナを使用
+    # ワークフロー全体でデフォルトの作業ディレクトリを設定
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+        
+    # ホストOSでチェックアウトを処理
     runs-on: ubuntu-latest
+    
+    # Dockerコンテナを使用
     container: zmkfirmware/zmk-build-arm:stable
     
     strategy:
@@ -23,51 +30,40 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. ユーザー設定リポジトリをチェックアウト
-      # submodules: false にすることで、既存のzmkサブモジュールによる混乱を防ぐ
-      - name: Checkout user configuration (This repo)
+      # 1. 💥 変更: ZMK本体の依存関係を強制クローン (Zephyrの場所も明確化)
+      - name: Force Clone ZMK and Zephyr Dependencies
+        env:
+          ZEPHYR_BASE: ${{ github.workspace }}/zephyr
+        run: |
+          echo "Force cloning ZMK and dependencies..."
+          git clone --depth 1 https://github.com/zmkfirmware/zmk.git
+          git clone --depth 1 https://github.com/zephyrproject-rtos/zephyr.git
+          
+          # west環境を初期化し、残りのモジュールを更新
+          west init -l .
+          west update
+          
+      # 2. 💥 修正: ユーザー設定リポジトリをconfigフォルダにクローン
+      - name: Checkout User Configuration into config/
         uses: actions/checkout@v4
         with:
-          submodules: false
+          repository: tanaka-su951/zmk-config-prospector # 自身のconfigリポジトリを指定
+          path: config # configフォルダにチェックアウト
           
-      # 2. ZMKワークスペースの完全なセットアップとビルド
-      - name: Setup ZMK Workspace and Build
-        shell: bash
+      # 3. 💥 最終ビルド
+      - name: Build ZMK firmware
+        env:
+          ZEPHYR_BASE: ${{ github.workspace }}/zephyr
         run: |
-          echo "Setting up ZMK workspace..."
-          
-          # A. ZMKの公式 west.yml をダウンロード (wgetが動かないためcurlを使用)
-          # ZMKの標準ワークスペース設定を強制的にルートに配置
-          curl -sS https://raw.githubusercontent.com/zmkfirmware/zmk/main/app/west.yml -o west.yml
-          
-          # B. west init/update を実行し、ZephyrとZMK本体をクローン
-          # この時点で、ZMK本体は zmk/ フォルダにクローンされます
-          west init -l .
-          west update --rebase
-          
-          # C. 診断: zmk/app ディレクトリの存在を最終確認
-          echo "Verifying zmk/app directory:"
-          ls -al zmk/app
-          
-          # D. ZMKの標準的な設定方法に対応するため、ユーザー設定ファイルを config フォルダに移動
-          echo "Moving user files to config/..."
-          mkdir -p config
-          
-          # ユーザーリポジトリ内のファイルを config/ に移動
-          # west.yml は ZMK公式のものを残すため移動しない
-          mv *.dts* *.overlay* *.keymap* *.c *.h config/ 2>/dev/null || true
-          
-          # E. Build ZMK firmware
           echo "Starting west build..."
-          # 絶対パスではなく、west init/updateで認識された標準の zmk/app パスを使用
+          # west init/updateで認識された標準の zmk/app パスを使用
           west build -s zmk/app -p \
              -b ${{ matrix.board }} \
              -- -DSHIELD=${{ matrix.shield }}
         
-      # 3. Archive firmware
+      # 4. ビルド成果物（ファームウェアファイル）をアーカイブ
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.shield }}-${{ matrix.board }}
-          # ビルド成果物はルートの 'build' フォルダに出力される
+          name: prospector_scanner-seeeduino_xiao_ble
           path: build/zephyr/zephyr.uf2
