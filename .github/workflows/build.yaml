@@ -91,4 +91,3 @@ jobs:
           name: ${{ matrix.shield }}-${{ matrix.board }}
           # ビルド成果物はルートの 'build' フォルダに出力される
           path: build/zephyr/zephyr.uf2
-```eof
