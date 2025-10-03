@@ -1,6 +1,6 @@
 # ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
 
-name: Build ZMK Firmware (Standard West Build)
+name: Build ZMK Firmware (Path Verification)
 
 on:
   push:
@@ -29,19 +29,22 @@ jobs:
         with:
           submodules: false
           
-      # 2. ZMKワークスペースの完全なセットアップ (BASH SHELL)
+      # 2. ZMKワークスペースの完全なセットアップと診断 (BASH SHELL)
       - name: Setup ZMK Workspace and Update Dependencies (BASH SHELL)
         shell: bash
         run: |
           echo "Setting up ZMK workspace..."
 
-          # A. west init/update を実行し、ZephyrとZMK本体をクローン
-          # ユーザーのwest.ymlがルートにあるため、これがワークスペースになる
+          # A. ZMKの公式 west.yml をダウンロードし、ルートのユーザーのものを上書き
+          # これにより、ユーザーのwest.ymlによる予期せぬパス設定をリセットします。
+          wget https://raw.githubusercontent.com/zmkfirmware/zmk/main/app/west.yml -O west.yml
+          
+          # B. west init/update を実行し、ZephyrとZMK本体をクローン
           west init -l .
           west update --rebase
           
-          # B. 診断: Zephyrディレクトリの存在と内容を確認 (west update成功の確認)
-          echo "Listing Zephyr directory contents:"
+          # C. 診断: Zephyrディレクトリの存在と内容を再確認 (クローン成功の最終確認)
+          echo "Verifying 'zephyr/' directory contents:"
           ls -al zephyr/
           
       # 3. Build ZMK firmware (west buildを使用)
@@ -49,7 +52,7 @@ jobs:
         shell: bash
         run: |
           echo "Starting west build..."
-          # west build は内部で環境変数を処理するはず。手動での 'source' は不要。
+          # west build を実行
           west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
         
       # 4. Archive firmware
