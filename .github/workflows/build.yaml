@@ -1,7 +1,7 @@
-# ZMK ビルドワークフロー (自律型)
-# ZMK Config に必要な全てのファイルと環境変数を手動で設定し、安定性を確保します。
+# ZMK ビルドワークフロー (公式アクション利用版)
+# 環境構築を ZMK 公式に任せ、カスタムビルドを実行します。
 
-name: ZMK Custom Build (Final Self-Contained)
+name: ZMK Custom Build (Official Action)
 
 on:
   push:
@@ -15,13 +15,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
-    # すべての環境変数をここで永続的に設定
-    env:
-      # ZMKとZephyrのルートを定義 (CMake/westが使用)
-      ZEPHYR_BASE: ${{ github.workspace }}/zephyr
-      # westコマンドがZMK拡張を見つけるためのパス
-      WEST_EXTENSION_PATH: ${{ github.workspace }}/zmk/app
 
     steps:
     # 1. リポジトリのチェックアウト
@@ -30,58 +23,27 @@ jobs:
       with:
         fetch-depth: 0
         
-    # 2. 必要なツールと依存関係のインストール
-    - name: Install Dependencies
-      run: |
-        # Pythonとpipをアップグレード
-        pip install --upgrade pip
-        # Zephyrとwestの基本的な依存関係をインストール
-        pip install west cmake
-        pip install pyelftools
+    # 2. ZMK公式ビルドアクションを利用してビルド環境を設定・実行
+    - name: Build ZMK Firmware using official action
+      uses: zmkfirmware/zmk-build-action@main
+      with:
+        # ZMKのカスタムアプリケーションディレクトリを指定
+        # ZMKの公式アクションは、リポジトリルートにあるカスタムファイル群を
+        # 自動で認識し、ZMK/Zephyr環境を構築します。
         
-    # 3. ZMKとZephyrのコアリポジトリの手動クローン
-    - name: Clone ZMK and Zephyr Repositories
-      run: |
-        echo "Cloning ZMK (app source) and Zephyr (OS core)..."
-        git clone https://github.com/zmkfirmware/zmk zmk
-        git clone https://github.com/zephyrproject-rtos/zephyr zephyr
-
-    # 4. ZMKワークスペースの初期化のための west.yml ファイルの準備
-    - name: Copy west.yml Manifest for Init
-      run: |
-        # ZMKのwest initに必要なマニフェストファイルをZephyrからコピー
-        cp zephyr/west.yml zmk/
-
-    # 5. west環境の初期化と依存関係の更新
-    - name: Initialize and Update West Workspace
-      # west init/update を zmk/ ディレクトリ内で実行
-      working-directory: zmk
-      run: |
-        echo "Initializing and updating workspace inside zmk/"
-        # コピーした west.yml を使用してワークスペースを初期化
-        west init -l . 
-        # 依存関係をダウンロード（既にあるものはスキップ）
-        west update
-
-    # 6. ビルド実行
-    - name: Build ZMK Firmware
-      working-directory: zmk
-      run: |
-        echo "Starting west build..."
-        # Zephyr環境設定スクリプトを実行し、ビルドに必要なパスをセット
-        source zephyr/zephyr-env.sh
+        # ターゲットボード
+        board: seeeduino_xiao_ble
+        # ターゲットシールド
+        shield: prospector_scanner
+        # カスタムファイルのディレクトリはリポジトリのルート ('.') であることを指定
+        config_dir: .
         
-        # ZMKのビルドコマンドを実行
-        # -s ../app は、ルートにあるカスタムアプリディレクトリを指定
-        west build -s ../app \
-          -p -b seeeduino_xiao_ble \
-          -- -DSHIELD=prospector_scanner
-
-    # 7. ファームウェア成果物のアップロード
-    - name: Archive artifacts
+    # 3. ビルド成果物のアップロード (アクションが生成したアーティファクトをアップロード)
+    - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: seeeduino_xiao_ble-prospector_scanner
-        path: zmk/build/zephyr/zmk.uf2
+        # 公式アクションの標準出力パスを使用
+        path: zmk-build-output/firmware/seeeduino_xiao_ble/seeeduino_xiao_ble_prospector_scanner.uf2
         if-no-files-found: error
         retention-days: 7
