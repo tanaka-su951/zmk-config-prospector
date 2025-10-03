@@ -1,4 +1,4 @@
-# ZMK# ZMKファームウェア ビルドワークフロー (最も標準的な安定版構成)
+# ZMKファームウェア ビルドワークフロー (最も標準的な安定版構成)
 
 name: Build ZMK Firmware
 
@@ -35,8 +35,8 @@ jobs:
           echo "Setting up ZMK official workspace..."
           
           # 2A. 公式のワークスペース west.yml をダウンロードして初期化
-          # ZMKの推奨するベースワークスペースを使用
-          wget https://raw.githubusercontent.com/zmkfirmware/zmk/main/app/west.yml -O west.yml
+          # wgetをcurlに置き換え (-o で出力ファイルを指定)
+          curl -sS https://raw.githubusercontent.com/zmkfirmware/zmk/main/app/west.yml -o west.yml
           
           # west init を実行し、ZephyrとZMK本体をクローン
           west init -l .
@@ -44,12 +44,11 @@ jobs:
           
           # 2B. ユーザー設定ファイル (現在実行中のリポジトリ) を 'config' フォルダに移動
           # west.yml の self: path: config に対応するため、コンフィグを移動
-          # ただし、今回は west.yml をルートに置いたため、configフォルダを作成しファイルを移動
           mkdir config
-          mv *.dts* *.overlay* *.keymap* west.yml *.c *.h config/ 2>/dev/null || true
+          # あなたのリポジトリ内のファイルを config/ に移動します
+          mv *.dts* *.overlay* *.keymap* *.c *.h config/ 2>/dev/null || true
+          # NOTE: west.yml は ZMK公式のものをダウンロードしてルートに置いているため、移動しません
           
-          # 2C. ユーザー設定を含むwest.ymlをZMKのソースに追加 (既にルートにあるので west update で処理される)
-          # ZMKはあなたのリポジトリを config フォルダとして認識
           
       # 3. Build ZMK firmware
       - name: Build ZMK firmware
