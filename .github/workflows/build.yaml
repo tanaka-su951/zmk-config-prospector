@@ -1,6 +1,6 @@
 # ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
 
-name: Build ZMK Firmware (Final Bash Shell Fix)
+name: Build ZMK Firmware (Workspace Reset & Build)
 
 on:
   push:
@@ -34,37 +34,36 @@ jobs:
         with:
           submodules: false
           
-      # 2. ZMK公式ワークスペースの設定と依存関係の更新 (BASHを使用)
-      - name: Setup ZMK Workspace and Update Dependencies (BASH SHELL)
+      # 2. ZMKワークスペースの完全なセットアップとビルド (BASH SHELL)
+      - name: Setup Workspace, Update Dependencies, and Build
         shell: bash
         run: |
           echo "Setting up ZMK workspace..."
 
           # A. west init/update を実行し、ZephyrとZMK本体をクローン
+          # ZMKのベストプラクティスに従い、ワークスペースをクリーンに初期化
           west init -l .
           west update --rebase
           
           # B. Zephyr環境スクリプトを読み込み (BASHで実行)
+          # west update が成功すれば、このファイルは必ず存在する
           echo "Sourcing Zephyr environment from: $ZEPHYR_BASE/zephyr-env.sh"
           source "$ZEPHYR_BASE/zephyr-env.sh"
           
-      # 3. Build ZMK firmware (cmakeを直接呼び出し、パスを強制注入)
-      - name: Build ZMK firmware
-        run: |
+          # C. Build ZMK firmware (cmakeを直接呼び出し、パスを強制注入)
           echo "Starting CMake build..."
           
           # CMakeを直接呼び出し、Zephyrの設定ファイルパスを強制注入
-          # $ZEPHYR_BASE は環境変数として設定済み
           cmake -B build -S zmk/app \
               -GNinja \
               -DBOARD=${{ matrix.board }} \
               -DSHIELD=${{ matrix.shield }} \
               -DZEPHYR_CMAKE_MODULES=$ZEPHYR_BASE/cmake/modules
               
-          # Ninjaでビルドを実行
+          # D. Ninjaでビルドを実行
           ninja -C build
         
-      # 4. Archive firmware
+      # 3. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
