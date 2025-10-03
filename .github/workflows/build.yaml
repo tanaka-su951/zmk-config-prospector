@@ -1,4 +1,4 @@
-# Final Diagnostic: ZMKビルドの失敗原因を特定します。
+# ZMKファームウェア ビルドワークフロー
 
 name: Build ZMK Firmware
 
@@ -13,12 +13,14 @@ on:
 
 jobs:
   build:
+    # ワークフロー全体でデフォルトの作業ディレクトリを設定 (ルートを指定)
     defaults:
       run:
         working-directory: ${{ github.workspace }}
         
     runs-on: ubuntu-latest
     
+    # ZMKビルド用Dockerコンテナを使用
     container: zmkfirmware/zmk-build-arm:stable
     
     strategy:
@@ -33,26 +35,22 @@ jobs:
         with:
           submodules: true
           
-      # 2. 診断と依存関係の初期化 (統合ステップ)
-      - name: Diagnostic & Initialization (west init/update)
+      # 2. 依存関係の初期化、更新、ビルドの実行（全てを単一のセッションで実行）
+      # west updateが成功すれば、zmk/appフォルダは必ず存在します。
+      - name: Initialize, Update Dependencies, and Build
         run: |
-          echo "--- Diagnostic 1: Files after Checkout ---"
-          ls -aR
-          
-          echo "--- Running west init/update ---"
+          # ワークスペースの初期化と依存関係の更新
+          echo "Running west init and update..."
           west init -l .
           west update --rebase
           
-          echo "--- Diagnostic 2: Files after West Update ---"
-          ls -aR
+          # ZMKファームウェアのビルドを実行
+          echo "Running west build..."
+          west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
           
-      # 3. Build ZMK firmware
-      - name: Build ZMK firmware
-        run: west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
-        
-      # 4. Archive firmware
+      # 3. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
-          name: prospector_scanner-seeeduino_xiao_ble
+          name: ${{ matrix.shield }}-${{ matrix.board }}
           path: build/zephyr/zephyr.uf2
