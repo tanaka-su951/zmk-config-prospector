@@ -28,11 +28,10 @@ jobs:
           sudo apt install -y python3-pip git wget ccache
           pip install west
           
-          # Zephyr SDK (v0.16.0) をダウンロードし、インストール
-          # これがツールチェーン（コンパイラなど）を提供する
-          wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.0/zephyr-sdk-0.16.0_linux-x86_64.tar.gz
-          tar xvf zephyr-sdk-0.16.0_linux-x86_64.tar.gz
-          ./zephyr-sdk-0.16.0/setup.sh -t riscv32-zephyr-elf -t arm-zephyr-eabi
+          # Zephyr SDK (v0.16.1) をダウンロードし、インストール (URL修正済み)
+          wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.1/zephyr-sdk-0.16.1_linux-x86_64.tar.gz
+          tar xvf zephyr-sdk-0.16.1_linux-x86_64.tar.gz
+          ./zephyr-sdk-0.16.1/setup.sh -t riscv32-zephyr-elf -t arm-zephyr-eabi
           
       # 2. westワークスペースの初期化と更新
       - name: Initialize and Update ZMK Workspace
@@ -48,12 +47,12 @@ jobs:
         # CMakeがSDKとツールチェーンを見つけるための環境変数を設定
         run: |
           echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
-          echo "ZEPHYR_SDK_INSTALL_DIR=/home/runner/zephyr-sdk-0.16.0" >> $GITHUB_ENV
+          # SDKバージョンに合わせてパスを修正
+          echo "ZEPHYR_SDK_INSTALL_DIR=/home/runner/zephyr-sdk-0.16.1" >> $GITHUB_ENV
           
       # 4. ZMK ファームウェアのビルド
       - name: Build ZMK Firmware
-        # west updateで取得したZMK/appへのパスを使用
-        # ZMK_CONFIGでカスタム設定ファイル（Bongo Catを含む）の場所を指示
+        # ZMK/app へのパス、ボード名、シールド名を指定
         run: |
           west build -s zmk/app -d build \
             -b seeeduino_xiao_ble \
