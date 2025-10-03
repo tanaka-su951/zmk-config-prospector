@@ -1,6 +1,6 @@
-# ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
+# ZMK# ZMKファームウェア ビルドワークフロー (最も標準的な安定版構成)
 
-name: Build ZMK Firmware (Final Attempt)
+name: Build ZMK Firmware
 
 on:
   push:
@@ -13,14 +13,8 @@ on:
 
 jobs:
   build:
-    # ワークフロー全体でデフォルトの作業ディレクトリを設定 (ルートを指定)
-    defaults:
-      run:
-        working-directory: ${{ github.workspace }}
-        
-    runs-on: ubuntu-latest
-    
     # ZMKビルド用Dockerコンテナを使用
+    runs-on: ubuntu-latest
     container: zmkfirmware/zmk-build-arm:stable
     
     strategy:
@@ -29,49 +23,43 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. ユーザー設定リポジトリのクローン
+      # 1. ユーザー設定リポジトリをチェックアウト
       - name: Checkout user configuration
         uses: actions/checkout@v4
         with:
-          submodules: false # west.ymlに頼らないため
+          submodules: false
           
-      # 2. ZMKとZephyrのソースコードの手動クローンと環境設定
-      - name: Manual ZMK/Zephyr Setup and Build Environment
-        # すべてのコマンドを単一のシェルで実行し、パスの問題を回避
+      # 2. ZMK公式ワークスペースの設定と依存関係の更新
+      - name: Setup ZMK Workspace and Update Dependencies
         run: |
-          # ----------------------------------------------------
-          # A. ZMKとZephyrの依存関係をすべて手動でクローン (west.ymlを無視)
-          # ----------------------------------------------------
+          echo "Setting up ZMK official workspace..."
           
-          # ZMK本体をクローン
-          echo "Cloning ZMK..."
-          git clone https://github.com/zmkfirmware/zmk.git
-          cd zmk
-          # zmk/west.ymlを使って依存関係を更新
+          # 2A. 公式のワークスペース west.yml をダウンロードして初期化
+          # ZMKの推奨するベースワークスペースを使用
+          wget https://raw.githubusercontent.com/zmkfirmware/zmk/main/app/west.yml -O west.yml
+          
+          # west init を実行し、ZephyrとZMK本体をクローン
           west init -l .
           west update --rebase
-          cd ..
           
-          # ----------------------------------------------------
-          # B. ZEPHYR_BASE 環境変数の強制設定
-          # ----------------------------------------------------
+          # 2B. ユーザー設定ファイル (現在実行中のリポジトリ) を 'config' フォルダに移動
+          # west.yml の self: path: config に対応するため、コンフィグを移動
+          # ただし、今回は west.yml をルートに置いたため、configフォルダを作成しファイルを移動
+          mkdir config
+          mv *.dts* *.overlay* *.keymap* west.yml *.c *.h config/ 2>/dev/null || true
           
-          # ZMKの west update により、zephyrは 'zmk/zephyr' にあるはず
-          ZEPHYR_BASE_PATH=$(pwd)/zmk/zephyr
-          echo "ZEPHYR_BASE set to: $ZEPHYR_BASE_PATH"
+          # 2C. ユーザー設定を含むwest.ymlをZMKのソースに追加 (既にルートにあるので west update で処理される)
+          # ZMKはあなたのリポジトリを config フォルダとして認識
           
-          # 後続の west build のために環境変数をエクスポート (重要)
-          echo "ZEPHYR_BASE=$ZEPHYR_BASE_PATH" >> $GITHUB_ENV
-          
-          # ----------------------------------------------------
-          # C. ZMKファームウェアのビルドを実行
-          # ----------------------------------------------------
-          
+      # 3. Build ZMK firmware
+      - name: Build ZMK firmware
+        # ビルドソースを ZMK の公式アプリパスに指定
+        run: |
           echo "Starting west build..."
-          # west build のソースディレクトリを明示的に指定
+          # ZMKビルドの標準的なソースパス
           west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
         
-      # 3. Archive firmware
+      # 4. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
