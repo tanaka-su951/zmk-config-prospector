@@ -1,6 +1,6 @@
 # ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
 
-name: Build ZMK Firmware (Final Final Attempt)
+name: Build ZMK Firmware (The Final Fix)
 
 on:
   push:
@@ -68,7 +68,8 @@ jobs:
           mv *.dts* *.overlay* *.keymap* *.c *.h config/ 2>/dev/null || true
           
           # D. Zephyr環境スクリプトを読み込み (CMakeに必要)
-          source $ZEPHYR_BASE/zephyr-env.sh
+          # source コマンドの代わりにドットコマンドを使用し、シェル互換性の問題を解決
+          . $ZEPHYR_BASE/zephyr-env.sh
           
       # 4. Build ZMK firmware (west build の代わりに cmake を直接呼び出し)
       - name: Build ZMK firmware
