@@ -47,9 +47,9 @@ jobs:
           mv config/* . 2>/dev/null || true
           rm -rf config
           
-          # 💥 ZMKの環境設定を強制的に読み込む (west build コマンドを認識させるため)
-          echo "Sourcing ZMK environment..."
-          . zmk/zmk-env.sh # 修正: source を . に変更
+          # 💥 Zephyrの環境設定を強制的に読み込む
+          echo "Sourcing Zephyr environment..."
+          . zephyr/zephyr-env.sh # 修正: zmk/zmk-env.sh を zephyr/zephyr-env.sh に変更
           
           # ZMKの標準的なビルドコマンドを実行
           echo "Starting west build..."
