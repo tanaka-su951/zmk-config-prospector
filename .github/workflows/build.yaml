@@ -1,6 +1,6 @@
-# ZMKファームウェア ビルドワークフロー
+# ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
 
-name: Build ZMK Firmware
+name: Build ZMK Firmware (Final Attempt)
 
 on:
   push:
@@ -29,37 +29,52 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. リポジトリをチェックアウト
+      # 1. ユーザー設定リポジトリのクローン
       - name: Checkout user configuration
         uses: actions/checkout@v4
         with:
-          submodules: false
+          submodules: false # west.ymlに頼らないため
           
-      # 2. 依存関係の初期化と更新 (クリーンビルド用)
-      - name: Initialize and Update ZMK Dependencies
+      # 2. ZMKとZephyrのソースコードの手動クローンと環境設定
+      - name: Manual ZMK/Zephyr Setup and Build Environment
+        # すべてのコマンドを単一のシェルで実行し、パスの問題を回避
         run: |
-          # 過去の汚染を避けるため、不要なファイルを削除します。
-          # rm -rf zephyr zmk modules tools bootloader
+          # ----------------------------------------------------
+          # A. ZMKとZephyrの依存関係をすべて手動でクローン (west.ymlを無視)
+          # ----------------------------------------------------
           
-          echo "Running west init and update..."
-          # west.ymlはルートにあることが前提
+          # ZMK本体をクローン
+          echo "Cloning ZMK..."
+          git clone https://github.com/zmkfirmware/zmk.git
+          cd zmk
+          # zmk/west.ymlを使って依存関係を更新
           west init -l .
           west update --rebase
+          cd ..
           
-      # 3. Build ZMK firmware
-      - name: Build ZMK firmware
-        # ビルド前に作業ディレクトリを強制的にルートにリセット
-        run: |
-          echo "Forcing directory change to root before build..."
-          # west init/update でパスが変わった可能性をリセット
-          cd ${{ github.workspace }}
+          # ----------------------------------------------------
+          # B. ZEPHYR_BASE 環境変数の強制設定
+          # ----------------------------------------------------
           
-          # ビルドを実行 (ソースは zmk/app)
+          # ZMKの west update により、zephyrは 'zmk/zephyr' にあるはず
+          ZEPHYR_BASE_PATH=$(pwd)/zmk/zephyr
+          echo "ZEPHYR_BASE set to: $ZEPHYR_BASE_PATH"
+          
+          # 後続の west build のために環境変数をエクスポート (重要)
+          echo "ZEPHYR_BASE=$ZEPHYR_BASE_PATH" >> $GITHUB_ENV
+          
+          # ----------------------------------------------------
+          # C. ZMKファームウェアのビルドを実行
+          # ----------------------------------------------------
+          
+          echo "Starting west build..."
+          # west build のソースディレクトリを明示的に指定
           west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
         
-      # 4. Archive firmware
+      # 3. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.shield }}-${{ matrix.board }}
+          # ビルド成果物はルートの 'build' フォルダに出力される
           path: build/zephyr/zephyr.uf2
