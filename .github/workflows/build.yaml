@@ -53,9 +53,13 @@ jobs:
           echo "Sourcing Zephyr environment..."
           . zephyr/zephyr-env.sh
           
-          # 💥 修正: Zephyr環境読み込み後にWEST_EXTENSION_PATHを再設定する
+          # WEST_EXTENSION_PATHを再設定する (Zephyr env.shでリセットされるため)
           echo "Re-setting ZMK west extension path..."
           export WEST_EXTENSION_PATH=$PWD/zmk/app
+          
+          # 💥 最終修正: west コマンドが存在するパスを PATH に追加
+          echo "Forcing west command into PATH..."
+          export PATH="/usr/local/bin:$PATH"
           
           # ZMKの標準的なビルドコマンドを実行
           echo "Starting west build..."
