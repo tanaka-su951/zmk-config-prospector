@@ -33,25 +33,24 @@ jobs:
         with:
           submodules: true
           
-      # 2. 診断: Checkout直後のファイル構造を確認
-      - name: Diagnostic Check: Files after Submodule Checkout
-        run: ls -aR
-          
-      # 3. Initialize and Update ZMK Dependencies
-      - name: Initialize and Update ZMK Dependencies
+      # 2. 診断と依存関係の初期化 (統合ステップ)
+      - name: Diagnostic & Initialization (west init/update)
         run: |
+          echo "--- Diagnostic 1: Files after Checkout ---"
+          ls -aR
+          
+          echo "--- Running west init/update ---"
           west init -l .
           west update --rebase
           
-      # 4. 診断: west update直後のファイル構造を確認 (zmk/appの存在確認)
-      - name: Diagnostic Check: Files after West Update
-        run: ls -aR
+          echo "--- Diagnostic 2: Files after West Update ---"
+          ls -aR
           
-      # 5. Build ZMK firmware
+      # 3. Build ZMK firmware
       - name: Build ZMK firmware
         run: west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
         
-      # 6. Archive firmware
+      # 4. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
