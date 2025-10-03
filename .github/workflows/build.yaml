@@ -1,6 +1,5 @@
 # ZMKの標準的な外部ビルドワークフローを使用します。
 # ワークフロー参照先を、ZMKが推奨する最新の 'zmk-config' リポジトリに変更しました。
-# ZMKの推奨形式: <owner>/<repo>@<branch>
 
 name: Build ZMK Firmware
 
@@ -16,5 +15,5 @@ on:
 jobs:
   build:
     # ZMKの外部ワークフローを呼び出す
-    # 最新かつ最もシンプルな形式: リポジトリのルートを参照
-    uses: zmkfirmware/zmk-config@main
+    # ZMKが推奨する最新かつ正しいパス: zmkfirmware/zmk-config/.github/workflows/build-config.yml@main
+    uses: zmkfirmware/zmk-config/.github/workflows/build-config.yml@main
