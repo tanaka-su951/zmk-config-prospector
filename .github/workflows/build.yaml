@@ -1,4 +1,4 @@
-# ZMKビルドの最終安定版。west init/updateを排除し、手動で依存関係を強制取得します。
+# ZMKビルドの最終安定版。環境変数の設定とビルドを分離し、Docker環境の問題を回避します。
 
 name: Build ZMK Firmware
 
@@ -13,14 +13,12 @@ on:
 
 jobs:
   build:
-    # ワークフロー全体でデフォルトの作業ディレクトリを設定
+    # ワークフロー全体でデフォルトの作業ディレクトリとシェルを設定
     defaults:
       run:
         working-directory: ${{ github.workspace }}
-        # 💥 修正: デフォルトのシェルを 'bash' に強制変更
         shell: bash
         
-    # ホストOSでチェックアウトを処理
     runs-on: ubuntu-latest
     
     # Dockerコンテナを使用
@@ -32,42 +30,44 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. 💥 修正: 必要なすべてのリポジトリを強制クローンと環境設定
-      - name: Force Clone ZMK, Zephyr, and Setup Environment
+      # 1. 依存関係のクローンと環境変数の設定
+      - name: Clone Dependencies and Setup Environment
         env:
+          # ZEPHYR_BASE を次のステップのために環境変数として設定
           ZEPHYR_BASE: ${{ github.workspace }}/zephyr
         run: |
           echo "Force cloning ZMK and dependencies..."
           
-          # ZMK/Zephyr/User Configを直接クローン
+          # 必要なリポジトリを直接クローン
           git clone --depth 1 https://github.com/zmkfirmware/zmk.git
           git clone --depth 1 https://github.com/zephyrproject-rtos/zephyr.git
-          git clone --depth 1 https://github.com/tanaka-su951/zmk-config-prospector.git config # 自身のconfigリポジトリをconfigフォルダにクローン
+          git clone --depth 1 https://github.com/tanaka-su951/zmk-config-prospector.git config
           
-          # ユーザー設定ファイルをzmk/appの横に配置（config/の内容をルートに移動）
+          # ユーザー設定ファイルをzmk/appの横に配置
           echo "Moving user files to root for build context..."
           mv config/* . 2>/dev/null || true
           rm -rf config
           
-          # Zephyrの環境設定を強制的に読み込む
+          # Zephyrの環境設定を読み込む（主にPATHを更新）
           echo "Sourcing Zephyr environment..."
           . zephyr/zephyr-env.sh
           
-          # WEST_EXTENSION_PATHを再設定する (Zephyr env.shでリセットされるため)
-          echo "Re-setting ZMK west extension path..."
-          export WEST_EXTENSION_PATH=$PWD/zmk/app
+          # 💥 修正: WEST_EXTENSION_PATH を次のステップのために出力
+          echo "WEST_EXTENSION_PATH=$PWD/zmk/app" >> $GITHUB_ENV
           
-          # 💥 最終修正: west コマンドが存在するパスを PATH に追加
-          echo "Forcing west command into PATH..."
-          export PATH="/usr/local/bin:$PATH"
-          
-          # ZMKの標準的なビルドコマンドを実行
+          # west コマンドのパスを次のステップのために出力
+          echo "PATH=/usr/local/bin:$PATH" >> $GITHUB_ENV
+
+      # 2. 💥 修正: ビルドを分離したステップで実行 (すべての環境変数が設定済み)
+      - name: Build ZMK firmware
+        run: |
           echo "Starting west build..."
+          # 環境変数が設定されている状態でビルドコマンドを実行
           west build -s zmk/app -p \
              -b ${{ matrix.board }} \
              -- -DSHIELD=${{ matrix.shield }}
         
-      # 2. ビルド成果物（ファームウェアファイル）をアーカイブ
+      # 3. ビルド成果物（ファームウェアファイル）をアーカイブ
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
