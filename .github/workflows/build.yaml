@@ -1,4 +1,7 @@
-# ZMKビルドの最終安定版。環境変数の設定とビルドを分離し、Docker環境の問題を回避します。
+# ZMKの標準的な外部ビルドワークフローを使用
+# ZMKリポジトリのワークフローパスを最新版 (build-config.yml) に修正しました。
+# このファイルは、リポジトリのルートに ZMK の依存関係を設定するための
+# west.yml, app/, CMakeLists.txt などが存在することを前提とします。
 
 name: Build ZMK Firmware
 
@@ -13,70 +16,6 @@ on:
 
 jobs:
   build:
-    # ワークフロー全体でデフォルトの作業ディレクトリとシェルを設定
-    defaults:
-      run:
-        working-directory: ${{ github.workspace }}
-        shell: bash
-        
-    runs-on: ubuntu-latest
-    
-    # Dockerコンテナを使用
-    container: zmkfirmware/zmk-build-arm:stable
-    
-    strategy:
-      matrix:
-        board: [seeeduino_xiao_ble]
-        shield: [prospector_scanner]
-        
-    steps:
-      # 1. 依存関係のクローンと環境変数の設定
-      - name: Clone Dependencies and Setup Environment
-        env:
-          # ZEPHYR_BASE を次のステップのために環境変数として設定
-          ZEPHYR_BASE: ${{ github.workspace }}/zephyr
-        run: |
-          echo "Force cloning ZMK and dependencies..."
-          
-          # 必要なリポジトリを直接クローン
-          git clone --depth 1 https://github.com/zmkfirmware/zmk.git
-          git clone --depth 1 https://github.com/zephyrproject-rtos/zephyr.git
-          git clone --depth 1 https://github.com/tanaka-su951/zmk-config-prospector.git config
-          
-          # ユーザー設定ファイルをzmk/appの横に配置
-          echo "Moving user files to root for build context..."
-          mv config/* . 2>/dev/null || true
-          rm -rf config
-          
-          # Zephyrの環境設定を読み込む（主にPATHを更新）
-          echo "Sourcing Zephyr environment..."
-          . zephyr/zephyr-env.sh
-          
-          # 💥 修正: WEST_EXTENSION_PATH と PATH を次のステップのために出力
-          echo "WEST_EXTENSION_PATH=$PWD/zmk/app" >> $GITHUB_ENV
-          echo "PATH=/usr/local/bin:$PATH" >> $GITHUB_ENV # west が /usr/local/bin にあると仮定
-          
-      # 2. 💥 最終修正: ビルドを分離したステップで実行 (環境変数が設定済み)
-      - name: Build ZMK firmware
-        run: |
-          echo "Re-initializing west workspace..."
-          west init -l zmk/app
-          
-          echo "Changing directory to zmk and running west update..."
-          cd zmk
-          west update
-          
-          # ZMKアプリは zmk/app ではなく、ルートの zmk フォルダ内にある
-          echo "Starting west build from zmk directory with custom overlay..."
-          west build -s app -p \
-             -b ${{ matrix.board }} \
-             -- -DSHIELD=${{ matrix.shield }} \
-             -DEXTRA_DTC_OVERLAY_FILE=../${{ matrix.shield }}.overlay
-        
-      # 3. ビルド成果物（ファームウェアファイル）をアーカイブ
-      - name: Archive firmware
-        uses: actions/upload-artifact@v4
-        with:
-          name: prospector_scanner-seeeduino_xiao_ble
-          # ビルド成果物は zmk/build/zephyr/zephyr.uf2 に生成される
-          path: zmk/build/zephyr/zephyr.uf2
+    # ZMKの外部ワークフローを呼び出す
+    # パスを 'build-user-config.yml' から 'build-config.yml' に修正
+    uses: zmkfirmware/zmk/.github/workflows/build-config.yml@main
