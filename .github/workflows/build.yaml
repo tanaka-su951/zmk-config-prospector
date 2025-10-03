@@ -1,6 +1,6 @@
-# ZMKファームウェア ビルドワークフロー (初期化コマンドを強制的に再実行)
+# ZMKファームウェア ビルドワークフロー (環境に依存しない単一ステップ構成)
 
-name: Build ZMK Firmware (Forced Init)
+name: Build ZMK Firmware (Integrated Single Step)
 
 on:
   push:
@@ -28,43 +28,31 @@ jobs:
         
     steps:
       # 1. ユーザー設定リポジトリをチェックアウト
+      # サブモジュールをクローンし、west.ymlとconfigフォルダをルートに配置
       - name: Checkout user configuration and ZMK submodules
         uses: actions/checkout@v4
         with:
           submodules: true
           
-      # 2. Setup Configuration Files & Forced Workspace Init
-      - name: Setup Configuration Files & Forced Workspace Init
+      # 2. Workspace Initialization and Build (すべてを一つのシェルセッションで実行)
+      - name: Initialize, Update, and Build
         run: |
-          echo "Setting up configuration directory..."
-          
-          # A. ユーザー設定ファイル (.dts, .keymapなど) を'config'フォルダに移動
-          mkdir -p config
-          
-          # .githubフォルダと.gitフォルダ以外を移動
-          find . -maxdepth 1 -not -name 'config' -not -name '.git' -not -name '.github' -exec mv {} config/ \; 2>/dev/null || true
-          
-          # B. configフォルダに移動
-          cd config
-          
           echo "Forcing workspace initialization and update..."
-          # C. 壊れたワークスペースを修復するため、west init/updateを再実行
-          # west.ymlはサブモジュールとして取得されていることを想定
+          
+          # ワークスペース初期化と依存関係更新を強制実行
+          # west.ymlがルートにあることが前提
           west init -l .
           west update --rebase
           
-      # 3. Build ZMK firmware (west build を config ディレクトリ内で実行)
-      - name: Build ZMK firmware
-        working-directory: config
-        run: |
-          echo "Starting west build..."
-          # west init/updateが成功した前提でビルドを実行
+          echo "Starting west build for ${{ matrix.shield }} on ${{ matrix.board }}"
+          # west build を実行 (ソースは zmk/app)
+          # west init/update が成功すれば zmk/app は存在します
           west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
           
-      # 4. Archive firmware
+      # 3. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.shield }}-${{ matrix.board }}
-          # ビルド成果物は 'config/build/zephyr/zephyr.uf2' に出力される
-          path: config/build/zephyr/zephyr.uf2
+          # ビルド成果物はルートの 'build/zephyr/zephyr.uf2' に出力されます
+          path: build/zephyr/zephyr.uf2
