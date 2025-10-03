@@ -17,6 +17,8 @@ jobs:
     defaults:
       run:
         working-directory: ${{ github.workspace }}
+        # 💥 修正: デフォルトのシェルを 'bash' に強制変更
+        shell: bash
         
     # ホストOSでチェックアウトを処理
     runs-on: ubuntu-latest
@@ -49,7 +51,7 @@ jobs:
           
           # 💥 Zephyrの環境設定を強制的に読み込む
           echo "Sourcing Zephyr environment..."
-          . zephyr/zephyr-env.sh # 修正: zmk/zmk-env.sh を zephyr/zephyr-env.sh に変更
+          . zephyr/zephyr-env.sh
           
           # ZMKの標準的なビルドコマンドを実行
           echo "Starting west build..."
