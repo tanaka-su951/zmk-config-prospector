@@ -30,8 +30,8 @@ jobs:
         shield: [prospector_scanner]
         
     steps:
-      # 1. 💥 修正: 必要なすべてのリポジトリを強制クローン (west init/updateを回避)
-      - name: Force Clone ZMK, Zephyr, and User Configuration
+      # 1. 💥 修正: 必要なすべてのリポジトリを強制クローンと環境設定
+      - name: Force Clone ZMK, Zephyr, and Setup Environment
         env:
           ZEPHYR_BASE: ${{ github.workspace }}/zephyr
         run: |
@@ -45,7 +45,11 @@ jobs:
           # ユーザー設定ファイルをzmk/appの横に配置（config/の内容をルートに移動）
           echo "Moving user files to root for build context..."
           mv config/* . 2>/dev/null || true
-          rm -rf config # configフォルダは空になったので削除
+          rm -rf config
+          
+          # 💥 ZMKの環境設定を強制的に読み込む (west build コマンドを認識させるため)
+          echo "Sourcing ZMK environment..."
+          source zmk/zmk-env.sh
           
           # ZMKの標準的なビルドコマンドを実行
           echo "Starting west build..."
