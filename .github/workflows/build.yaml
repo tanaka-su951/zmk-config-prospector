@@ -1,6 +1,6 @@
-# ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
+# ZMKファームウェア ビルドワークフロー (ZMK公式の安定構成)
 
-name: Build ZMK Firmware (The Final Fix)
+name: Build ZMK Firmware (Standard ZMK Setup)
 
 on:
   push:
@@ -19,8 +19,8 @@ jobs:
     
     # 環境変数をすべてのステップで設定
     env:
-      # ZMK Dockerコンテナに依存
-      ZEPHYR_BASE: /opt/zmk/zephyr
+      # ZMK Dockerコンテナは自動的にZMK_APP_DIRを認識します
+      APP_DIR: ${{ github.workspace }}
       
     strategy:
       matrix:
@@ -29,66 +29,40 @@ jobs:
         
     steps:
       # 1. ユーザー設定リポジトリをチェックアウト
-      - name: Checkout user configuration (This repo)
+      # submodules: true に戻すことで、ZMKとZephyrの依存関係をすべてホストOS側で処理
+      - name: Checkout user configuration and ZMK submodules
         uses: actions/checkout@v4
         with:
-          path: user-config # ユーザー設定ファイルを 'user-config' フォルダにチェックアウト
-          submodules: false
+          submodules: true
           
-      # 2. ZMK本体リポジトリをチェックアウトし、west.ymlを取得
-      - name: Get ZMK's official west.yml
-        uses: actions/checkout@v4
-        with:
-          repository: zmkfirmware/zmk
-          path: zmk-source # ZMKリポジトリを 'zmk-source' フォルダにチェックアウト
-          
-      # 3. ZMK公式ワークスペースの設定と依存関係の更新
-      - name: Setup ZMK Workspace and Update Dependencies
+      # 2. west init/update は不要。Dockerが自動的に環境を設定するため、configを移動するだけ。
+      - name: Setup Configuration Files
         run: |
-          echo "Setting up ZMK workspace..."
-          
-          # A. ZMKの公式 west.yml をルートにコピー (ダウンロードコマンドを回避)
-          cp zmk-source/app/west.yml .
-          rm -rf zmk-source # 不要になったフォルダを削除
-
-          # B. west init を実行 (ZephyrとZMK本体をクローン)
-          west init -l .
-          west update --rebase
-          
-          # C. ユーザー設定ファイル (user-configフォルダ内のもの) を'config'フォルダに移動
           echo "Moving user files to config/..."
           
-          # ユーザー設定リポジトリの内容をルートに移動
-          mv user-config/* . 2>/dev/null || true
-          rm -rf user-config # 不要になったフォルダを削除
-          
-          # ユーザーの west.yml に記載の self: path: config に対応するため、
-          # ビルド関連ファイルを config フォルダに移動
+          # ユーザー設定ファイル (.dts, .keymapなど) を'config'フォルダに移動
+          # ZMKの推奨構成では、このリポジトリ全体がconfigとして扱われます。
+          # すべてのビルドファイルを 'config' フォルダ内に移動させます。
           mkdir -p config
-          mv *.dts* *.overlay* *.keymap* *.c *.h config/ 2>/dev/null || true
+          mv *.dts* *.overlay* *.keymap* west.yml *.c *.h config/ 2>/dev/null || true
           
-          # D. Zephyr環境スクリプトを読み込み (CMakeに必要)
-          # source コマンドの代わりにドットコマンドを使用し、シェル互換性の問題を解決
-          . $ZEPHYR_BASE/zephyr-env.sh
+          # ZMKのビルドシステムは、config/zmk/appにあるCMakeLists.txtを探すため、
+          # config/ を作業ディレクトリにしてビルドします。
+          cd config
           
-      # 4. Build ZMK firmware (west build の代わりに cmake を直接呼び出し)
+      # 3. Build ZMK firmware (west build を config ディレクトリ内で実行)
       - name: Build ZMK firmware
+        working-directory: config
         run: |
-          echo "Starting CMake build..."
+          echo "Starting west build..."
+          # west init や west update は Docker イメージのエントリポイントで既に実行済みと仮定
+          # config フォルダをソースとしてビルド
+          west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
           
-          # CMakeを直接呼び出し、ビルドに必要なすべてのパスと設定を渡す
-          cmake -B build -S zmk/app \
-              -GNinja \
-              -DBOARD=${{ matrix.board }} \
-              -DSHIELD=${{ matrix.shield }}
-              
-          # Ninjaでビルドを実行
-          ninja -C build
-        
-      # 5. Archive firmware
+      # 4. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.shield }}-${{ matrix.board }}
-          # ビルド成果物はルートの 'build' フォルダに出力される
-          path: build/zephyr/zephyr.uf2
+          # ビルド成果物は 'config/build/zephyr/zephyr.uf2' に出力される
+          path: config/build/zephyr/zephyr.uf2
