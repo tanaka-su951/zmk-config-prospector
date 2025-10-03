@@ -29,13 +29,13 @@ jobs:
         
     steps:
       # 1. ユーザー設定リポジトリをチェックアウト
-      # submodules: true に戻すことで、ZMKとZephyrの依存関係をすべてホストOS側で処理
+      # ZMKとZephyrのサブモジュールをホストOS側でクローン
       - name: Checkout user configuration and ZMK submodules
         uses: actions/checkout@v4
         with:
           submodules: true
           
-      # 2. west init/update は不要。Dockerが自動的に環境を設定するため、configを移動するだけ。
+      # 2. Setup Configuration Files
       - name: Setup Configuration Files
         run: |
           echo "Moving user files to config/..."
@@ -44,10 +44,11 @@ jobs:
           # ZMKの推奨構成では、このリポジトリ全体がconfigとして扱われます。
           # すべてのビルドファイルを 'config' フォルダ内に移動させます。
           mkdir -p config
-          mv *.dts* *.overlay* *.keymap* west.yml *.c *.h config/ 2>/dev/null || true
           
-          # ZMKのビルドシステムは、config/zmk/appにあるCMakeLists.txtを探すため、
-          # config/ を作業ディレクトリにしてビルドします。
+          # .githubフォルダと.gitフォルダ以外を移動
+          find . -maxdepth 1 -not -name 'config' -not -name '.git' -not -name '.github' -exec mv {} config/ \; 2>/dev/null || true
+          
+          # configフォルダに移動し、そこでビルドを実行
           cd config
           
       # 3. Build ZMK firmware (west build を config ディレクトリ内で実行)
@@ -57,6 +58,7 @@ jobs:
           echo "Starting west build..."
           # west init や west update は Docker イメージのエントリポイントで既に実行済みと仮定
           # config フォルダをソースとしてビルド
+          # -s zmk/app は、west.ymlで定義されたZMKのソースディレクトリを指定
           west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
           
       # 4. Archive firmware
