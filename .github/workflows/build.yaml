@@ -1,6 +1,6 @@
-# ZMKファームウェア ビルドワークフロー (ZMK公式の安定構成)
+# ZMKファームウェア ビルドワークフロー (初期化コマンドを強制的に再実行)
 
-name: Build ZMK Firmware (Standard ZMK Setup)
+name: Build ZMK Firmware (Forced Init)
 
 on:
   push:
@@ -19,7 +19,6 @@ jobs:
     
     # 環境変数をすべてのステップで設定
     env:
-      # ZMK Dockerコンテナは自動的にZMK_APP_DIRを認識します
       APP_DIR: ${{ github.workspace }}
       
     strategy:
@@ -29,36 +28,37 @@ jobs:
         
     steps:
       # 1. ユーザー設定リポジトリをチェックアウト
-      # ZMKとZephyrのサブモジュールをホストOS側でクローン
       - name: Checkout user configuration and ZMK submodules
         uses: actions/checkout@v4
         with:
           submodules: true
           
-      # 2. Setup Configuration Files
-      - name: Setup Configuration Files
+      # 2. Setup Configuration Files & Forced Workspace Init
+      - name: Setup Configuration Files & Forced Workspace Init
         run: |
-          echo "Moving user files to config/..."
+          echo "Setting up configuration directory..."
           
-          # ユーザー設定ファイル (.dts, .keymapなど) を'config'フォルダに移動
-          # ZMKの推奨構成では、このリポジトリ全体がconfigとして扱われます。
-          # すべてのビルドファイルを 'config' フォルダ内に移動させます。
+          # A. ユーザー設定ファイル (.dts, .keymapなど) を'config'フォルダに移動
           mkdir -p config
           
           # .githubフォルダと.gitフォルダ以外を移動
           find . -maxdepth 1 -not -name 'config' -not -name '.git' -not -name '.github' -exec mv {} config/ \; 2>/dev/null || true
           
-          # configフォルダに移動し、そこでビルドを実行
+          # B. configフォルダに移動
           cd config
+          
+          echo "Forcing workspace initialization and update..."
+          # C. 壊れたワークスペースを修復するため、west init/updateを再実行
+          # west.ymlはサブモジュールとして取得されていることを想定
+          west init -l .
+          west update --rebase
           
       # 3. Build ZMK firmware (west build を config ディレクトリ内で実行)
       - name: Build ZMK firmware
         working-directory: config
         run: |
           echo "Starting west build..."
-          # west init や west update は Docker イメージのエントリポイントで既に実行済みと仮定
-          # config フォルダをソースとしてビルド
-          # -s zmk/app は、west.ymlで定義されたZMKのソースディレクトリを指定
+          # west init/updateが成功した前提でビルドを実行
           west build -s zmk/app -p -b ${{ matrix.board }} -- -DSHIELD=${{ matrix.shield }}
           
       # 4. Archive firmware
