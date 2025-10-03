@@ -1,6 +1,6 @@
- # ZMKファームウェア ビルドワークフロー (CMakeによる強制ビルド)
+# ZMKファームウェア ビルドワークフロー (環境の不安定性を回避する最終版)
 
-name: Build ZMK Firmware
+name: Build ZMK Firmware (Final Final Attempt)
 
 on:
   push:
@@ -17,47 +17,60 @@ jobs:
     runs-on: ubuntu-latest
     container: zmkfirmware/zmk-build-arm:stable
     
-    strategy:
-      matrix:
-        board: [seeeduino_xiao_ble]
-        shield: [prospector_scanner]
-        
     # 環境変数をすべてのステップで設定
     env:
       # ZMK Dockerコンテナに依存
       ZEPHYR_BASE: /opt/zmk/zephyr
       
+    strategy:
+      matrix:
+        board: [seeeduino_xiao_ble]
+        shield: [prospector_scanner]
+        
     steps:
       # 1. ユーザー設定リポジトリをチェックアウト
-      - name: Checkout user configuration
+      - name: Checkout user configuration (This repo)
         uses: actions/checkout@v4
         with:
+          path: user-config # ユーザー設定ファイルを 'user-config' フォルダにチェックアウト
           submodules: false
           
-      # 2. ZMK公式ワークスペースの設定と依存関係の更新
-      # west update を実行する前に、環境をセットアップ
+      # 2. ZMK本体リポジトリをチェックアウトし、west.ymlを取得
+      - name: Get ZMK's official west.yml
+        uses: actions/checkout@v4
+        with:
+          repository: zmkfirmware/zmk
+          path: zmk-source # ZMKリポジトリを 'zmk-source' フォルダにチェックアウト
+          
+      # 3. ZMK公式ワークスペースの設定と依存関係の更新
       - name: Setup ZMK Workspace and Update Dependencies
-        # すべてのコマンドを同じシェルで実行
         run: |
           echo "Setting up ZMK workspace..."
           
-          # ZMKの標準的なwest.ymlをルートに配置
-          wget https://raw.githubusercontent.com/zmkfirmware/zmk/main/app/west.yml -O west.yml 
-          
-          # west init を実行 (ZephyrとZMK本体をクローン)
+          # A. ZMKの公式 west.yml をルートにコピー (ダウンロードコマンドを回避)
+          cp zmk-source/app/west.yml .
+          rm -rf zmk-source # 不要になったフォルダを削除
+
+          # B. west init を実行 (ZephyrとZMK本体をクローン)
           west init -l .
           west update --rebase
           
-          # ユーザー設定ファイル (.dts, .keymapなど) を'config'フォルダに移動
+          # C. ユーザー設定ファイル (user-configフォルダ内のもの) を'config'フォルダに移動
           echo "Moving user files to config/..."
+          
+          # ユーザー設定リポジトリの内容をルートに移動
+          mv user-config/* . 2>/dev/null || true
+          rm -rf user-config # 不要になったフォルダを削除
+          
+          # ユーザーの west.yml に記載の self: path: config に対応するため、
+          # ビルド関連ファイルを config フォルダに移動
           mkdir -p config
-          # あなたのリポジトリ内のファイルを config/ に移動します
           mv *.dts* *.overlay* *.keymap* *.c *.h config/ 2>/dev/null || true
           
-          # Zephyr環境スクリプトを読み込み (CMakeに必要)
+          # D. Zephyr環境スクリプトを読み込み (CMakeに必要)
           source $ZEPHYR_BASE/zephyr-env.sh
           
-      # 3. Build ZMK firmware (west build の代わりに cmake を直接呼び出し)
+      # 4. Build ZMK firmware (west build の代わりに cmake を直接呼び出し)
       - name: Build ZMK firmware
         run: |
           echo "Starting CMake build..."
@@ -71,11 +84,11 @@ jobs:
           # Ninjaでビルドを実行
           ninja -C build
         
-      # 4. Archive firmware
+      # 5. Archive firmware
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.shield }}-${{ matrix.board }}
           # ビルド成果物はルートの 'build' フォルダに出力される
           path: build/zephyr/zephyr.uf2
-
+```eof
