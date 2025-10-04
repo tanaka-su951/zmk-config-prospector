@@ -2,10 +2,10 @@ name: ZMK Custom Config Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ] # メインブランチにマージされたときに実行されます
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch: # 手動実行を許可します
 
 jobs:
   build:
@@ -14,12 +14,24 @@ jobs:
     
     # ZMKビルドに必要なツールをインストール
     steps:
-      - name: Checkout ZMK Config
+      - name: Checkout ZMK Config and Submodules
         uses: actions/checkout@v4
         with:
           # サブモジュールを再帰的にチェックアウト
           fetch-depth: 0
+          submodules: recursive
           
+      # 【重要追加ステップ】サブモジュールを強制的に初期化・更新
+      - name: Force Git Submodule Initialization
+        run: |
+          echo "Forcing submodule update..."
+          git submodule update --init --recursive
+          
+          # 【診断ステップ】zmk/app ディレクトリが本当に存在するか確認
+          echo "--- Diagnostic: Listing zmk/app contents ---"
+          ls -l zmk/app
+          echo "--------------------------------------------"
+
       # 1. ビルドツールチェインのインストール
       - name: Install ZMK Build Dependencies
         run: |
@@ -32,7 +44,8 @@ jobs:
           # ファイル形式は tar.xz です。
           wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.4/zephyr-sdk-0.17.4_linux-x86_64.tar.xz
           tar xvf zephyr-sdk-0.17.4_linux-x86_64.tar.xz
-          ./zephyr-sdk-0.17.4/setup.sh -t riscv32-zephyr-elf -t arm-zephyr-eabi
+          # ARMツールチェーンのみをインストール
+          ./zephyr-sdk-0.17.4/setup.sh -t arm-zephyr-eabi
           
       # 2. westワークスペースの初期化と更新
       - name: Initialize and Update ZMK Workspace
