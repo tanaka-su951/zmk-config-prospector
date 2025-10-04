@@ -1,18 +1,77 @@
-Run echo "--- DEBUG: Force Git Submodule Init ---"
-  echo "--- DEBUG: Force Git Submodule Init ---"
-  # 破損したZMKフォルダをクリーンアップし、再取得を強制する
-  if [ -d "zmk" ]; then rm -rf zmk; fi
-  
-  # サブモジュールを初期化し、クローンする
-  git submodule update --init --recursive --force
-  
-  if [ ! -d "zmk/app" ]; then
-    echo "FATAL: ZMK/APP is still missing after forced Git update."
-    # ビルドの続行を不可能にするためエラーコード1を返す
-    exit 1 
-  fi
-  echo "ZMK submodule check successful."
-  shell: /usr/bin/bash -e {0}
---- DEBUG: Force Git Submodule Init ---
-FATAL: ZMK/APP is still missing after forced Git update.
-Error: Process completed with exit code 1.
+name: ZMK Custom Config Build
+
+on:
+  push:
+    branches: [ main ] # メインブランチにマージされたときに実行されます
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: # 手動実行を許可します
+
+jobs:
+  build:
+    # 標準の Ubuntu ランナーを使用
+    runs-on: ubuntu-latest
+    
+    # ZMKビルドに必要なツールをインストール
+    steps:
+      - name: Checkout ZMK Config (No Submodules)
+        uses: actions/checkout@v4
+        with:
+          # 【重要】Gitアクションによるサブモジュール処理は完全に停止する
+          fetch-depth: 0
+          submodules: false # Gitサブモジュールに依存しない
+
+      # 1. ビルドツールチェインのインストール
+      - name: Install ZMK Build Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y python3-pip git wget ccache
+          pip install west
+          
+          # Zephyr SDK (v0.17.4) をダウンロードし、インストール
+          wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.4/zephyr-sdk-0.17.4_linux-x86_64.tar.xz
+          tar xvf zephyr-sdk-0.17.4_linux-x86_64.tar.xz
+          ./zephyr-sdk-0.17.4/setup.sh -t arm-zephyr-eabi
+          
+      # 2. westワークスペースの初期化と更新 (ZMKコアの取得も含む)
+      - name: Initialize and Update ZMK Workspace (Core Clone)
+        run: |
+          # 【重要修正】westにZMKコアを含めた全依存関係のクローンを任せる
+          west init -l . 
+          west update
+          
+          # ZMK/app が存在しない場合は west update が失敗している。
+          if [ ! -d "zmk/app" ]; then
+            echo "FATAL: west update failed to clone ZMK core. Cannot proceed."
+            exit 1 
+          fi
+          
+          # 【デバッグ】Zephyrコアとモジュールの存在を確認
+          echo "--- DEBUG: Listing Zephyr and Modules ---"
+          ls -l zephyr/ || echo "Zephyr directory missing or empty."
+          ls -l modules/ || echo "Modules directory missing or empty."
+          echo "------------------------------------------"
+          
+          pip install -r zmk/requirements.txt || true 
+          
+      # 3. Zephyr環境変数の設定
+      - name: Source Zephyr Environment
+        run: |
+          echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
+          echo "ZEPHYR_SDK_INSTALL_DIR=/home/runner/zephyr-sdk-0.17.4" >> $GITHUB_ENV
+          
+      # 4. ZMK ファームウェアのビルド
+      - name: Build ZMK Firmware
+        run: |
+          echo "--- DEBUG: Starting Build ---"
+          # west build コマンドを一行にまとめて記述
+          west build -s zmk/app -d build -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner -DZMK_CONFIG=$GITHUB_WORKSPACE
+            
+      # 5. ビルド成果物のアップロード
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: seeeduino_xiao_ble-prospector_scanner
+          path: build/zephyr/zmk.uf2
+          if-no-files-found: error
+          retention-days: 7
