@@ -20,7 +20,7 @@ jobs:
         submodules: false
         fetch-depth: 0
 
-    - name: Setup Build Environment (West, Python)
+    - name: Setup Environment and Install Dependencies
       run: |
         # 1. ZMKのビルドに必要なwestをインストール
         pip install west
@@ -31,24 +31,27 @@ jobs:
         
         # 3. west initとwest updateを実行し、Zephyrとカスタムモジュールを取得
         echo "--- Running west init and update ---"
-        # west initがリポジトリのルートにあるwest.ymlを探すよう指示
         west init -l .
-        
-        # west updateを実行し、Zephyrやその他の依存関係を取得
         west update
         
         # 🚨 CRITICAL FIX: Zephyr環境変数とCMake設定をエクスポート
-        # このコマンドは、Zephyr_DIRが参照可能なようにCMakeファイルを作成します。
-        echo "--- CRITICAL: Exporting Zephyr CMake configuration ---"
-        west zephyr-export
+        # west zephyr-exportの出力（環境設定コマンド）をファイルに保存し、
+        # 次のステップで読み込めるようにします。
+        echo "--- CRITICAL: Exporting Zephyr Environment for next step ---"
+        west zephyr-export > zephyr_env.sh
         
-    - name: Install ZMK Python Dependencies
-      run: pip install -r zmk/requirements.txt || true
+        # 4. ZMK Python要件をインストール
+        pip install -r zmk/requirements.txt || true
+        
+    # NOTE: 'Install ZMK Python Dependencies' ステップは削除し、上記に統合されました。
 
     - name: Build ZMK Firmware
       # west build を実行し、キーボード設定をビルドします。
-      # Toolchainはwest/Zephyrが自動で設定されます。
       run: |
+        # 🚨 CRITICAL FIX: 前のステップで作成した環境変数を読み込む
+        # これにより、west buildがZephyrの場所を認識できるようになります。
+        source zephyr_env.sh
+        
         west build -s zmk/app -d build \
           -b seeeduino_xiao_ble \
           -- -DSHIELD=prospector_scanner \
