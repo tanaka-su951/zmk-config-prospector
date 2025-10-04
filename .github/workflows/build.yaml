@@ -14,30 +14,34 @@ jobs:
     
     # ZMKビルドに必要なツールをインストール
     steps:
-      - name: Checkout ZMK Config and Submodules
+      - name: Checkout ZMK Config
         uses: actions/checkout@v4
         with:
-          # サブモジュールをアクションに任せる
+          # 【重要】サブモジュールの自動チェックアウトは無効にし、手動で実行する
           fetch-depth: 0
-          submodules: recursive
-          
-      # 0. 【重要】ZMKサブモジュールの強制追加と更新
+          submodules: false # 明示的に無効にする
+
+      # 0. 【最終修正】ZMKサブモジュールの強制初期化とチェック
       - name: Force ZMK Submodule Initialization
         run: |
-          # GitがZMKサブモジュールを認識していない場合、強制的に追加する
-          if [ ! -d "zmk" ]; then
-            echo "--- DEBUG: ZMK directory missing. Attempting to add ZMK submodule ---"
-            git submodule add --force https://github.com/zmkfirmware/zmk zmk || true
-          fi
-          # サブモジュールの更新と初期化を再試行
-          git submodule sync --recursive
-          git submodule update --init --recursive
+          echo "--- DEBUG: Force Git Submodule Init ---"
+          # 破損したZMKフォルダをクリーンアップし、再取得を強制する
+          if [ -d "zmk" ]; then rm -rf zmk; fi
           
+          # サブモジュールを初期化し、クローンする
+          git submodule update --init --recursive --force
+          
+          if [ ! -d "zmk/app" ]; then
+            echo "FATAL: ZMK/APP is still missing after forced Git update."
+            # ビルドの続行を不可能にするためエラーコード1を返す
+            exit 1 
+          fi
+          echo "ZMK submodule check successful."
+
       # 1. ビルドツールチェインのインストール
       - name: Install ZMK Build Dependencies
         run: |
           sudo apt update
-          # ZMKに必要な基本的な依存関係とツールをインストール
           sudo apt install -y python3-pip git wget ccache
           pip install west
           
@@ -51,6 +55,13 @@ jobs:
         run: |
           west init -l . 
           west update
+          
+          # 【デバッグ】Zephyrコアとモジュールの存在を確認
+          echo "--- DEBUG: Listing Zephyr and Modules ---"
+          ls -l zephyr/ || echo "Zephyr directory missing or empty."
+          ls -l modules/ || echo "Modules directory missing or empty."
+          echo "------------------------------------------"
+          
           pip install -r zmk/requirements.txt || true 
           
       # 3. Zephyr環境変数の設定
@@ -62,10 +73,8 @@ jobs:
       # 4. ZMK ファームウェアのビルド
       - name: Build ZMK Firmware
         run: |
-          echo "--- DEBUG: Listing ZMK directory contents BEFORE BUILD ---"
-          ls -l zmk/
-          echo "---------------------------------------------------------"
-          
+          echo "--- DEBUG: Starting Build ---"
+          # west build コマンドを一行にまとめて記述
           west build -s zmk/app -d build -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner -DZMK_CONFIG=$GITHUB_WORKSPACE
             
       # 5. ビルド成果物のアップロード
