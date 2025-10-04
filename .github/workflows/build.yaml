@@ -48,8 +48,8 @@ jobs:
           # -----------------------------------------------
 
           # west.yml を読み込み、ZMKコア、Zephyr、カスタムモジュールをすべてクローンする
-          # --force を付けて強制的に初期化し、失敗を許容しない
-          west init -l . --force
+          # 修正: west init の '--force' フラグを削除しました
+          west init -l . 
           west update
           
           # クローンが失敗した場合のチェック
