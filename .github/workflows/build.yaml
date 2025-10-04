@@ -22,6 +22,10 @@ jobs:
           # 【重要修正】サブモジュールが確実に初期化されるように設定を追加
           submodules: recursive
           
+      # 【追加ステップ】サブモジュール状態を強制的に同期
+      - name: Force Submodule Sync
+        run: git submodule sync --recursive
+          
       # 1. ビルドツールチェインのインストール
       - name: Install ZMK Build Dependencies
         run: |
