@@ -1,11 +1,20 @@
 # ZMKの標準的な外部ビルドワークフローを使用
-# ...
+# このワークフローは、GitHub Actionsでの複雑なセットアップと
+# 依存関係のクローン処理をすべてZMK公式側に任せるためのものです。
+
+name: Build ZMK Firmware (Official Method)
+
+on:
+  push:
+    branches: [ main ]
+    
+  pull_request:
+    branches: [ main ]
+    
+  workflow_dispatch:
+
 jobs:
   build:
     # ZMKの外部ワークフローを呼び出す
+    # 入力パラメータなしで呼び出し、設定を自動検出させます。
     uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
-    with:
-      # 最終修正: 公式ワークフローが期待するハイフン付きの入力名を使用します
-      keyboard-board: seeeduino_xiao_ble
-      keyboard-shield: prospector_scanner
-      zmk_config_path: ${{ github.workspace }}
