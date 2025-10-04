@@ -2,10 +2,10 @@ name: ZMK Custom Config Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ] # メインブランチにマージされたときに実行されます
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch: # 手動実行を許可します
 
 jobs:
   build:
@@ -29,9 +29,11 @@ jobs:
           pip install west
           
           # Zephyr SDK (v0.17.4) をダウンロードし、インストール (最新のURLと形式を使用)
+          # ファイル形式は tar.xz です。
           wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.4/zephyr-sdk-0.17.4_linux-x86_64.tar.xz
           tar xvf zephyr-sdk-0.17.4_linux-x86_64.tar.xz
-          ./zephyr-sdk-0.17.4/setup.sh -t riscv32-zephyr-elf -t arm-zephyr-eabi
+          # 修正: 'riscv32-zephyr-elf' を削除しました。ARMツールチェーンのみをインストールします。
+          ./zephyr-sdk-0.17.4/setup.sh -t arm-zephyr-eabi
           
       # 2. westワークスペースの初期化と更新
       - name: Initialize and Update ZMK Workspace
