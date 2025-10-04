@@ -2,24 +2,22 @@ name: ZMK Custom Config Build
 
 on:
   push:
-    branches: [ main ] # メインブランチにマージされたときに実行されます
+    branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch: # 手動実行を許可します
+  workflow_dispatch:
 
 jobs:
   build:
-    # 標準の Ubuntu ランナーを使用
     runs-on: ubuntu-latest
     
-    # ZMKビルドに必要なツールをインストール
     steps:
       - name: Checkout ZMK Config (No Submodules)
         uses: actions/checkout@v4
         with:
-          # 【重要】Gitアクションによるサブモジュール処理は完全に停止する
+          # Gitサブモジュールに依存しない
           fetch-depth: 0
-          submodules: false # Gitサブモジュールに依存しない
+          submodules: false 
 
       # 1. ビルドツールチェインのインストール
       - name: Install ZMK Build Dependencies
@@ -31,27 +29,23 @@ jobs:
           # Zephyr SDK (v0.17.4) をダウンロードし、インストール
           wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.4/zephyr-sdk-0.17.4_linux-x86_64.tar.xz
           tar xvf zephyr-sdk-0.17.4_linux-x86_64.tar.xz
+          # ARMツールチェーンのみをインストール
           ./zephyr-sdk-0.17.4/setup.sh -t arm-zephyr-eabi
           
-      # 2. westワークスペースの初期化と更新 (ZMKコアの取得も含む)
-      - name: Initialize and Update ZMK Workspace (Core Clone)
+      # 2. westワークスペースの初期化と更新 (全依存関係のクローンを含む)
+      - name: Initialize and Update ZMK Workspace (Core & Modules Clone)
         run: |
-          # 【重要修正】westにZMKコアを含めた全依存関係のクローンを任せる
+          # west.yml を読み込み、ZMKコア、Zephyr、カスタムモジュールをすべてクローンする
           west init -l . 
           west update
           
-          # ZMK/app が存在しない場合は west update が失敗している。
+          # クローンが失敗した場合のチェック
           if [ ! -d "zmk/app" ]; then
-            echo "FATAL: west update failed to clone ZMK core. Cannot proceed."
+            echo "FATAL: west update failed to clone ZMK core. Check west.yml remotes/revisions."
             exit 1 
           fi
           
-          # 【デバッグ】Zephyrコアとモジュールの存在を確認
-          echo "--- DEBUG: Listing Zephyr and Modules ---"
-          ls -l zephyr/ || echo "Zephyr directory missing or empty."
-          ls -l modules/ || echo "Modules directory missing or empty."
-          echo "------------------------------------------"
-          
+          # ZMKのPython要件をインストール
           pip install -r zmk/requirements.txt || true 
           
       # 3. Zephyr環境変数の設定
