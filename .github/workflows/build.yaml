@@ -46,13 +46,12 @@ jobs:
           if [ -d "zmk" ]; then rm -rf zmk; fi
           echo "Cleanup complete."
           
-          # --- 🚨 最終Git修正: プロトコルをHTTPSに強制 🚨 ---
-          # すべてのGithubリポジトリのクローンにHTTPSを強制し、認証エラーを回避する
+          # --- 🚨 Git修正: プロトコルをHTTPSに強制 🚨 ---
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           # -----------------------------------------------
 
-          # west.yml を読み込み、ZMKコア、Zephyr、カスタムモジュールをすべてクローンする
-          west init -l . 
+          # 修正: west init で ZMK コアリポジトリを明示的に指定する
+          west init -m https://github.com/zmkfirmware/zmk --mr main
           west update
           
           # クローンが失敗した場合のチェック
