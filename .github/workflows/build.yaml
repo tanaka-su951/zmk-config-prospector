@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (外部アクション/複数ステップ依存の排除)
+# ZMK Custom Config Build Workflow (Zephyr SDK 手動設定)
 
-name: Build ZMK Firmware (Single-Step)
+name: Build ZMK Firmware (Manual SDK Setup)
 
 on:
   push:
@@ -20,45 +20,57 @@ jobs:
         submodules: false
         fetch-depth: 0
 
-    - name: --- 🚀 ZMK環境セットアップとビルド (単一ステップ) 🚀 ---
+    - name: Setup Build Environment (West, Python)
+      run: pip install west
+
+    - name: --- 🚨 ZMK コアの手動クローンと初期化 🚨 ---
       run: |
-        # 1. ビルドツール (west) をインストール
-        echo "--- 1. Installing West ---"
-        pip install west
+        # 過去の失敗で残されたwest設定とZMKフォルダを削除
+        echo "--- DEBUG: Cleaning up old artifacts ---"
+        rm -rf .west zmk
         
-        # 2. ZMKコアを手動でクローン (west updateの失敗を回避)
-        echo "--- 2. Cloning ZMK Core ---"
+        # ZMKコアリポジトリを手動でクローン (クローン失敗回避のため)
+        echo "--- DEBUG: Cloning ZMK Core ---"
         git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
         
-        # 3. west init と west update を実行し、Zephyrと依存関係を取得
-        echo "--- 3. Running west init and update ---"
+        # west initとwest updateを実行し、Zephyrとカスタムモジュールを取得
+        echo "--- Running west init and update ---"
         west init -l .
         west update
         
-        # 4. ZMK Python要件をインストール
-        echo "--- 4. Installing Python Dependencies ---"
-        pip install -r zmk/requirements.txt || true
+        if [ ! -d "zmk/app" ]; then
+          echo "FATAL: ZMK/APP is still missing after forced clone and west update."
+          exit 1
+        fi
         
-        # 5. Toolchain（ARM GCC）をインストール
-        # west zephyr-exportに代わる処理: westがToolchainの場所を把握するために必要
-        echo "--- 5. Installing Toolchain ---"
+    - name: Setup Zephyr Toolchain
+      # 🚨 ZMKビルドの鍵: Zephyr SDKのダウンロードと環境設定
+      run: |
+        # 必要なSDKのバージョンをインストール
         west zephyr-export
         
-        # 6. ZMK Firmwareをビルド
-        # すべてが同じセッションで実行されるため、環境変数は有効です
-        echo "--- 6. Running ZMK Build ---"
+        # SDKファイルをダウンロード (v0.16.1を使用)
+        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.1/zephyr-sdk-0.16.1_linux-x86_64.tar.xz -O zephyr-sdk.tar.xz
+        
+        # 解凍
+        mkdir zephyr-sdk
+        tar -xf zephyr-sdk.tar.xz -C zephyr-sdk --strip-components=1
+        
+        # SDKの初期化と環境変数設定
+        # この setup.sh コマンドが、CMakeエラーを解消します。
+        zephyr-sdk/setup.sh -h
+
+    - name: Install ZMK Python Dependencies
+      # SDK設定後、残りのPython依存関係をインストール
+      run: pip install -r zmk/requirements.txt || true
+
+    - name: Build ZMK Firmware
+      # west build を実行します。SDKが設定されたため、ビルドが可能になります。
+      run: |
         west build -s zmk/app -d build \
           -b seeeduino_xiao_ble \
           -- -DSHIELD=prospector_scanner \
           -DZMK_CONFIG=$GITHUB_WORKSPACE
-          
-        # ビルド成果物 (uf2ファイル) の確認
-        if [ -f "build/zephyr/zmk.uf2" ]; then
-          echo "✅ Build Successful! Firmware path: build/zephyr/zmk.uf2"
-        else
-          echo "❌ FATAL: ZMK firmware file not found after build."
-          exit 1
-        fi
 
     - name: Archive artifacts
       uses: actions/upload-artifact@v4
