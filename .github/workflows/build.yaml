@@ -71,4 +71,3 @@ jobs:
           path: build/zephyr/zmk.uf2
           if-no-files-found: error
           retention-days: 7
-tion-days: 7
