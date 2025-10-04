@@ -17,9 +17,21 @@ jobs:
       - name: Checkout ZMK Config and Submodules
         uses: actions/checkout@v4
         with:
-          # 【重要修正】サブモジュールをアクションに任せる（最も標準的な方法）
+          # サブモジュールをアクションに任せる
           fetch-depth: 0
           submodules: recursive
+          
+      # 0. 【重要】ZMKサブモジュールの強制追加と更新
+      - name: Force ZMK Submodule Initialization
+        run: |
+          # GitがZMKサブモジュールを認識していない場合、強制的に追加する
+          if [ ! -d "zmk" ]; then
+            echo "--- DEBUG: ZMK directory missing. Attempting to add ZMK submodule ---"
+            git submodule add --force https://github.com/zmkfirmware/zmk zmk || true
+          fi
+          # サブモジュールの更新と初期化を再試行
+          git submodule sync --recursive
+          git submodule update --init --recursive
           
       # 1. ビルドツールチェインのインストール
       - name: Install ZMK Build Dependencies
@@ -29,21 +41,16 @@ jobs:
           sudo apt install -y python3-pip git wget ccache
           pip install west
           
-          # Zephyr SDK (v0.17.4) をダウンロードし、インストール (最新のURLと形式を使用)
-          # ファイル形式は tar.xz です。
+          # Zephyr SDK (v0.17.4) をダウンロードし、インストール
           wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.4/zephyr-sdk-0.17.4_linux-x86_64.tar.xz
           tar xvf zephyr-sdk-0.17.4_linux-x86_64.tar.xz
-          # ARMツールチェーンのみをインストール
           ./zephyr-sdk-0.17.4/setup.sh -t arm-zephyr-eabi
           
       # 2. westワークスペースの初期化と更新
       - name: Initialize and Update ZMK Workspace
-        # ルートにあるwest.ymlを使用して、ZMKとそのモジュールを取得
         run: |
-          # サブモジュールの手動初期化はCheckoutステップに任せるため削除しました。
           west init -l . 
           west update
-          # ZMKのPython要件を追加でインストール
           pip install -r zmk/requirements.txt || true 
           
       # 3. Zephyr環境変数の設定
@@ -54,13 +61,11 @@ jobs:
           
       # 4. ZMK ファームウェアのビルド
       - name: Build ZMK Firmware
-        # 【デバッグ】ビルド前にzmkディレクトリの中身を確認する
         run: |
-          echo "--- DEBUG: Listing ZMK directory contents ---"
+          echo "--- DEBUG: Listing ZMK directory contents BEFORE BUILD ---"
           ls -l zmk/
-          echo "----------------------------------------------"
+          echo "---------------------------------------------------------"
           
-          # west build コマンドを一行にまとめて記述
           west build -s zmk/app -d build -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner -DZMK_CONFIG=$GITHUB_WORKSPACE
             
       # 5. ビルド成果物のアップロード
