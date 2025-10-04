@@ -37,7 +37,6 @@ jobs:
       - name: Initialize and Update ZMK Workspace (Core & Modules Clone)
         run: |
           # --- 🚨 Gitセーフディレクトリとクリーンアップの設定 🚨 ---
-          # westが正しく動作するために、現在のリポジトリを安全なディレクトリとしてマーク
           git config --global --add safe.directory /home/runner/work/zmk-config-prospector/zmk-config-prospector
           
           # 過去の失敗で残されたwest設定とZMKフォルダを削除し、クリーンな状態でwest initを強制する
@@ -50,13 +49,14 @@ jobs:
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           # -----------------------------------------------
 
-          # 修正: west init で ZMK コアリポジトリを明示的に指定する
-          west init -m https://github.com/zmkfirmware/zmk --mr main
+          # 最終修正: west init をコンフィグリポジトリのルートに戻す
+          # westはカレントディレクトリの west.yml を使用する
+          west init -l .
           west update
           
           # クローンが失敗した場合のチェック
           if [ ! -d "zmk/app" ]; then
-            echo "FATAL: west update failed to clone ZMK core. Check west.yml remotes/revisions."
+            echo "FATAL: west update failed to clone ZMK core. Check west.yml remotes/revisions. (Last attempt after clean init)"
             exit 1 
           fi
           
