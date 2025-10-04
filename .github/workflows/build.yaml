@@ -22,7 +22,7 @@ jobs:
         fetch-depth: 0
 
     - name: Setup Toolchain and Environment
-      # 🚨 修正: 正しいアクションリポジトリ名 (zmk-build-actions) に変更
+      # 🚨 正しいアクションリポジトリ名 (zmk-build-actions) に変更済み
       uses: zmkfirmware/zmk-build-actions/setup-build-environment@main
 
     - name: --- 🚨 ZMK コアの手動クローンと初期化 🚨 ---
