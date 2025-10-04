@@ -17,14 +17,13 @@ jobs:
       - name: Checkout ZMK Config and Submodules
         uses: actions/checkout@v4
         with:
-          # サブモジュールを再帰的にチェックアウト
+          # サブモジュールを再帰的にチェックアウトしますが、念のため手動ステップも追加
           fetch-depth: 0
-          # 【重要修正】サブモジュールが確実に初期化されるように設定を追加
           submodules: recursive
           
-      # 【追加ステップ】サブモジュール状態を強制的に同期
-      - name: Force Submodule Sync
-        run: git submodule sync --recursive
+      # 【重要追加ステップ】サブモジュールを強制的に初期化・更新
+      - name: Force Git Submodule Initialization
+        run: git submodule update --init --recursive
           
       # 1. ビルドツールチェインのインストール
       - name: Install ZMK Build Dependencies
@@ -38,7 +37,7 @@ jobs:
           # ファイル形式は tar.xz です。
           wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.4/zephyr-sdk-0.17.4_linux-x86_64.tar.xz
           tar xvf zephyr-sdk-0.17.4_linux-x86_64.tar.xz
-          # 修正: 'riscv32-zephyr-elf' を削除しました。ARMツールチェーンのみをインストールします。
+          # ARMツールチェーンのみをインストール
           ./zephyr-sdk-0.17.4/setup.sh -t arm-zephyr-eabi
           
       # 2. westワークスペースの初期化と更新
