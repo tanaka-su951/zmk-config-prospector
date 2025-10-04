@@ -16,11 +16,9 @@ on:
 jobs:
   build:
     # ZMKの外部ワークフローを呼び出す
-    # これにより、全ての環境設定とビルド処理が自動で行われます
     uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
     with:
-      # 最終修正: 'inputs.' プレフィックスを削除し、
-      # 公式ワークフローが期待する生の入力キー (board, shield) を渡します
+      # パラメーター名とインデントを確認
       board: seeeduino_xiao_ble
       shield: prospector_scanner
       zmk_config_path: ${{ github.workspace }}
