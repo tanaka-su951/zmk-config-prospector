@@ -40,7 +40,8 @@ jobs:
         # ルートにあるwest.ymlを使用して、ZMKとそのモジュールを取得
         run: |
           # 【重要修正】ZMKリポジトリ（サブモジュール）を初期化
-          git submodule update --init --recursive zmk
+          # パス指定を削除し、Gitにすべてのサブモジュールを初期化させる
+          git submodule update --init --recursive
           
           west init -l . 
           west update
