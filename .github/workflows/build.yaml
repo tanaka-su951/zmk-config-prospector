@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (手動クローンによる強制初期化)
+# ZMK Custom Config Build Workflow (外部アクション非使用)
 
-name: Build ZMK Firmware (Manual Clone)
+name: Build ZMK Firmware (Actionless)
 
 on:
   push:
@@ -14,46 +14,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout ZMK Config and Submodules
+    - name: Checkout ZMK Config
       uses: actions/checkout@v4
       with:
-        # ZMKコアをサブモジュールとして扱わない（手動でクローンするため）
         submodules: false
         fetch-depth: 0
 
-    - name: Setup Toolchain and Environment
-      # 🚨 正しいアクションリポジトリ名 (zmk-build-actions) に変更済み
-      uses: zmkfirmware/zmk-build-actions/setup-build-environment@main
-
-    - name: --- 🚨 ZMK コアの手動クローンと初期化 🚨 ---
+    - name: Setup Build Environment (West, Python)
       run: |
-        # 過去の失敗で残されたwest設定とZMKフォルダを削除
-        echo "--- DEBUG: Cleaning up old artifacts ---"
-        rm -rf .west zmk
+        # 1. ZMKのビルドに必要なwestをインストール
+        pip install west
         
-        # ZMKコアリポジトリを手動でクローンし、west initが動作するように強制配置
-        # これにより、west updateの失敗を回避します。
+        # 2. ZMKコアを手動でクローン (クローン失敗回避のため)
         echo "--- DEBUG: Cloning ZMK Core ---"
         git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
         
+        # 3. west initとwest updateを実行し、Zephyrとカスタムモジュールを取得
+        echo "--- Running west init and update ---"
         # west initがリポジトリのルートにあるwest.ymlを探すよう指示
         west init -l .
         
-        # west updateを実行し、Zephyrやその他のカスタムモジュール（west.ymlに定義されたもの）を取得
-        echo "--- DEBUG: Running west update for remaining dependencies ---"
+        # west updateを実行し、Zephyrやその他の依存関係を取得
         west update
         
-        if [ ! -d "zmk/app" ]; then
-          echo "FATAL: ZMK/APP is still missing after forced clone and west update."
-          exit 1
-        fi
-        
-    - name: Install ZMK Python Dependencies
-      run: pip install -r zmk/requirements.txt || true
+        # 4. ZMK Python要件をインストール
+        pip install -r zmk/requirements.txt || true
 
     - name: Build ZMK Firmware
       # west build を実行し、キーボード設定をビルドします。
-      # -DSHIELD と -DZMK_CONFIG で設定フォルダを参照します。
+      # Toolchainはwest/Zephyrが自動で設定します。
       run: |
         west build -s zmk/app -d build \
           -b seeeduino_xiao_ble \
