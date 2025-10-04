@@ -14,11 +14,12 @@ jobs:
     
     # ZMKビルドに必要なツールをインストール
     steps:
-      - name: Checkout ZMK Config
+      - name: Checkout ZMK Config and Submodules
         uses: actions/checkout@v4
         with:
-          # サブモジュールの自動チェックアウトは無効にし、westに任せる
+          # 【重要修正】サブモジュールをアクションに任せる（最も標準的な方法）
           fetch-depth: 0
+          submodules: recursive
           
       # 1. ビルドツールチェインのインストール
       - name: Install ZMK Build Dependencies
@@ -35,14 +36,11 @@ jobs:
           # ARMツールチェーンのみをインストール
           ./zephyr-sdk-0.17.4/setup.sh -t arm-zephyr-eabi
           
-      # 2. westワークスペースの初期化と更新 (ZMK初期化を含む)
+      # 2. westワークスペースの初期化と更新
       - name: Initialize and Update ZMK Workspace
         # ルートにあるwest.ymlを使用して、ZMKとそのモジュールを取得
         run: |
-          # 【重要修正】ZMKリポジトリ（サブモジュール）を初期化
-          # パス指定を削除し、Gitにすべてのサブモジュールを初期化させる
-          git submodule update --init --recursive
-          
+          # サブモジュールの手動初期化はCheckoutステップに任せるため削除しました。
           west init -l . 
           west update
           # ZMKのPython要件を追加でインストール
@@ -50,16 +48,18 @@ jobs:
           
       # 3. Zephyr環境変数の設定
       - name: Source Zephyr Environment
-        # CMakeがSDKとツールチェーンを見つけるための環境変数を設定
         run: |
           echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
-          # SDKバージョンに合わせてパスを修正
           echo "ZEPHYR_SDK_INSTALL_DIR=/home/runner/zephyr-sdk-0.17.4" >> $GITHUB_ENV
           
       # 4. ZMK ファームウェアのビルド
       - name: Build ZMK Firmware
-        # ZMK/app へのパス、ボード名、シールド名を指定
+        # 【デバッグ】ビルド前にzmkディレクトリの中身を確認する
         run: |
+          echo "--- DEBUG: Listing ZMK directory contents ---"
+          ls -l zmk/
+          echo "----------------------------------------------"
+          
           # west build コマンドを一行にまとめて記述
           west build -s zmk/app -d build -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner -DZMK_CONFIG=$GITHUB_WORKSPACE
             
@@ -68,7 +68,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: seeeduino_xiao_ble-prospector_scanner
-          # ビルド結果のパス
           path: build/zephyr/zmk.uf2
           if-no-files-found: error
           retention-days: 7
