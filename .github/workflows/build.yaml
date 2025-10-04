@@ -1,18 +1,5 @@
 # ZMKの標準的な外部ビルドワークフローを使用
-# このワークフローは、GitHub Actionsでの複雑なセットアップと
-# 依存関係のクローン処理をすべてZMK公式側に任せるためのものです。
-
-name: Build ZMK Firmware (Official Method)
-
-on:
-  push:
-    branches: [ main ]
-    
-  pull_request:
-    branches: [ main ]
-    
-  workflow_dispatch:
-
+# ...
 jobs:
   build:
     # ZMKの外部ワークフローを呼び出す
