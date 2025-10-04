@@ -2,65 +2,73 @@ name: ZMK Custom Config Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ] # メインブランチにマージされたときに実行されます
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch: # 手動実行を許可します
 
 jobs:
   build:
+    # 標準の Ubuntu ランナーを使用
     runs-on: ubuntu-latest
     
+    # ZMKビルドに必要なツールをインストール
     steps:
-      - name: Checkout ZMK Config (Skip Submodules)
+      - name: Checkout ZMK Config
         uses: actions/checkout@v4
         with:
-          # サブモジュールの処理を完全にスキップ
+          # サブモジュールの自動チェックアウトは無効にし、westに任せる
           fetch-depth: 0
-          submodules: false
           
       # 1. ビルドツールチェインのインストール
       - name: Install ZMK Build Dependencies
         run: |
           sudo apt update
+          # ZMKに必要な基本的な依存関係とツールをインストール
           sudo apt install -y python3-pip git wget ccache
           pip install west
           
-          # Zephyr SDK (v0.17.4) をダウンロードし、インストール
+          # Zephyr SDK (v0.17.4) をダウンロードし、インストール (最新のURLと形式を使用)
+          # ファイル形式は tar.xz です。
           wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.4/zephyr-sdk-0.17.4_linux-x86_64.tar.xz
           tar xvf zephyr-sdk-0.17.4_linux-x86_64.tar.xz
+          # ARMツールチェーンのみをインストール
           ./zephyr-sdk-0.17.4/setup.sh -t arm-zephyr-eabi
           
-      # 【重要変更】2. westワークスペースの初期化とZMKリポジトリの強制取得
-      - name: Initialize and Update ZMK Workspace (Force Download)
+      # 2. westワークスペースの初期化と更新 (ZMK初期化を含む)
+      - name: Initialize and Update ZMK Workspace
+        # ルートにあるwest.ymlを使用して、ZMKとそのモジュールを取得
         run: |
-          # ZMKのコアリポジトリを強制的にフェッチ（サブモジュールに依存しない）
+          # 【重要修正】ZMKリポジトリ（サブモジュール）を初期化
+          git submodule update --init --recursive zmk
+          
           west init -l . 
           west update
-          
           # ZMKのPython要件を追加でインストール
           pip install -r zmk/requirements.txt || true 
-
+          
       # 3. Zephyr環境変数の設定
       - name: Source Zephyr Environment
+        # CMakeがSDKとツールチェーンを見つけるための環境変数を設定
         run: |
           echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
+          # SDKバージョンに合わせてパスを修正
           echo "ZEPHYR_SDK_INSTALL_DIR=/home/runner/zephyr-sdk-0.17.4" >> $GITHUB_ENV
           
       # 4. ZMK ファームウェアのビルド
       - name: Build ZMK Firmware
+        # ZMK/app へのパス、ボード名、シールド名を指定
         run: |
-          # この時点で zmk/app が存在することを期待
-          west build -s zmk/app -d build \
-            -b seeeduino_xiao_ble \
-            -- -DSHIELD=prospector_scanner \
-            -DZMK_CONFIG=$GITHUB_WORKSPACE
+          # west build コマンドを一行にまとめて記述
+          west build -s zmk/app -d build -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner -DZMK_CONFIG=$GITHUB_WORKSPACE
             
       # 5. ビルド成果物のアップロード
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: seeeduino_xiao_ble-prospector_scanner
+          # ビルド結果のパス
           path: build/zephyr/zmk.uf2
           if-no-files-found: error
           retention-days: 7
+tion-days: 7
