@@ -18,8 +18,7 @@ jobs:
     # ZMKの外部ワークフローを呼び出す
     uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
     with:
-      # 最終修正: 固定文字列を式として強制的に渡し、外部ワークフローが
-      # 変数として正しく解釈できるようにします。
-      board: ${{ 'seeeduino_xiao_ble' }}
-      shield: ${{ 'prospector_scanner' }}
+      # 最終修正: 公式ワークフローが期待するハイフン付きの入力名を使用します
+      keyboard-board: seeeduino_xiao_ble
+      keyboard-shield: prospector_scanner
       zmk_config_path: ${{ github.workspace }}
