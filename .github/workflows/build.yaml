@@ -17,14 +17,21 @@ jobs:
       - name: Checkout ZMK Config and Submodules
         uses: actions/checkout@v4
         with:
-          # サブモジュールを再帰的にチェックアウトしますが、念のため手動ステップも追加
+          # サブモジュールを再帰的にチェックアウト
           fetch-depth: 0
           submodules: recursive
           
       # 【重要追加ステップ】サブモジュールを強制的に初期化・更新
       - name: Force Git Submodule Initialization
-        run: git submodule update --init --recursive
+        run: |
+          echo "Forcing submodule update..."
+          git submodule update --init --recursive
           
+          # 【診断ステップ】zmk/app ディレクトリが本当に存在するか確認
+          echo "--- Diagnostic: Listing zmk/app contents ---"
+          ls -l zmk/app
+          echo "--------------------------------------------"
+
       # 1. ビルドツールチェインのインストール
       - name: Install ZMK Build Dependencies
         run: |
