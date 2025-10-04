@@ -1,20 +1,67 @@
-# ZMKの標準的な外部ビルドワークフローを使用
-# このワークフローは、GitHub Actionsでの複雑なセットアップと
-# 依存関係のクローン処理をすべてZMK公式側に任せるためのものです。
+# ZMK Custom Config Build Workflow (手動クローンによる強制初期化)
 
-name: Build ZMK Firmware (Official Method)
+name: Build ZMK Firmware (Manual Clone)
 
 on:
   push:
     branches: [ main ]
-    
   pull_request:
     branches: [ main ]
-    
   workflow_dispatch:
 
 jobs:
   build:
-    # ZMKの外部ワークフローを呼び出す
-    # 入力パラメータなしで呼び出し、設定を自動検出させます。
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout ZMK Config and Submodules
+      uses: actions/checkout@v4
+      with:
+        # ZMKコアをサブモジュールとして扱わない（手動でクローンするため）
+        submodules: false
+        fetch-depth: 0
+
+    - name: Setup Toolchain and Environment
+      uses: zmkfirmware/zmk-github-actions/setup-build-environment@main
+
+    - name: --- 🚨 ZMK コアの手動クローンと初期化 🚨 ---
+      run: |
+        # 過去の失敗で残されたwest設定とZMKフォルダを削除
+        echo "--- DEBUG: Cleaning up old artifacts ---"
+        rm -rf .west zmk
+        
+        # ZMKコアリポジトリを手動でクローンし、west initが動作するように強制配置
+        # これにより、west updateの失敗を回避します。
+        echo "--- DEBUG: Cloning ZMK Core ---"
+        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
+        
+        # west initがリポジトリのルートにあるwest.ymlを探すよう指示
+        west init -l .
+        
+        # west updateを実行し、Zephyrやその他のカスタムモジュール（west.ymlに定義されたもの）を取得
+        echo "--- DEBUG: Running west update for remaining dependencies ---"
+        west update
+        
+        if [ ! -d "zmk/app" ]; then
+          echo "FATAL: ZMK/APP is still missing after forced clone and west update."
+          exit 1
+        fi
+        
+    - name: Install ZMK Python Dependencies
+      run: pip install -r zmk/requirements.txt || true
+
+    - name: Build ZMK Firmware
+      # west build を実行し、キーボード設定をビルドします。
+      # -DSHIELD と -DZMK_CONFIG で設定フォルダを参照します。
+      run: |
+        west build -s zmk/app -d build \
+          -b seeeduino_xiao_ble \
+          -- -DSHIELD=prospector_scanner \
+          -DZMK_CONFIG=$GITHUB_WORKSPACE
+
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware
+        path: build/zephyr/zmk.uf2
+
