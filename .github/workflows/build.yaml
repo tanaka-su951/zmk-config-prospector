@@ -19,8 +19,8 @@ jobs:
     # これにより、全ての環境設定とビルド処理が自動で行われます
     uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
     with:
-      # 修正: 'inputs.' プレフィックスを付けて入力値を渡します
-      inputs.board: seeeduino_xiao_ble
-      inputs.shield: prospector_scanner
-      # ユーザー設定ファイルの場所を渡します（通常、リポジトリルートを指す）
-      inputs.zmk_config_path: ${{ github.workspace }}
+      # 最終修正: 'inputs.' プレフィックスを削除し、
+      # 公式ワークフローが期待する生の入力キー (board, shield) を渡します
+      board: seeeduino_xiao_ble
+      shield: prospector_scanner
+      zmk_config_path: ${{ github.workspace }}
