@@ -35,6 +35,14 @@ jobs:
       # 2. westワークスペースの初期化と更新 (全依存関係のクローンを含む)
       - name: Initialize and Update ZMK Workspace (Core & Modules Clone)
         run: |
+          # --- 🚨 最終修正: 強制クリーンアップを追加 🚨 ---
+          # 過去の失敗で残されたwest設定とZMKフォルダを削除し、クリーンな状態でwest initを強制する
+          echo "--- DEBUG: Cleaning up old west artifacts ---"
+          if [ -d ".west" ]; then rm -rf .west; fi
+          if [ -d "zmk" ]; then rm -rf zmk; fi
+          echo "Cleanup complete."
+          # -----------------------------------------------
+
           # west.yml を読み込み、ZMKコア、Zephyr、カスタムモジュールをすべてクローンする
           west init -l . 
           west update
@@ -44,6 +52,12 @@ jobs:
             echo "FATAL: west update failed to clone ZMK core. Check west.yml remotes/revisions."
             exit 1 
           fi
+          
+          # 【デバッグ】Zephyrコアとモジュールの存在を確認
+          echo "--- DEBUG: Listing Zephyr and Modules ---"
+          ls -l zephyr/ || echo "Zephyr directory missing or empty."
+          ls -l modules/ || echo "Modules directory missing or empty."
+          echo "------------------------------------------"
           
           # ZMKのPython要件をインストール
           pip install -r zmk/requirements.txt || true 
