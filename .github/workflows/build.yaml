@@ -14,11 +14,13 @@ jobs:
     
     # ZMKビルドに必要なツールをインストール
     steps:
-      - name: Checkout ZMK Config
+      - name: Checkout ZMK Config and Submodules
         uses: actions/checkout@v4
         with:
           # サブモジュールを再帰的にチェックアウト
           fetch-depth: 0
+          # 【重要修正】サブモジュールが確実に初期化されるように設定を追加
+          submodules: recursive
           
       # 1. ビルドツールチェインのインストール
       - name: Install ZMK Build Dependencies
