@@ -30,9 +30,8 @@ jobs:
         # ZMKコアをダウンロード
         git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
         
-        # ZMKコアをマニフェストファイルとして指定して west init を実行
-        # west init の実行により、zmkフォルダ内の west.yml が読み込まれる
-        west init -m zmk
+        # 🚨 修正: west init の標準形式を使用し、ZMKコアをマニフェストプロジェクトとして指定 🚨
+        west init --manifest-project zmk
         
         # 依存関係のダウンロード (Zephyr、NuttXなど)
         west update
