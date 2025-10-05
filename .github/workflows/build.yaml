@@ -1,4 +1,4 @@
-name: Build ZMK Firmware (Official Action Final)
+name: Build ZMK Firmware (OfficialAction Final)
 
 on:
   push:
