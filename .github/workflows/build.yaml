@@ -1,7 +1,7 @@
-# ZMK Custom Config Build Workflow (安定版タグを強制チェックアウト)
-# 🚨 これが、すべての環境エラーとKconfigフリーズを回避する最終構成です 🚨
+# ZMK Custom Config Build Workflow (単一ステップでのタグ固定)
+# 🚨 これが、すべてのGitエラーと環境問題を回避する最終構成です 🚨
 
-name: Build ZMK Firmware (Final Stable)
+name: Build ZMK Firmware (Single Step Final)
 
 on:
   push:
@@ -27,24 +27,15 @@ jobs:
         submodules: true
         fetch-depth: 0
 
-    - name: Clone ZMK Core
+    - name: Clone and Fix ZMK Core Tag
       run: |
-        echo "--- 1. ZMKコアリポジトリをクローン（全履歴を取得） ---"
-        # 🚨 修正: --depth 1 を削除し、全履歴をクローンしてタグを認識させる 🚨
-        git clone https://github.com/zmkfirmware/zmk zmk
-        
-    - name: Checkout Stable Tag
-      run: |
-        echo "--- 2. 安定版タグ ${{ env.ZMK_STABLE_TAG }} に強制チェックアウト ---"
-        # 安定版タグに切り替えることで、依存関係の不整合を解消
-        cd zmk
-        # タグへの切り替え
-        git checkout ${{ env.ZMK_STABLE_TAG }}
-        cd ..
+        echo "--- 1. ZMKコアを安定版タグ ${{ env.ZMK_STABLE_TAG }} でクローン ---"
+        # 🚨 修正: タグを明示的に指定してクローンし、タグ認識エラーを回避する 🚨
+        git clone --branch ${{ env.ZMK_STABLE_TAG }} --depth 1 https://github.com/zmkfirmware/zmk zmk
         
     - name: Initialize West Workspace
       run: |
-        echo "--- 3. west initとwest updateを実行 ---"
+        echo "--- 2. west initとwest updateを実行 ---"
         # 安定版ZMKコア内のwest.ymlをマニフェストとして指定
         west init -m zmk --mf west.yml
         # 依存関係をダウンロード
@@ -52,12 +43,12 @@ jobs:
         
     - name: Install Python Dependencies
       run: |
-        echo "--- 4. Python要件をインストール ---"
+        echo "--- 3. Python要件をインストール ---"
         pip install -r zmk/requirements.txt
         
     - name: Manually Setup Zephyr SDK
       run: |
-        echo "--- 5. Zephyr SDKを手動でダウンロードして環境変数を設定 ---"
+        echo "--- 4. Zephyr SDKを手動でダウンロードして環境変数を設定 ---"
         # SDKのフリーズを回避するため、手動でダウンロード
         WEST_TOOLCHAIN_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.0/zephyr-sdk-0.16.0_linux-x86_64.tar.gz"
         WEST_TOOLCHAIN_DIR="$HOME/zephyr-sdk"
@@ -72,7 +63,7 @@ jobs:
         
     - name: Run West Build
       run: |
-        echo "--- 6. west build実行 ---"
+        echo "--- 5. west build実行 ---"
         # ツールチェーンと環境が設定された状態でビルドを実行
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
