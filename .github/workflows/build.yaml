@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (キャッシュを利用したSDKセットアップ)
+# ZMK Custom Config Build Workflow (手動SDKセットアップとビルド)
 
-name: Build ZMK Firmware (Cache Setup Final)
+name: Build ZMK Firmware (Manual SDK Setup Final)
 
 on:
   push:
@@ -27,7 +27,8 @@ jobs:
         pip install west
         git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
         
-        # manifest-repo と manifest-file を正確に指定
+        # Manifest Repository (--mr) と Manifest File (--mf) を正確に指定
+        # これにより、ローカルの 'zmk' フォルダ内の west.yml が参照されます
         west init --mr zmk --mf west.yml
         
         echo "--- 2. 依存関係をダウンロード (west update) ---"
@@ -36,30 +37,21 @@ jobs:
         echo "--- 3. ZMK Python要件をインストール ---"
         pip install -r zmk/requirements.txt
 
-    # 2. Zephyr SDKのキャッシュを作成/復元し、環境変数を設定
-    #    cacheを利用することで、setup.shのフリーズを回避し、高速化を図ります。
-    - name: Cache Zephyr SDK and Set Environment Variables
-      id: cache-sdk
-      uses: actions/cache@v4
-      with:
-        path: ${{ runner.os }}-zephyr-sdk
-        key: ${{ runner.os }}-zephyr-sdk-0.16.0
-
-    - name: Download and Setup Zephyr SDK
-      if: steps.cache-sdk.outputs.cache-hit != 'true'
+    # 2. SDKを手動でダウンロード、展開し、環境変数を設定
+    #    setup.shのフリーズを避けるため、手動でパスを設定します。
+    - name: Manually Setup Zephyr SDK
       run: |
         SDK_VERSION="0.16.0"
         SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${SDK_VERSION}/zephyr-sdk-${SDK_VERSION}_linux-x86_64.tar.xz"
-        SDK_DIR="${{ runner.os }}-zephyr-sdk" # キャッシュパスと同じ
+        SDK_DIR="$HOME/zephyr-sdk"
 
         echo "--- 4. Zephyr SDKをダウンロードし、展開 ---"
         mkdir -p ${SDK_DIR}
+        # curlとtarを使ってSDKを非対話的にダウンロード・展開
         curl -L ${SDK_URL} | tar xJ -C ${SDK_DIR} --strip-components=1
 
-    - name: Set SDK Environment Variables
-      run: |
+        # Kconfigフリーズと環境設定のために必要な環境変数をエクスポート
         echo "--- 5. 環境変数を設定 ---"
-        SDK_DIR="${{ runner.os }}-zephyr-sdk"
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=${SDK_DIR}" >> $GITHUB_ENV
         export KCONFIG_NONINTERACTIVE=1
@@ -68,6 +60,7 @@ jobs:
     - name: Run West Build
       run: |
         echo "--- 6. west build実行 ---"
+        # ツールチェーンが設定された状態でビルドを実行
         west build -s zmk/app -d build --sysbuild \
           -b seeeduino_xiao_ble \
           -- -DSHIELD=prospector_scanner \
