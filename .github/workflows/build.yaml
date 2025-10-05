@@ -1,4 +1,4 @@
-name: Build ZMK Firmware (Manual Setup Final Attempt v3)
+name: Build ZMK Firmware (Manual Setup Final Attempt v4)
 
 on:
   push:
