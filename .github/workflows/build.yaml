@@ -1,8 +1,50 @@
-# ZMK Custom Config Build Workflow (コミュニティアクションで環境構築)
-# 🚨 これが、フリーズ/参照エラーを回避するための最後の最も実用的な構成です 🚨
-... (中略)
-    # 2. コミュニティアクションで環境を一括セットアップ
-    - name: Install Dependencies and Toolchain
-      # 安定した依存関係インストールアクションを使用
-      uses: actions-toolkit/action-west@main
-...
+# ZMK Custom Config Build Workflow
+name: Build ZMK Firmware (Community Action Final)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout ZMK Config
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+        fetch-depth: 0
+
+    # 1. ZMKコアをクローンし、west initを実行
+    - name: Clone ZMK and Initialize West Workspace
+      run: |
+        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
+        west init -m zmk
+        
+    # 2. コミュニティアクションで環境を一括セットアップ
+    - name: Install Dependencies and Toolchain
+      uses: actions-toolkit/action-west@main
+      with:
+        update: true 
+        toolchain: true
+        requirements: zmk/requirements.txt
+        path: . 
+        
+    - name: Run West Build
+      run: |
+        export KCONFIG_NONINTERACTIVE=1
+        
+        west build -s zmk/app -d build --sysbuild \
+          -b seeeduino_xiao_ble \
+          -- -DSHIELD=prospector_scanner \
+          -DZMK_CONFIG=${{ github.workspace }}
+
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware-seeeduino_xiao_ble-prospector_scanner
+        path: build/zephyr/zmk.uf2
