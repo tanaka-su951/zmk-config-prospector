@@ -1,1 +1,71 @@
-[Immersive content redacted for brevity.]
+# ZMK Custom Config Build Workflow (手動SDKセットアップとビルド)
+
+name: Build ZMK Firmware (Manual SDK Setup Final)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout ZMK Config
+      uses: actions/checkout@v4
+      with:
+        submodules: false
+        fetch-depth: 0
+
+    # 1. ZMKコアをクローンし、west initを実行
+    - name: Clone ZMK and Initialize West Workspace
+      run: |
+        echo "--- 1. ZMKコアをクローンし、west initを実行 ---"
+        pip install west
+        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
+        # ZMKコアのマニフェストを指定してwestを初期化
+        west init -m zmk/west.yml
+        # 依存関係をダウンロード (Zephyr, toolchain, modules)
+        west update
+        
+        echo "--- 2. ZMK Python要件をインストール ---"
+        pip install -r zmk/requirements.txt
+
+    # 2. SDKを手動でダウンロード、展開し、環境変数を設定
+    #    setup.shのフリーズを避けるため、手動でパスを設定します。
+    - name: Manually Setup Zephyr SDK
+      run: |
+        SDK_VERSION="0.16.0"
+        SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${SDK_VERSION}/zephyr-sdk-${SDK_VERSION}_linux-x86_64.tar.xz"
+        SDK_DIR="$HOME/zephyr-sdk"
+
+        echo "--- 3. Zephyr SDKをダウンロードし、展開 ---"
+        mkdir -p ${SDK_DIR}
+        curl -L ${SDK_URL} | tar xJ -C ${SDK_DIR} --strip-components=1
+
+        # Kconfigフリーズと環境設定のために必要な環境変数をエクスポート
+        echo "--- 4. 環境変数を設定 ---"
+        echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
+        echo "ZEPHYR_SDK_INSTALL_DIR=${SDK_DIR}" >> $GITHUB_ENV
+        export KCONFIG_NONINTERACTIVE=1
+        
+    # 3. ビルド実行
+    - name: Run West Build
+      run: |
+        echo "--- 5. west build実行 ---"
+        # ツールチェーンが設定された状態でビルドを実行
+        # ZMK Configフォルダは $GITHUB_WORKSPACE (ルート)
+        west build -s zmk/app -d build --sysbuild \
+          -b seeeduino_xiao_ble \
+          -- -DSHIELD=prospector_scanner \
+          -DZMK_CONFIG=${{ github.workspace }}
+
+    # 4. 成果物アップロード
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware-seeeduino_xiao_ble-prospector_scanner
+        path: build/zephyr/zmk.uf2
