@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (タグの超堅牢チェックアウト - V3)
+# ZMK Custom Config Build Workflow (mainブランチに戻す)
 
-name: Build ZMK Firmware (Deep Clone Fix)
+name: Build ZMK Firmware (Main Branch Final)
 
 on:
   push:
@@ -25,22 +25,12 @@ jobs:
         # 0. westをインストール
         pip install west
         
-        # 1. ZMKコアを手動でクローンとwest初期化 (🚨 タグを確実にチェックアウト 🚨)
-        echo "--- DEBUG: Cloning ZMK Core (v3.5.0) and running west init ---"
+        # 1. ZMKコアをmainブランチでクローンし、west初期化 🚨
+        echo "--- DEBUG: Cloning ZMK Core (main branch) and running west init ---"
         rm -rf .west zmk # クリーンアップ
         
-        # 🚨 修正: 深くクローンし、タグをフェッチしてチェックアウトする 🚨
-        # 1. ZMKコアを深くクローン (履歴50)
-        git clone --depth 50 https://github.com/zmkfirmware/zmk zmk
-        
-        # 2. ディレクトリに移動し、タグ zmk-3.5.0 を明示的にフェッチ
-        cd zmk
-        git fetch --tags
-        
-        # 3. タグにチェックアウト
-        git checkout zmk-3.5.0
-        
-        cd .. # 元のディレクトリに戻る
+        # 🚨 修正: mainブランチの最新版を使用 🚨
+        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
         
         west init -l .
         west update
