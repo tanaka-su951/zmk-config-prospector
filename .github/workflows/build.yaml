@@ -1,4 +1,4 @@
-name: Build ZMK Firmware (Manual Setup Final Attempt v4)
+name: Build ZMK Firmware (Manual Setup Final Attempt v5)
 
 on:
   push:
@@ -35,8 +35,8 @@ jobs:
     - name: Install Python Dependencies
       run: |
         echo "--- 2. Python要件をインストール ---"
-        # 🚨 修正: パスを zmk/app/requirements.txt に修正 🚨
-        pip install -r zmk/app/requirements.txt
+        # 🚨 修正: パスを zmk/requirements.txt に戻す 🚨
+        pip install -r zmk/requirements.txt
         
     - name: Manually Setup Zephyr SDK (v0.16.1)
       run: |
