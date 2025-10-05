@@ -1,6 +1,6 @@
-# ZMKの公式安定版外部ビルドワークフローを使用
+# ZMKの公式外部ビルドワークフローを使用 (最新のmainブランチに依存)
 
-name: Build ZMK Firmware (Official Stable)
+name: Build ZMK Firmware (Official Main)
 
 on:
   push:
@@ -12,8 +12,8 @@ on:
 jobs:
   build:
     # ZMKの外部ワークフローを呼び出す
-    # 🚨 安定版タグ (zmk-v3.6.0) を使用して、ビルドの安定性を高めます 🚨
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@zmk-v3.6.0
+    # 参照を「main」ブランチに戻します。タグは外部呼び出しで不安定な場合があります。
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
     with:
       # ZMKコミュニティで確認されている、最もシンプルな入力名を使用
       board: seeeduino_xiao_ble
