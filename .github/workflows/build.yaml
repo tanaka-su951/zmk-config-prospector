@@ -1,4 +1,4 @@
-name: Build ZMK Firmware (Official Action Final)
+name: Build ZMK Firmware (Official Action Final SHA)
 
 on:
   push:
@@ -15,27 +15,24 @@ jobs:
     env:
       BOARD: seeeduino_xiao_ble
       SHIELD: prospector_scanner
-      ZMK_STABLE_TAG: 3.5.0 # 🚨 タグ名を 3.5.0 に設定 (修正済み) 🚨
+      ZMK_STABLE_TAG: 3.5.0 
 
     steps:
     - name: Checkout ZMK Config (Your Repo)
       uses: actions/checkout@v4
       with:
-        # ZMKコアをサブモジュールとして取得するために必須
         submodules: recursive 
         fetch-depth: 0
 
     - name: Set up Zephyr/ZMK Build Environment
-      # 🚨 このアクションが、Gitクローン、west init/update、SDKセットアップを全て自動で処理します 🚨
-      uses: zmkfirmware/zmk-build-action@v2
+      # 🚨 コミットSHAを直接指定することで、アクションの参照エラーを回避 🚨
+      uses: zmkfirmware/zmk-build-action@8c4714e82348a27d6d532a24687d7b1d3032d847
       with:
-        # ZMKコアのバージョンを指定
         ref: ${{ env.ZMK_STABLE_TAG }} 
 
     - name: Run West Build
       run: |
         echo "--- west build実行 ---"
-        # 公式アクションの環境下では、コマンドは非常にシンプル
         west build -b ${{ env.BOARD }} -- -DSHIELD=${{ env.SHIELD }}
 
     - name: Archive artifacts
