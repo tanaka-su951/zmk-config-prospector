@@ -1,4 +1,4 @@
-name: Build ZMK Firmware (OfficialAction Final)
+name: Build ZMK Firmware (Official Action Final SHA)
 
 on:
   push:
@@ -25,10 +25,9 @@ jobs:
         fetch-depth: 0
 
     - name: Set up Zephyr/ZMK Build Environment
-      # 🚨 アクションバージョンを @v3 に指定 🚨
-      uses: zmkfirmware/zmk-build-action@v3
+      # 🚨 コミットSHAを直接指定することで、アクションの参照エラーを回避 🚨
+      uses: zmkfirmware/zmk-build-action@8c4714e82348a27d6d532a24687d7b1d3032d847
       with:
-        # ZMKコアのバージョンを指定
         ref: ${{ env.ZMK_STABLE_TAG }} 
 
     - name: Run West Build
