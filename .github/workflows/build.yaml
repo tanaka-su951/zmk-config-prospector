@@ -25,9 +25,10 @@ jobs:
         fetch-depth: 0
 
     - name: Set up Zephyr/ZMK Build Environment
-      # 🚨 修正済み: 最新の安定版バージョン v3 を指定 🚨
+      # 🚨 アクションバージョンを @v3 に指定 🚨
       uses: zmkfirmware/zmk-build-action@v3
       with:
+        # ZMKコアのバージョンを指定
         ref: ${{ env.ZMK_STABLE_TAG }} 
 
     - name: Run West Build
