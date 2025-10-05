@@ -1,4 +1,4 @@
-    - name: Checkout Stable Tag (Final Fix)
+name: Checkout Stable Tag (Final Fix)
       run: |
         echo "--- 2. 安定版タグ ${{ env.ZMK_STABLE_TAG }} に強制チェックアウト ---"
         cd zmk
