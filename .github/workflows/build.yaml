@@ -1,7 +1,7 @@
-# ZMK Custom Config Build Workflow (ZMK公式のセットアップ手順を完全に再現)
-# 🚨 これが、Kconfigフリーズと環境問題を回避するための最後の論理的な構成です 🚨
+# ZMK Custom Config Build Workflow (GitHub公式アクションで構成)
+# 🚨 これが、環境セットアップ問題を回避するための最後の論理的な構成です 🚨
 
-name: Build ZMK Firmware (Official Full Clone)
+name: Build ZMK Firmware (GitHub Actions Final)
 
 on:
   push:
@@ -9,65 +9,53 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      board:
-        description: 'Target Board (e.g., seeeduino_xiao_ble)'
-        required: true
-        default: 'seeeduino_xiao_ble'
-      shield:
-        description: 'Target Shield (e.g., prospector_scanner)'
-        required: true
-        default: 'prospector_scanner'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      # ZMK公式が推奨する、依存関係がすべて設定済みのコンテナを使用
-      image: ghcr.io/zmkfirmware/zmk-build-arm:stable
-      # コンテナ内で実行する場合、認証エラーを避けるためにcredential-ghcを無効化
-      options: --user root
+    # ZMKの不安定なDockerや手動セットアップを完全に回避
 
     steps:
     - name: Checkout ZMK Config
       uses: actions/checkout@v4
       with:
-        submodules: true  # サブモジュールもチェックアウト
+        submodules: true
         fetch-depth: 0
 
-    # 1. ZMKコアリポジトリの取得とwest初期化
-    - name: Initialize West Workspace
-      # コンテナ内で実行されるため、ZMKのパスが /opt/zmk であると想定されます
+    - name: Set up Environment and Install Dependencies
       run: |
-        echo "--- 1. west初期化と依存関係のダウンロード ---"
-        # ワークスペースにzmkマニフェストファイルをコピー
-        cp /opt/zmk/west.yml west.yml
-        # west initは引数なしで実行し、カレントディレクトリのwest.ymlを使用
-        west init
+        echo "--- 1. westとPython要件をインストール ---"
+        pip install west
+        
+        echo "--- 2. ZMKコアをクローンし、west初期化 ---"
+        # ZMKコアをダウンロード
+        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
+        
+        # west init は ZMK コアのマニフェストを指定
+        west init -m zmk/west.yml
         west update
         
-    # 2. Python依存関係のインストール
-    - name: Install Python Dependencies
-      run: |
-        echo "--- 2. Python依存関係のインストール ---"
-        pip3 install -r /opt/zmk/requirements.txt
-        
-    # 3. ビルド実行
+        echo "--- 3. ZMK Python要件をインストール ---"
+        pip install -r zmk/requirements.txt || true
+
+    # 4. Zephyr Toolchain Actionを使用してSDKの問題を解決
+    - name: Install Zephyr Toolchain
+      uses: zephyrproject-rtos/action-zephyr-toolchain@v1
+      
     - name: Run West Build
       run: |
-        echo "--- 3. west build実行（Kconfig回避策不要） ---"
-        # ZMKの推奨ビルドスクリプトを実行し、ZMK_CONFIGを現在のワークスペースに設定
-        # コンテナ内で実行されるため、Kconfigフリーズの心配はありません
-        /opt/zmk/zephyr/scripts/zephyr-export.sh
+        echo "--- 5. west build実行 ---"
+        # Kconfig対話モードの最終回避策
+        export KCONFIG_NONINTERACTIVE=1
         
-        west build -s /opt/zmk/app -d build --sysbuild \
-          -b ${{ github.event.inputs.board }} \
-          -- -DSHIELD=${{ github.event.inputs.shield }} \
+        # ツールチェーンが設定された状態でビルドを実行
+        west build -s zmk/app -d build --sysbuild \
+          -b seeeduino_xiao_ble \
+          -- -DSHIELD=prospector_scanner \
           -DZMK_CONFIG=${{ github.workspace }}
-        
-    # 4. 成果物アップロード
+
     - name: Archive artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: firmware-${{ github.event.inputs.board }}-${{ github.event.inputs.shield }}
+        name: firmware-seeeduino_xiao_ble-prospector_scanner
         path: build/zephyr/zmk.uf2
