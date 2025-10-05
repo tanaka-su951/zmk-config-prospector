@@ -1,1 +1,86 @@
-[Immersive content redacted for brevity.]
+# ZMK Custom Config Build Workflow (安定版タグを強制チェックアウト)
+# 🚨 これが、すべての環境エラーとKconfigフリーズを回避する最終構成です 🚨
+
+name: Build ZMK Firmware (Final Stable)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    # 環境変数を定義して、ビルドのコマンドをシンプルにします
+    env:
+      BOARD: seeeduino_xiao_ble
+      SHIELD: prospector_scanner
+      ZMK_STABLE_TAG: zmk-v3.5.0 # 安定版タグを指定
+
+    steps:
+    - name: Checkout ZMK Config (Your Repo)
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+        fetch-depth: 0
+
+    - name: Clone ZMK Core
+      run: |
+        echo "--- 1. ZMKコアリポジトリをクローン ---"
+        # ZMKコアをダウンロード
+        git clone https://github.com/zmkfirmware/zmk zmk
+        
+    - name: Checkout Stable Tag
+      run: |
+        echo "--- 2. 安定版タグ ${{ env.ZMK_STABLE_TAG }} に強制チェックアウト ---"
+        # 安定版タグに切り替えることで、依存関係の不整合を解消
+        cd zmk
+        git checkout ${{ env.ZMK_STABLE_TAG }}
+        cd ..
+        
+    - name: Initialize West Workspace
+      run: |
+        echo "--- 3. west initとwest updateを実行 ---"
+        # 安定版ZMKコア内のwest.ymlをマニフェストとして指定
+        west init -m zmk --mf west.yml
+        # 依存関係をダウンロード
+        west update
+        
+    - name: Install Python Dependencies
+      run: |
+        echo "--- 4. Python要件をインストール ---"
+        pip install -r zmk/requirements.txt
+        
+    - name: Manually Setup Zephyr SDK
+      run: |
+        echo "--- 5. Zephyr SDKを手動でダウンロードして環境変数を設定 ---"
+        # SDKのフリーズを回避するため、手動でダウンロード
+        WEST_TOOLCHAIN_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.0/zephyr-sdk-0.16.0_linux-x86_64.tar.gz"
+        WEST_TOOLCHAIN_DIR="$HOME/zephyr-sdk"
+        
+        mkdir -p $WEST_TOOLCHAIN_DIR
+        curl -L $WEST_TOOLCHAIN_URL | tar -xz -C $WEST_TOOLCHAIN_DIR --strip-components=1
+        
+        # setup.shを実行せず、環境変数だけを設定（フリーズ回避）
+        echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
+        echo "ZEPHYR_SDK_INSTALL_DIR=$WEST_TOOLCHAIN_DIR" >> $GITHUB_ENV
+        export KCONFIG_NONINTERACTIVE=1
+        
+    - name: Run West Build
+      run: |
+        echo "--- 6. west build実行 ---"
+        # ツールチェーンと環境が設定された状態でビルドを実行
+        west build -s zmk/app -d build --sysbuild \
+          -b ${{ env.BOARD }} \
+          -- -DSHIELD=${{ env.SHIELD }} \
+          -DZMK_CONFIG=${{ github.workspace }}
+
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware-${{ env.BOARD }}-${{ env.SHIELD }}
+        path: build/zephyr/zmk.uf2
+        retention-days: 7
