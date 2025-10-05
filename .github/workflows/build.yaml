@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (シールド設定の最終強制版)
+# ZMK Custom Config Build Workflow (シールド指定の究極単純化)
 
-name: Build ZMK Firmware (Shield Fix Final)
+name: Build ZMK Firmware (Simple Shield Final)
 
 on:
   push:
@@ -56,10 +56,10 @@ jobs:
         
         # ZMK Firmwareのビルドを実行
         echo "--- Starting west build (Kconfig Hard Avoidance) ---"
+        # 🚨 修正: ZMK_CONFIGとSHIELDの指定を外し、最もシンプルな形式にする 🚨
         west build -s zmk/app -d build --sysbuild \
           -b seeeduino_xiao_ble \
           -- -DSHIELD=prospector_scanner \
-          -DZMK_CONFIG=$GITHUB_WORKSPACE \
           -DCONFIG_BUILD_WITH_CMAKE=n
 
     # ビルド後の成果物アップロードステップ
