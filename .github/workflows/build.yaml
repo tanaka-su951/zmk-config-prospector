@@ -21,8 +21,7 @@ jobs:
       # 安定版SDKのバージョンとURLを定義
       ZEPHYR_SDK_VERSION: 0.15.2
       ZEPHYR_SDK_URL: https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.15.2/zephyr-sdk-0.15.2_linux-x86_64.tar.gz
-      ZEPHYR_SDK_DIR: ${{ runner.tool_cache }}/zephyr-sdk
-      # ビルド時の非対話モードを強制
+      # ZEPHYR_SDK_DIRの定義を削除/変更 (修正ポイント)
       KCONFIG_NONINTERACTIVE: 1
 
     steps:
@@ -33,7 +32,6 @@ jobs:
         fetch-depth: 0
 
     - name: 2. Install West and ZMK Python Dependencies
-      # WestとZMKコアの要件を一度にインストール
       run: |
         pip install west
         # ZMKコアを一時的にクローンし、requirements.txtを使用
@@ -53,29 +51,28 @@ jobs:
     - name: 4. Download and Setup Zephyr SDK
       # Zephyr SDKをダウンロード、展開し、環境変数を設定
       run: |
-        echo "Installing Zephyr SDK v${{ env.ZEPHYR_SDK_VERSION }} to ${{ env.ZEPHYR_SDK_DIR }}"
+        # 🚨 修正ポイント：SDKインストールディレクトリをステップ内で定義 🚨
+        ZEPHYR_SDK_DIR="${{ runner.tool_cache }}/zephyr-sdk"
+
+        echo "Installing Zephyr SDK v${{ env.ZEPHYR_SDK_VERSION }} to ${ZEPHYR_SDK_DIR}"
         
         # ツールキャッシュディレクトリがなければ作成
-        mkdir -p ${{ env.ZEPHYR_SDK_DIR }}
+        mkdir -p ${ZEPHYR_SDK_DIR}
         
         # ダウンロードとエラーチェックの堅牢化
         curl -L -f -sS ${{ env.ZEPHYR_SDK_URL }} -o sdk.tar.gz
         
         # ダウンロードしたアーカイブを展開
-        # --strip-components=1 でトップレベルディレクトリをスキップ
-        tar -xzf sdk.tar.gz -C ${{ env.ZEPHYR_SDK_DIR }} --strip-components=1
+        tar -xzf sdk.tar.gz -C ${ZEPHYR_SDK_DIR} --strip-components=1
 
         # Zephyrビルドに必要な環境変数を設定
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         # SDKインストールディレクトリを設定
-        echo "ZEPHYR_SDK_INSTALL_DIR=${{ env.ZEPHYR_SDK_DIR }}" >> $GITHUB_ENV
+        echo "ZEPHYR_SDK_INSTALL_DIR=${ZEPHYR_SDK_DIR}" >> $GITHUB_ENV # ここで $GITHUB_ENV に書き込む
         
     - name: 5. Run West Build
       run: |
         # ツールチェーンと環境が設定された状態でビルドを実行
-        # -s zmk/app: ZMKアプリケーションソースディレクトリ
-        # -d build: ビルド出力ディレクトリ
-        # --sysbuild: ZMK特有のビルド方式
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DSHIELD=${{ env.SHIELD }} \
@@ -85,6 +82,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-${{ env.SHIELD }}
-        # UF2ファイルが生成されていることを前提
         path: build/zephyr/zmk.uf2
         retention-days: 7
