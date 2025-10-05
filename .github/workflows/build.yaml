@@ -29,8 +29,8 @@ jobs:
 
     - name: Clone ZMK Core
       run: |
-        echo "--- 1. ZMKコアリポジトリをクローン ---"
-        # ZMKコアをダウンロード
+        echo "--- 1. ZMKコアリポジトリをクローン（全履歴を取得） ---"
+        # 🚨 修正: --depth 1 を削除し、全履歴をクローンしてタグを認識させる 🚨
         git clone https://github.com/zmkfirmware/zmk zmk
         
     - name: Checkout Stable Tag
@@ -38,6 +38,7 @@ jobs:
         echo "--- 2. 安定版タグ ${{ env.ZMK_STABLE_TAG }} に強制チェックアウト ---"
         # 安定版タグに切り替えることで、依存関係の不整合を解消
         cd zmk
+        # タグへの切り替え
         git checkout ${{ env.ZMK_STABLE_TAG }}
         cd ..
         
