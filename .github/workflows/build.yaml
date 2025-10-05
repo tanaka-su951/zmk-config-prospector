@@ -1,6 +1,6 @@
 # ZMKの公式外部ビルドワークフローを使用 (最新のmainブランチに依存)
 
-name: Build ZMK Firmware (Official Main)
+name: Build ZMK Firmware (Official Final)
 
 on:
   push:
@@ -12,10 +12,10 @@ on:
 jobs:
   build:
     # ZMKの外部ワークフローを呼び出す
-    # 参照を「main」ブランチに戻します。タグは外部呼び出しで不安定な場合があります。
     uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
     with:
-      # ZMKコミュニティで確認されている、最もシンプルな入力名を使用
-      board: seeeduino_xiao_ble
-      shield: prospector_scanner
-      zmk_config_path: ${{ github.workspace }}
+      # 🚨 修正: ZMKの公式ワークフローの入力名に合わせてハイフン形式に変更 🚨
+      board-name: seeeduino_xiao_ble
+      shield-name: prospector_scanner
+      zmk-config-path: ${{ github.workspace }}
+
