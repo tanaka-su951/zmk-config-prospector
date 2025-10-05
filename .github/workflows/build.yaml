@@ -1,8 +1,6 @@
-# ZMK Custom Config Build Workflow (ZMK公式のセットアップスクリプトを使用)
+# ZMK Custom Config Build Workflow (サブシェルでSDK環境を強制統合)
 
-# ZMK Custom Config Build Workflow (west zephyr-exportで環境を強制設定)
-
-name: Build ZMK Firmware (Export Env Final)
+name: Build ZMK Firmware (Subshell Final)
 
 on:
   push:
@@ -40,7 +38,6 @@ jobs:
     - name: Install Zephyr SDK
       run: |
         echo "--- 3. Zephyr SDKのインストール ---"
-        # SDK v0.16.0を使用
         SDK_VERSION="0.16.0"
         SDK_FILE="zephyr-sdk-${SDK_VERSION}_linux-x86_64.tar.xz"
         SDK_DIR="$HOME/zephyr-sdk"
@@ -49,23 +46,17 @@ jobs:
         mkdir -p $SDK_DIR
         tar xf ${SDK_FILE} -C $SDK_DIR --strip-components=1
 
-    - name: --- 🚨 環境変数の設定とエクスポート 🚨 ---
-      id: zephyr_env
+    - name: --- 🚨 ビルド実行 (SDK環境とビルドの隔離) 🚨 ---
+      # 🚨 SDKのセットアップとwest buildを単一の run ブロックで実行 🚨
       run: |
-        echo "--- 4. Zephyr環境変数をエクスポート ---"
-        # west zephyr-export を実行し、必要な環境変数を収集して次のステップに渡す
-        # これが source setup.sh の代わりとなり、非対話モードで環境を設定する
-        echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
-        echo "ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk" >> $GITHUB_ENV
-        echo "KCONFIG_NONINTERACTIVE=1" >> $GITHUB_ENV # Kconfig回避策
+        echo "--- 4. 環境設定とwest buildを同時実行 ---"
         
-        # west zephyr-export の結果を環境変数としてエクスポート
-        west zephyr-export >> $GITHUB_ENV
-
-    - name: --- 🚨 ビルド実行 🚨 ---
-      # west build実行時、前ステップで設定した環境変数が使用される
-      run: |
-        echo "--- Starting west build ---"
+        # Kconfig対話モードの回避策
+        export KCONFIG_NONINTERACTIVE=1
+        
+        # 1. SDKのセットアップスクリプトをsourceし、環境変数を現在のシェルに設定
+        # 2. 環境変数が設定された同じシェル内でwest buildを実行
+        source $HOME/zephyr-sdk/setup.sh && \
         west build -s zmk/app -d build --sysbuild \
           -b seeeduino_xiao_ble \
           -- -DSHIELD=prospector_scanner \
