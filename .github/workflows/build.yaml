@@ -1,4 +1,4 @@
-name: Build ZMK Firmware (Manual Setup Final Attempt v7)
+name: Build ZMK Firmware (Manual Setup Final Attempt v8)
 
 on:
   push:
@@ -34,17 +34,23 @@ jobs:
     - name: Install Python Dependencies (Bypass requirements.txt)
       run: |
         echo "--- 2. Python要件をインストール (手動) ---"
-        # 🚨 最終修正: requirements.txt のパス問題を回避 🚨
         pip install pyyaml setuptools
         
-    - name: Manually Setup Zephyr SDK (v0.16.1)
+    - name: Manually Setup Zephyr SDK (v0.16.1 Final)
       run: |
         echo "--- 3. Zephyr SDKを手動でダウンロードして環境変数を設定 ---"
-        WEST_TOOLCHAIN_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.1/zephyr-sdk-0.16.1_linux-x86_64.tar.gz"
+        SDK_VERSION="0.16.1"
+        SDK_FILENAME="zephyr-sdk-${SDK_VERSION}_linux-x86_64.tar.gz"
+        SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${SDK_VERSION}/${SDK_FILENAME}"
         WEST_TOOLCHAIN_DIR="$HOME/zephyr-sdk"
         
+        # 🚨 修正: wget でダウンロードし、tar で展開するロジックに変更 🚨
+        wget -q "${SDK_URL}"
+        
         mkdir -p $WEST_TOOLCHAIN_DIR
-        curl -L $WEST_TOOLCHAIN_URL | tar -xz -C $WEST_TOOLCHAIN_DIR --strip-components=1
+        tar -xzf "${SDK_FILENAME}" --strip-components=1 -C $WEST_TOOLCHAIN_DIR
+        
+        rm "${SDK_FILENAME}"
         
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=$WEST_TOOLCHAIN_DIR" >> $GITHUB_ENV
@@ -53,7 +59,6 @@ jobs:
     - name: Run West Build
       run: |
         echo "--- 4. west build実行 ---"
-        # CMakeが成功するかどうかを確認
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DSHIELD=${{ env.SHIELD }} \
