@@ -1,78 +1,25 @@
-name: Build ZMK Firmware (Git Tag Final Eradication)
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    
-    # 環境変数を定義
-    env:
-      BOARD: seeeduino_xiao_ble
-      SHIELD: prospector_scanner
-      ZMK_STABLE_TAG: 3.5.0 # ✅ 存在するタグ名に修正
-
-    steps:
-    - name: Checkout ZMK Config (Your Repo)
-      uses: actions/checkout@v4
-      with:
-        submodules: true
-        fetch-depth: 0
-
-    - name: Clone ZMK Core
-      run: |
-        echo "--- 1. ZMKコアリポジトリをクローン ---"
-        git clone https://github.com/zmkfirmware/zmk zmk
-        
     - name: Checkout Stable Tag (Final Fix)
       run: |
         echo "--- 2. 安定版タグ ${{ env.ZMK_STABLE_TAG }} に強制チェックアウト ---"
         cd zmk
-        # タグへの切り替え (修正後の値であれば成功するはずです)
-        git checkout ${{ env.ZMK_STABLE_TAG }}
+        
+        # 🚨 修正 1: リモートからの全タグの強制取得を確保
+        git fetch --tags
+        
+        # 🚨 修正 2: タグ名のバリエーションを試す
+        TAG_NAME="${{ env.ZMK_STABLE_TAG }}"
+        V_TAG_NAME="v${{ env.ZMK_STABLE_TAG }}"
+        
+        # 3.5.0 が存在するか、v3.5.0 が存在するかを確認し、対応するタグ名を使用
+        if git rev-parse --verify "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+            echo "Found tag: ${TAG_NAME}"
+            git checkout "${TAG_NAME}"
+        elif git rev-parse --verify "refs/tags/${V_TAG_NAME}" >/dev/null 2>&1; then
+            echo "Found tag: ${V_TAG_NAME}"
+            git checkout "${V_TAG_NAME}"
+        else
+            echo "Error: Neither tag '${TAG_NAME}' nor '${V_TAG_NAME}' found. Falling back to 'main'."
+            git checkout main
+        fi
+        
         cd ..
-        
-    - name: Initialize West Workspace
-      run: |
-        echo "--- 3. west initとwest updateを実行 ---"
-        west init -m zmk --mf west.yml
-        west update
-        
-    - name: Install Python Dependencies
-      run: |
-        echo "--- 4. Python要件をインストール ---"
-        pip install -r zmk/requirements.txt
-        
-    - name: Manually Setup Zephyr SDK (v0.16.1 Fix)
-      run: |
-        echo "--- 5. Zephyr SDKを手動でダウンロードして環境変数を設定 ---"
-        WEST_TOOLCHAIN_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.1/zephyr-sdk-0.16.1_linux-x86_64.tar.gz"
-        WEST_TOOLCHAIN_DIR="$HOME/zephyr-sdk"
-        
-        mkdir -p $WEST_TOOLCHAIN_DIR
-        curl -L $WEST_TOOLCHAIN_URL | tar -xz -C $WEST_TOOLCHAIN_DIR --strip-components=1
-        
-        echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
-        echo "ZEPHYR_SDK_INSTALL_DIR=$WEST_TOOLCHAIN_DIR" >> $GITHUB_ENV
-        export KCONFIG_NONINTERACTIVE=1
-        
-    - name: Run West Build
-      run: |
-        echo "--- 6. west build実行 ---"
-        # ツールチェーンと環境が設定された状態でビルドを実行
-        west build -s zmk/app -d build --sysbuild \
-          -b ${{ env.BOARD }} \
-          -- -DSHIELD=${{ env.SHIELD }} \
-          -DZMK_CONFIG=${{ github.workspace }}
-
-    - name: Archive artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: firmware-${{ env.BOARD }}-${{ env.SHIELD }}
-        path: build/zephyr/zmk.uf2
-        retention-days: 7
