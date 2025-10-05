@@ -1,1 +1,43 @@
-[Immersive content redacted for brevity.]
+name: Build ZMK Firmware (Official Action Final)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    # 環境変数を定義
+    env:
+      BOARD: seeeduino_xiao_ble
+      SHIELD: prospector_scanner
+      ZMK_STABLE_TAG: 3.5.0 
+
+    steps:
+    - name: Checkout ZMK Config (Your Repo)
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive 
+        fetch-depth: 0
+
+    - name: Set up Zephyr/ZMK Build Environment
+      # 🚨 修正済み: 最新の安定版バージョン v3 を指定 🚨
+      uses: zmkfirmware/zmk-build-action@v3
+      with:
+        ref: ${{ env.ZMK_STABLE_TAG }} 
+
+    - name: Run West Build
+      run: |
+        echo "--- west build実行 ---"
+        west build -b ${{ env.BOARD }} -- -DSHIELD=${{ env.SHIELD }}
+
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware-${{ env.BOARD }}-${{ env.SHIELD }}
+        path: build/zephyr/zmk.uf2
+        retention-days: 7
