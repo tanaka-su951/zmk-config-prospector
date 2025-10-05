@@ -1,61 +1,8 @@
-# ZMK Custom Config Build Workflow (GitHub公式アクションで構成)
-# 🚨 これが、環境セットアップ問題を回避するための最後の論理的な構成です 🚨
-
-name: Build ZMK Firmware (GitHub Actions Final)
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    # ZMKの不安定なDockerや手動セットアップを完全に回避
-
-    steps:
-    - name: Checkout ZMK Config
-      uses: actions/checkout@v4
-      with:
-        submodules: true
-        fetch-depth: 0
-
-    - name: Set up Environment and Install Dependencies
-      run: |
-        echo "--- 1. westとPython要件をインストール ---"
-        pip install west
-        
-        echo "--- 2. ZMKコアをクローンし、west初期化 ---"
-        # ZMKコアをダウンロード
-        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
-        
-        # west init は ZMK コアのマニフェストを指定
-        west init -m zmk/west.yml
-        west update
-        
-        echo "--- 3. ZMK Python要件をインストール ---"
-        pip install -r zmk/requirements.txt || true
-
-    # 4. Zephyr Toolchain Actionを使用してSDKの問題を解決
-    - name: Install Zephyr Toolchain
-      uses: zephyrproject-rtos/action-zephyr-toolchain@v1
-      
-    - name: Run West Build
-      run: |
-        echo "--- 5. west build実行 ---"
-        # Kconfig対話モードの最終回避策
-        export KCONFIG_NONINTERACTIVE=1
-        
-        # ツールチェーンが設定された状態でビルドを実行
-        west build -s zmk/app -d build --sysbuild \
-          -b seeeduino_xiao_ble \
-          -- -DSHIELD=prospector_scanner \
-          -DZMK_CONFIG=${{ github.workspace }}
-
-    - name: Archive artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: firmware-seeeduino_xiao_ble-prospector_scanner
-        path: build/zephyr/zmk.uf2
+# ZMK Custom Config Build Workflow (コミュニティアクションで環境構築)
+# 🚨 これが、フリーズ/参照エラーを回避するための最後の最も実用的な構成です 🚨
+... (中略)
+    # 2. コミュニティアクションで環境を一括セットアップ
+    - name: Install Dependencies and Toolchain
+      # 安定した依存関係インストールアクションを使用
+      uses: actions-toolkit/action-west@main
+...
