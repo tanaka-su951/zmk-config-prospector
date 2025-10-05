@@ -15,7 +15,7 @@ jobs:
     env:
       BOARD: seeeduino_xiao_ble
       SHIELD: prospector_scanner
-      ZMK_STABLE_TAG: 3.5.0 # 🚨 修正済み: 存在するタグ名を使用 🚨
+      ZMK_STABLE_TAG: 3.5.0 # 存在するタグ名を使用
 
     steps:
     - name: Checkout ZMK Config (Your Repo)
@@ -27,17 +27,18 @@ jobs:
     - name: Clone ZMK Core and Checkout Stable Tag
       run: |
         echo "--- 1. ZMKコアリポジトリをクローンし、タグ ${{ env.ZMK_STABLE_TAG }} にチェックアウト ---"
-        # 履歴をすべて取得
+        # ZMKコアをクローン
         git clone https://github.com/zmkfirmware/zmk zmk
         cd zmk
-        # 存在するタグ名に切り替える (タグ認識エラーを解消)
+        # 🚨 タグ情報を取得してチェックアウトを確実にする 🚨
+        git fetch --tags
         git checkout ${{ env.ZMK_STABLE_TAG }}
         cd ..
         
     - name: Initialize West Workspace
       run: |
         echo "--- 2. west initとwest updateを実行 ---"
-        # 安定版ZMKコア内のwest.ymlをマニフェストとして指定
+        # ZMKコア内のwest.ymlをマニフェストとして指定
         west init -m zmk --mf west.yml
         # 依存関係をダウンロード
         west update
@@ -50,14 +51,13 @@ jobs:
     - name: Manually Setup Zephyr SDK (v0.16.1)
       run: |
         echo "--- 4. Zephyr SDKを手動でダウンロードして環境変数を設定 ---"
-        # SDK v0.16.1 の正しいURLを使用
         WEST_TOOLCHAIN_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.1/zephyr-sdk-0.16.1_linux-x86_64.tar.gz"
         WEST_TOOLCHAIN_DIR="$HOME/zephyr-sdk"
         
         mkdir -p $WEST_TOOLCHAIN_DIR
         curl -L $WEST_TOOLCHAIN_URL | tar -xz -C $WEST_TOOLCHAIN_DIR --strip-components=1
         
-        # setup.shを実行せず、環境変数だけを設定
+        # 環境変数を設定
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=$WEST_TOOLCHAIN_DIR" >> $GITHUB_ENV
         export KCONFIG_NONINTERACTIVE=1
@@ -65,7 +65,7 @@ jobs:
     - name: Run West Build
       run: |
         echo "--- 5. west build実行 ---"
-        # ツールチェーンと環境が設定された状態でビルドを実行
+        # ビルドを実行
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DSHIELD=${{ env.SHIELD }} \
