@@ -14,7 +14,7 @@ jobs:
     # ZMKの外部ワークフローを呼び出す
     uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
     with:
-      # 🚨 修正: 入力名をアンダースコア形式（またはZMK公式で一般的な形式）に戻します 🚨
-      board_name: seeeduino_xiao_ble
-      shield_name: prospector_scanner
-      config_path: ${{ github.workspace }}
+      # 🚨 修正: 全ての入力を公式のハイフン形式 (board-name, shield-name, zmk-config-path) に統一します 🚨
+      board-name: seeeduino_xiao_ble
+      shield-name: prospector_scanner
+      zmk-config-path: ${{ github.workspace }}
