@@ -1,4 +1,4 @@
-name: Build ZMK Firmware (Manual Setup Final Attempt v8)
+name: Build ZMK Firmware (Manual Setup Final Attempt v9)
 
 on:
   push:
@@ -28,26 +28,24 @@ jobs:
         echo "--- 1. Westをセットアップし、全依存関係をクローン ---"
         pip install west
         
-        # west init のみで ZMK コアと依存関係をすべてクローン（ディレクトリ競合を回避）
         west init -m https://github.com/zmkfirmware/zmk --mr ${{ env.ZMK_CORE_REF }} --mf app/west.yml
         west update
         
     - name: Install Python Dependencies (Bypass requirements.txt)
       run: |
         echo "--- 2. Python要件をインストール (手動) ---"
-        # requirements.txt のパス問題を回避するため、主要パッケージを手動インストール
         pip install pyyaml setuptools
         
-    - name: Manually Setup Zephyr SDK (Final Version Update)
+    - name: Manually Setup Zephyr SDK (Final URL Fix)
       run: |
         echo "--- 3. Zephyr SDKを手動でダウンロードして環境変数を設定 ---"
-        # 🚨 SDK バージョンを 0.16.5 に更新し、ダウンロードエラーを回避 🚨
-        SDK_VERSION="0.16.5"
+        # 🚨 最終修正: SDK バージョンを 0.16.6 に変更し、URLを正確に指定 🚨
+        SDK_VERSION="0.16.6"
         SDK_FILENAME="zephyr-sdk-${SDK_VERSION}_linux-x86_64.tar.gz"
-        SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${SDK_VERSION}/${SDK_FILENAME}"
+        # リリース名が「v0.16.6」ではなく「0.16.6」の可能性があるため、URLを変更
+        SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/${SDK_VERSION}/${SDK_FILENAME}"
         WEST_TOOLCHAIN_DIR="$HOME/zephyr-sdk"
         
-        # wget で SDK をダウンロード
         wget "${SDK_URL}"
         
         mkdir -p $WEST_TOOLCHAIN_DIR
