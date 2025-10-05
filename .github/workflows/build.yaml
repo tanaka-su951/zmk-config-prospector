@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (ダミー設定を削除し、Kconfig回避に専念)
+# ZMK Custom Config Build Workflow (すべてを単一のシェル実行に統合)
 
-name: Build ZMK Firmware (No Dummy Config Final)
+name: Build ZMK Firmware (Integrated Shell Final)
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
         submodules: false
         fetch-depth: 0
 
-    - name: --- 🚨 セットアップと初期化の実行（全問題を回避） 🚨 ---
+    - name: --- 🚨 ビルド環境のセットアップと実行 (統合) 🚨 ---
       run: |
         echo "--- 0. westをインストール ---"
         pip install west
@@ -41,19 +41,19 @@ jobs:
         echo "--- 3. ZMK Python要件をインストール ---"
         pip install -r zmk/requirements.txt || true
 
-    - name: --- 🚨 ビルドとKconfig対話モードの強制回避 🚨 ---
+    - name: --- 🚨 ビルド実行 (SDK設定とビルドを統合) 🚨 ---
+      # 🚨 SDKのsourceとwest buildを単一のrunステップに統合 🚨
       run: |
         # 究極の対話モード回避策を環境変数で設定
         export KCONFIG_NONINTERACTIVE=1
         
-        # Zephyr 環境を初期化し、このステップ全体で環境変数を有効化
+        # Zephyr 環境を**現在のシェル**で設定
         echo "--- Sourcing Zephyr environment setup.sh ---"
+        # sourceを使うと次のコマンドに環境変数が引き継がれる
         source $HOME/zephyr-sdk/setup.sh
         
-        # 🚨 ダミー.configの作成を削除 🚨
-        
-        # ZMK Firmwareのビルドを実行（必要なパスをすべて指定）
-        echo "--- Starting west build (No Dummy Config) ---"
+        # ZMK Firmwareのビルドを実行
+        echo "--- Starting west build (Integrated Shell) ---"
         west build -s zmk/app -d build --sysbuild \
           -b seeeduino_xiao_ble \
           -- -DSHIELD=prospector_scanner \
