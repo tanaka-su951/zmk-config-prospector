@@ -1,7 +1,7 @@
-# ZMK Custom Config Build Workflow (Westインストール追加/最終版)
-# 🚨 これが、Westツールが見つからないエラーと環境フリーズを回避する最終構成です 🚨
+# ZMK Custom Config Build Workflow (Westローカルマニフェスト指定/最終版)
+# 🚨 これが、Westがwest.ymlを見つけられないエラーを回避する最終構成です 🚨
 
-name: Build ZMK Firmware (West Tool Fix Final)
+name: Build ZMK Firmware (West Local Manifest Final)
 
 on:
   push:
@@ -26,30 +26,34 @@ jobs:
         submodules: true
         fetch-depth: 0
 
-    - name: Install West Tool (NEW STEP)
+    - name: Install West Tool
       run: |
         echo "--- 1. West Toolをインストール ---"
-        # Westコマンド自体をpipでインストール
         pip install west
 
+    - name: Clone ZMK Core
+      run: |
+        echo "--- 2. ZMKコアをクローン（west initの前に手動で実施） ---"
+        git clone https://github.com/zmkfirmware/zmk zmk
+        
     - name: Initialize West Workspace
       run: |
-        echo "--- 2. West initとWest updateを実行 ---"
-        # Git/タグ認識エラーを避けるため、WestにZMKコアの最新版を直接指定
-        west init -m https://github.com/zmkfirmware/zmk --mr main
+        echo "--- 3. West initとWest updateを実行 ---"
+        # 🚨 ZMKコアをローカルディレクトリとしてマニフェストに指定 🚨
+        west init -l zmk
         # 依存関係をダウンロード
         west update
         
     - name: Install Python Dependencies
       run: |
-        echo "--- 3. Python要件をインストール ---"
+        echo "--- 4. Python要件をインストール ---"
         # WestでクローンしたZMKコアのrequirements.txtを使用
         pip install -r zmk/requirements.txt
         
     - name: Manually Setup Zephyr SDK (v0.15.2 Stable Fix)
       run: |
-        echo "--- 4. Zephyr SDKを手動でダウンロードして環境変数を設定 ---"
-        # 🚨 SDKのダウンロードエラーを解消するため、安定版 v0.15.2 を使用 🚨
+        echo "--- 5. Zephyr SDKを手動でダウンロードして環境変数を設定 ---"
+        # SDKのダウンロードエラーを解消するため、安定版 v0.15.2 を使用 
         WEST_TOOLCHAIN_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.15.2/zephyr-sdk-0.15.2_linux-x86_64.tar.gz"
         WEST_TOOLCHAIN_DIR="$HOME/zephyr-sdk"
         
@@ -69,7 +73,7 @@ jobs:
         
     - name: Run West Build
       run: |
-        echo "--- 5. west build実行 ---"
+        echo "--- 6. west build実行 ---"
         # ツールチェーンと環境が設定された状態でビルドを実行
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
