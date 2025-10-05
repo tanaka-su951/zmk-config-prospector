@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (メインブランチ使用による安定化)
+# ZMK Custom Config Build Workflow (Kconfig環境変数強制)
 
-name: Build ZMK Firmware (Main Branch Final)
+name: Build ZMK Firmware (Kconfig Env Final)
 
 on:
   push:
@@ -28,8 +28,7 @@ jobs:
         
         # 1. ZMKコアをmainブランチでクローンし、west初期化
         echo "--- DEBUG: Cloning ZMK Core (main branch) and running west init ---"
-        # クリーンアップの徹底
-        rm -rf .west zmk
+        rm -rf .west zmk # クリーンアップ
         
         # mainブランチの最新版を浅くクローン
         git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
@@ -47,17 +46,21 @@ jobs:
         # 3. ZMK Python要件をインストール
         pip install -r zmk/requirements.txt || true
 
-    - name: --- 🚨 ビルドとKconfig対話モードの強制回避 🚨 ---
+    - name: --- 🚨 ビルドとKconfig非対話モードの強制 🚨 ---
       run: |
         # Zephyr 環境を初期化し、このステップ全体で環境変数を有効化
         echo "--- Sourcing Zephyr environment setup.sh ---"
         source $HOME/zephyr-sdk/setup.sh
         
+        # 🚨 究極のKconfig非対話モード強制 🚨
+        export KCONFIG_NONINTERACTIVE=1
+        echo "KCONFIG_NONINTERACTIVE is set to 1. Building non-interactively."
+        
         # Kconfigの対話モードを強制的に回避するためのダミー設定作成
         mkdir -p build/zephyr/
         echo "CONFIG_ZMK_CONFIG_NAME=\"prospector\"" > build/zephyr/.config
         
-        # ZMK Firmwareのビルドを実行 (Kconfigの対話回避オプションを含む)
+        # ZMK Firmwareのビルドを実行
         echo "--- Starting west build (Kconfig Hard Avoidance) ---"
         west build -s zmk/app -d build --sysbuild \
           -b seeeduino_xiao_ble \
@@ -71,3 +74,4 @@ jobs:
       with:
         name: firmware
         path: build/zephyr/zmk.uf2
+
