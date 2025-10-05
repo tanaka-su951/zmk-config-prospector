@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (安定版コミットID固定)
+# ZMK Custom Config Build Workflow (ダミー設定を削除し、Kconfig回避に専念)
 
-name: Build ZMK Firmware (Commit ID Final)
+name: Build ZMK Firmware (No Dummy Config Final)
 
 on:
   push:
@@ -11,11 +11,58 @@ on:
 
 jobs:
   build:
-    # ZMKの外部ワークフローを呼び出す
-    # 🚨 修正: 参照をZMK v3.5.0の固定コミットIDに設定 🚨
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@578819036a1e3b67c8005378c3b52669e4695e20
-    with:
-      # 入力名は、v3.5.0リリース当時の正しい形式に戻します
-      board: seeeduino_xiao_ble
-      shield: prospector_scanner
-      zmk_config_path: ${{ github.workspace }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout ZMK Config
+      uses: actions/checkout@v4
+      with:
+        submodules: false
+        fetch-depth: 0
+
+    - name: --- 🚨 セットアップと初期化の実行（全問題を回避） 🚨 ---
+      run: |
+        echo "--- 0. westをインストール ---"
+        pip install west
+        
+        echo "--- 1. ZMKコアをmainブランチでクローンし、west初期化 ---"
+        rm -rf .west zmk # クリーンアップ
+        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
+        
+        west init -l .
+        west update
+        
+        echo "--- 2. Zephyr SDKのインストール ---"
+        # SDK v0.16.0を使用
+        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.0/zephyr-sdk-0.16.0_linux-x86_64.tar.xz
+        mkdir -p $HOME/zephyr-sdk
+        tar xf zephyr-sdk-0.16.0_linux-x86_64.tar.xz -C $HOME/zephyr-sdk --strip-components=1
+        
+        echo "--- 3. ZMK Python要件をインストール ---"
+        pip install -r zmk/requirements.txt || true
+
+    - name: --- 🚨 ビルドとKconfig対話モードの強制回避 🚨 ---
+      run: |
+        # 究極の対話モード回避策を環境変数で設定
+        export KCONFIG_NONINTERACTIVE=1
+        
+        # Zephyr 環境を初期化し、このステップ全体で環境変数を有効化
+        echo "--- Sourcing Zephyr environment setup.sh ---"
+        source $HOME/zephyr-sdk/setup.sh
+        
+        # 🚨 ダミー.configの作成を削除 🚨
+        
+        # ZMK Firmwareのビルドを実行（必要なパスをすべて指定）
+        echo "--- Starting west build (No Dummy Config) ---"
+        west build -s zmk/app -d build --sysbuild \
+          -b seeeduino_xiao_ble \
+          -- -DSHIELD=prospector_scanner \
+          -DZMK_CONFIG=$GITHUB_WORKSPACE \
+          -DCONFIG_BUILD_WITH_CMAKE=n
+
+    # ビルド後の成果物アップロードステップ
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware
+        path: build/zephyr/zmk.uf2
