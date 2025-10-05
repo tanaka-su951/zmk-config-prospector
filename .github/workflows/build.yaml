@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (mainブランチに戻す)
+# ZMK Custom Config Build Workflow (メインブランチ使用による安定化)
 
 name: Build ZMK Firmware (Main Branch Final)
 
@@ -17,6 +17,7 @@ jobs:
     - name: Checkout ZMK Config
       uses: actions/checkout@v4
       with:
+        # サブモジュールの自動クローンは行わない
         submodules: false
         fetch-depth: 0
 
@@ -25,13 +26,15 @@ jobs:
         # 0. westをインストール
         pip install west
         
-        # 1. ZMKコアをmainブランチでクローンし、west初期化 🚨
+        # 1. ZMKコアをmainブランチでクローンし、west初期化
         echo "--- DEBUG: Cloning ZMK Core (main branch) and running west init ---"
-        rm -rf .west zmk # クリーンアップ
+        # クリーンアップの徹底
+        rm -rf .west zmk
         
-        # 🚨 修正: mainブランチの最新版を使用 🚨
+        # mainブランチの最新版を浅くクローン
         git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
         
+        # westを初期化し、残りの依存関係を取得
         west init -l .
         west update
         
@@ -54,7 +57,7 @@ jobs:
         mkdir -p build/zephyr/
         echo "CONFIG_ZMK_CONFIG_NAME=\"prospector\"" > build/zephyr/.config
         
-        # ZMK Firmwareのビルドを実行
+        # ZMK Firmwareのビルドを実行 (Kconfigの対話回避オプションを含む)
         echo "--- Starting west build (Kconfig Hard Avoidance) ---"
         west build -s zmk/app -d build --sysbuild \
           -b seeeduino_xiao_ble \
