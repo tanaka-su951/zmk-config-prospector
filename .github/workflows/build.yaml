@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (ZMKコアのWest設定を使用)
+# ZMK Custom Config Build Workflow (Manifestファイルを明示的にコピー)
 
-name: Build ZMK Firmware (ZMK Core West Final)
+name: Build ZMK Firmware (Manifest Copy Final)
 
 on:
   push:
@@ -25,27 +25,29 @@ jobs:
         echo "--- 0. westとPython要件をインストール ---"
         pip install west
         
-        echo "--- 1. ZMKコアをmainブランチでクローンし、west初期化 ---"
+        echo "--- 1. ZMKコアをmainブランチでクローン ---"
         rm -rf .west zmk # クリーンアップ
-        # ZMKコアをダウンロード
         git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
         
-        # 🚨 修正: west init の標準形式を使用し、ZMKコアをマニフェストプロジェクトとして指定 🚨
-        west init --manifest-project zmk
+        echo "--- 2. ZMKコアのwest.ymlをルートにコピー ---"
+        # west init のエラーを回避するため、west.ymlを明示的にルートに配置
+        cp zmk/west.yml .
         
-        # 依存関係のダウンロード (Zephyr、NuttXなど)
+        echo "--- 3. west初期化と依存関係のダウンロード ---"
+        # ルートに west.yml が存在するため、引数なしで実行
+        west init
         west update
         
-        echo "--- 2. ZMK Python要件をインストール ---"
+        echo "--- 4. ZMK Python要件をインストール ---"
         pip install -r zmk/requirements.txt || true
 
     - name: --- 🚨 ツールチェーンのインストールと環境設定 🚨 ---
       run: |
-        echo "--- 3. 必要なツールチェーンのダウンロードと設定 ---"
-        # ZMKの west.yml がロードされたため、west toolchain downloadが実行可能になるはずです
+        echo "--- 5. 必要なツールチェーンのダウンロードと設定 ---"
+        # west init が成功したため、west toolchain downloadが実行可能になるはずです
         west toolchain download
 
-        echo "--- 4. 環境変数設定 ---"
+        echo "--- 6. 環境変数設定 ---"
         # Kconfig対話モードの最終回避策
         export KCONFIG_NONINTERACTIVE=1
         
