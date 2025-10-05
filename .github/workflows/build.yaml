@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (west.ymlの安定版定義を強制使用)
+# ZMK Custom Config Build Workflow (ZMKコアのWest設定を使用)
 
-name: Build ZMK Firmware (West YML Clean)
+name: Build ZMK Firmware (ZMK Core West Final)
 
 on:
   push:
@@ -27,31 +27,26 @@ jobs:
         
         echo "--- 1. ZMKコアをmainブランチでクローンし、west初期化 ---"
         rm -rf .west zmk # クリーンアップ
+        # ZMKコアをダウンロード
         git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
         
-        west init -l .
+        # ZMKコアをマニフェストファイルとして指定して west init を実行
+        # これにより、zmkフォルダ内の west.yml が使用されます
+        west init -m zmk -l .
+        
+        # 依存関係のダウンロード (Zephyr、NuttXなど)
         west update
         
         echo "--- 2. ZMK Python要件をインストール ---"
         pip install -r zmk/requirements.txt || true
 
-    - name: --- 🚨 ツールチェーンの依存関係を安定版で強制更新 🚨 ---
-      run: |
-        echo "--- 3. west.ymlを安定版から取得し、ツールチェーン定義を追加 ---"
-        # 安定版 zmk-v3.5.0 の west.yml の内容で現在の west.yml を上書きします
-        # これにより、必要なすべての west 拡張コマンドがロードされます
-        curl -s https://raw.githubusercontent.com/zmkfirmware/zmk/zmk-v3.5.0/west.yml > west.yml
-        
-        echo "--- 4. west updateを再実行して依存関係を解決 ---"
-        west update
-
     - name: --- 🚨 ツールチェーンのインストールと環境設定 🚨 ---
       run: |
-        echo "--- 5. 必要なツールチェーンのダウンロードと設定 ---"
-        # 安定版のwest.ymlがロードされたため、west toolchain downloadが実行可能になるはずです
+        echo "--- 3. 必要なツールチェーンのダウンロードと設定 ---"
+        # ZMKの west.yml がロードされたため、west toolchain downloadが実行可能になるはずです
         west toolchain download
 
-        echo "--- 6. 環境変数設定 ---"
+        echo "--- 4. 環境変数設定 ---"
         # Kconfig対話モードの最終回避策
         export KCONFIG_NONINTERACTIVE=1
         
