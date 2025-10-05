@@ -3,7 +3,7 @@ name: Build ZMK Firmware (Manual Setup Final Attempt)
 on:
   push:
     branches: [ main ]
-  pull_request:
+  pull_req
     branches: [ main ]
   workflow_dispatch:
 
@@ -38,9 +38,8 @@ jobs:
     - name: Initialize West Workspace and Update
       run: |
         echo "--- 2. west initとwest updateを実行 ---"
-        # 🚨 修正: -m zmk --mf west.yml を -l zmk に変更 🚨
-        # 既存のローカルzmkフォルダをマニフェストリポジトリとして初期化
-        west init -l zmk 
+        # 🚨 修正: ZMKの標準的なマニフェストファイルパスを指定 🚨
+        west init -m zmk --mf app/west.yml 
         
         # 依存関係をダウンロード
         west update
