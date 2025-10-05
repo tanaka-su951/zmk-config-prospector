@@ -1,4 +1,4 @@
-name: Build ZMK Firmware (Manual Setup Final Attempt v9)
+name: Build ZMK Firmware (Manual Setup Final Attempt v10)
 
 on:
   push:
@@ -36,17 +36,22 @@ jobs:
         echo "--- 2. Python要件をインストール (手動) ---"
         pip install pyyaml setuptools
         
-    - name: Manually Setup Zephyr SDK (Final URL Fix)
+    - name: Manually Setup Zephyr SDK (Final URL Pattern Fix)
       run: |
         echo "--- 3. Zephyr SDKを手動でダウンロードして環境変数を設定 ---"
-        # 🚨 最終修正: SDK バージョンを 0.16.6 に変更し、URLを正確に指定 🚨
+        
+        # 🚨 最終修正: URLパターンを簡略化し、確実なファイル名を指定する 🚨
         SDK_VERSION="0.16.6"
         SDK_FILENAME="zephyr-sdk-${SDK_VERSION}_linux-x86_64.tar.gz"
-        # リリース名が「v0.16.6」ではなく「0.16.6」の可能性があるため、URLを変更
-        SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/${SDK_VERSION}/${SDK_FILENAME}"
+        # リリース名を含めず、ダウンロードファイルに直接リンクするパターンに変更
+        SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${SDK_VERSION}/${SDK_FILENAME}"
         WEST_TOOLCHAIN_DIR="$HOME/zephyr-sdk"
         
-        wget "${SDK_URL}"
+        # 念のため、今回は v0.16.5 のURLをそのまま使用し、-Lオプションを付けることでリダイレクトに対応させます。
+        # 以前のバージョンは v0.16.1 だったので、今回は v0.16.5 で試します。
+        
+        # 最終手段として、curl -L を使用してリダイレクトを完全に追跡します。
+        curl -L "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.5/zephyr-sdk-0.16.5_linux-x86_64.tar.gz" -o "${SDK_FILENAME}"
         
         mkdir -p $WEST_TOOLCHAIN_DIR
         tar -xzf "${SDK_FILENAME}" --strip-components=1 -C $WEST_TOOLCHAIN_DIR
@@ -60,7 +65,6 @@ jobs:
     - name: Run West Build
       run: |
         echo "--- 4. west build実行 ---"
-        # 全ての環境設定が完了した状態でビルドを実行
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DSHIELD=${{ env.SHIELD }} \
