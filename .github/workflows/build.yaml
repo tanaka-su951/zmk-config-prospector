@@ -1,53 +1,17 @@
-name: Build ZMK Firmware (Manual Setup Final Attempt v8)
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    
-    env:
-      BOARD: seeeduino_xiao_ble
-      SHIELD: prospector_scanner
-      ZMK_CORE_REF: main 
-
-    steps:
-    - name: Checkout ZMK Config (Your Repo)
-      uses: actions/checkout@v4
-      with:
-        submodules: true
-        fetch-depth: 0
-
-    - name: Set up West and Initialize Workspace
-      run: |
-        echo "--- 1. Westをセットアップし、全依存関係をクローン ---"
-        pip install west
-        
-        west init -m https://github.com/zmkfirmware/zmk --mr ${{ env.ZMK_CORE_REF }} --mf app/west.yml
-        west update
-        
-    - name: Install Python Dependencies (Bypass requirements.txt)
-      run: |
-        echo "--- 2. Python要件をインストール (手動) ---"
-        pip install pyyaml setuptools
-        
-    - name: Manually Setup Zephyr SDK (v0.16.1 Final)
+    - name: Manually Setup Zephyr SDK (Final Version Update)
       run: |
         echo "--- 3. Zephyr SDKを手動でダウンロードして環境変数を設定 ---"
-        SDK_VERSION="0.16.1"
+        # 🚨 修正: SDK バージョンを 0.16.5 に更新 🚨
+        SDK_VERSION="0.16.5"
         SDK_FILENAME="zephyr-sdk-${SDK_VERSION}_linux-x86_64.tar.gz"
         SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${SDK_VERSION}/${SDK_FILENAME}"
         WEST_TOOLCHAIN_DIR="$HOME/zephyr-sdk"
         
-        # 🚨 修正: wget でダウンロードし、tar で展開するロジックに変更 🚨
-        wget -q "${SDK_URL}"
+        # wget のサイレントモード (-q) を削除し、エラー時にログ出力させる
+        wget "${SDK_URL}"
         
         mkdir -p $WEST_TOOLCHAIN_DIR
+        # SDKファイルが存在しない場合、ここで tar がエラーを出す
         tar -xzf "${SDK_FILENAME}" --strip-components=1 -C $WEST_TOOLCHAIN_DIR
         
         rm "${SDK_FILENAME}"
@@ -55,18 +19,3 @@ jobs:
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=$WEST_TOOLCHAIN_DIR" >> $GITHUB_ENV
         export KCONFIG_NONINTERACTIVE=1
-        
-    - name: Run West Build
-      run: |
-        echo "--- 4. west build実行 ---"
-        west build -s zmk/app -d build --sysbuild \
-          -b ${{ env.BOARD }} \
-          -- -DSHIELD=${{ env.SHIELD }} \
-          -DZMK_CONFIG=${{ github.workspace }}
-
-    - name: Archive artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: firmware-${{ env.BOARD }}-${{ env.SHIELD }}
-        path: build/zephyr/zmk.uf2
-        retention-days: 7
