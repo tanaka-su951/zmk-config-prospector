@@ -1,6 +1,6 @@
-# # ZMK Custom Config Build Workflow (すべてを単一のシェル実行に統合)
+# ZMK Custom Config Build Workflow (Dockerコンテナ内で実行)
 
-name: Build ZMK Firmware (Integrated Shell Final)
+name: Build ZMK Firmware (Docker Container Final)
 
 on:
   push:
@@ -11,8 +11,11 @@ on:
 
 jobs:
   build:
+    # 🚨 Ubuntuランナーではなく、ZMKビルドコンテナ内で実行 🚨
     runs-on: ubuntu-latest
-
+    container:
+      image: ghcr.io/zmkfirmware/zmk-build-arm:stable
+      
     steps:
     - name: Checkout ZMK Config
       uses: actions/checkout@v4
@@ -20,44 +23,22 @@ jobs:
         submodules: false
         fetch-depth: 0
 
-    - name: --- 🚨 ビルド環境のセットアップと実行 (統合) 🚨 ---
+    - name: --- 🚨 ビルド環境の初期化 🚨 ---
+      # コンテナ内にはwestはインストール済みだが、ZMKコアリポジトリの依存関係を更新する
       run: |
-        echo "--- 0. westをインストール ---"
-        pip install west
-        
-        echo "--- 1. ZMKコアをmainブランチでクローンし、west初期化 ---"
-        rm -rf .west zmk # クリーンアップ
-        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
-        
+        echo "--- Running west init and update ---"
         west init -l .
         west update
-        
-        echo "--- 2. Zephyr SDKのインストール ---"
-        # SDK v0.16.0を使用
-        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.0/zephyr-sdk-0.16.0_linux-x86_64.tar.xz
-        mkdir -p $HOME/zephyr-sdk
-        tar xf zephyr-sdk-0.16.0_linux-x86_64.tar.xz -C $HOME/zephyr-sdk --strip-components=1
-        
-        echo "--- 3. ZMK Python要件をインストール ---"
-        pip install -r zmk/requirements.txt || true
 
-    - name: --- 🚨 ビルド実行 (SDK設定とビルドを統合) 🚨 ---
-      # 🚨 SDKのsourceとwest buildを単一のrunステップに統合 🚨
+    - name: --- 🚨 ビルド実行 (コンテナ環境) 🚨 ---
+      # 環境が既に設定されているため、west buildをシンプルなコマンドで実行
       run: |
-        # 究極の対話モード回避策を環境変数で設定
-        export KCONFIG_NONINTERACTIVE=1
-        
-        # Zephyr 環境を**現在のシェル**で設定
-        echo "--- Sourcing Zephyr environment setup.sh ---"
-        source $HOME/zephyr-sdk/setup.sh
-        
-        # ZMK Firmwareのビルドを実行
-        echo "--- Starting west build (Integrated Shell) ---"
-        west build -s zmk/app -d build --sysbuild \
+        echo "--- Starting west build ---"
+        # コンテナ環境ではKCONFIG_NONINTERACTIVEは自動で設定されている
+        west build -s zmk/app -d build \
           -b seeeduino_xiao_ble \
           -- -DSHIELD=prospector_scanner \
-          -DZMK_CONFIG=$GITHUB_WORKSPACE \
-          -DCONFIG_BUILD_WITH_CMAKE=n
+          -DZMK_CONFIG=$GITHUB_WORKSPACE
 
     # ビルド後の成果物アップロードステップ
     - name: Archive artifacts
