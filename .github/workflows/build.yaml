@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (Kconfig非対話モード強制)
+# ZMK Custom Config Build Workflow (安定版リビジョン固定)
 
-name: Build ZMK Firmware (Kconfig Fix)
+name: Build ZMK Firmware (Stable Fix)
 
 on:
   push:
@@ -20,15 +20,16 @@ jobs:
         submodules: false
         fetch-depth: 0
 
-    - name: --- 🚨 全てのセットアップとビルドの実行 🚨 ---
+    - name: --- 🚨 セットアップと初期化の実行 🚨 ---
       run: |
         # 0. westをインストール
         pip install west
         
-        # 1. ZMKコアを手動でクローンとwest初期化
-        echo "--- DEBUG: Cloning ZMK Core and running west init ---"
-        rm -rf .west zmk # クリーンアップ
-        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
+        # 1. ZMKコアを手動でクローンとwest初期化 (🚨 リビジョンをv3.5.0に固定 🚨)
+        echo "--- DEBUG: Cloning ZMK Core (v3.5.0) and running west init ---"
+        rm -rf .west zmk # クリーンアップを再度実行
+        # 安定版v3.5.0タグでクローン
+        git clone --depth 1 --branch zmk-3.5.0 https://github.com/zmkfirmware/zmk zmk
         west init -l .
         west update
         
@@ -38,21 +39,21 @@ jobs:
         mkdir -p $HOME/zephyr-sdk
         tar xf zephyr-sdk-0.16.0_linux-x86_64.tar.xz -C $HOME/zephyr-sdk --strip-components=1
         
-        # 3. Zephyr 環境変数の設定とスクリプトの実行
-        export ZEPHYR_TOOLCHAIN_VARIANT="zephyr"
-        export ZEPHYR_SDK_INSTALL_DIR="$HOME/zephyr-sdk"
-        
-        # 🚨 環境の初期化を完了させる
+        # 3. ZMK Python要件をインストール
+        pip install -r zmk/requirements.txt || true
+
+    - name: --- 🚨 ビルドとKconfig対話モードの強制回避 🚨 ---
+      run: |
+        # Zephyr 環境を初期化し、このステップ全体で環境変数を有効化
         echo "--- Sourcing Zephyr environment setup.sh ---"
         source $HOME/zephyr-sdk/setup.sh
         
-        # 4. ZMK Python要件をインストール
-        pip install -r zmk/requirements.txt || true
+        # Kconfigの対話モードを強制的に回避するためのダミー設定作成
+        mkdir -p build/zephyr/
+        echo "CONFIG_ZMK_CONFIG_NAME=\"prospector\"" > build/zephyr/.config
         
-        # 5. ZMK Firmwareのビルドを実行 (Kconfig対話モード回避オプション追加)
-        echo "--- Starting west build (Avoiding Kconfig Dialog) ---"
-        # --sysbuild: ZMK/Zephyrのビルドに必要なシステムビルドを自動で行う
-        # -DCONFIG_BUILD_WITH_CMAKE=n: 対話モード回避のため
+        # ZMK Firmwareのビルドを実行
+        echo "--- Starting west build (Kconfig Hard Avoidance) ---"
         west build -s zmk/app -d build --sysbuild \
           -b seeeduino_xiao_ble \
           -- -DSHIELD=prospector_scanner \
