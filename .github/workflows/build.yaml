@@ -1,6 +1,6 @@
 # ZMK Custom Config Build Workflow (west.ymlの安定版定義を強制使用)
 
-name: Build ZMK Firmware (West YML Final)
+name: Build ZMK Firmware (West YML Clean)
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
         
         echo "--- 1. ZMKコアをmainブランチでクローンし、west初期化 ---"
         rm -rf .west zmk # クリーンアップ
-        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
+        git clone --depth 1 [https://github.com/zmkfirmware/zmk](https://github.com/zmkfirmware/zmk) zmk
         
         west init -l .
         west update
@@ -40,7 +40,7 @@ jobs:
         echo "--- 3. west.ymlを安定版から取得し、ツールチェーン定義を追加 ---"
         # 安定版 (zmk-v3.5.0) の west.yml の内容で現在の west.yml を上書き
         # これにより、必要なすべての west 拡張コマンドがロードされる
-        curl -s https://raw.githubusercontent.com/zmkfirmware/zmk/zmk-v3.5.0/west.yml > west.yml
+        curl -s [https://raw.githubusercontent.com/zmkfirmware/zmk/zmk-v3.5.0/west.yml](https://raw.githubusercontent.com/zmkfirmware/zmk/zmk-v3.5.0/west.yml) > west.yml
         
         echo "--- 4. west updateを再実行して依存関係を解決 ---"
         west update
@@ -71,13 +71,3 @@ jobs:
       with:
         name: firmware
         path: build/zephyr/zmk.uf2
-```eof
-
----
-
-### 🚀 実行ステップ
-
-1.  GitHub のウェブエディタで、上記のコードを **`.github/workflows/build.yml` に貼り付け、コミット**します。
-2.  **実行中のビルドがあればキャンセル**し、GitHub Actions のメニューで、**手動ビルドをトリガー**します。
-
-この修正で、ビルドが成功することを強く期待しています。結果をお知らせください！
