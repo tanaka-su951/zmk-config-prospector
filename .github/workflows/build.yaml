@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (シールド指定の究極単純化)
+# ZMK Custom Config Build Workflow (安定版v3.5.0の強制)
 
-name: Build ZMK Firmware (Simple Shield Final)
+name: Build ZMK Firmware (Stable Tag Forced)
 
 on:
   push:
@@ -20,25 +20,33 @@ jobs:
         submodules: false
         fetch-depth: 0
 
-    - name: --- 🚨 セットアップと初期化の実行（全問題を回避） 🚨 ---
+    - name: --- 🚨 セットアップと初期化の実行（v3.5.0へ固定） 🚨 ---
       run: |
         echo "--- 0. westをインストール ---"
         pip install west
         
-        echo "--- 1. ZMKコアをmainブランチでクローンし、west初期化 ---"
+        echo "--- 1. ZMKコアを深くクローン ---"
         rm -rf .west zmk # クリーンアップ
-        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
+        git clone --depth 50 https://github.com/zmkfirmware/zmk zmk
         
+        echo "--- 2. ZMKコアを安定版タグ zmk-v3.5.0 にチェックアウト ---"
+        cd zmk
+        # 安定版タグに強制的に切り替える
+        git fetch origin tag zmk-v3.5.0
+        git checkout zmk-v3.5.0
+        cd .. # 元のディレクトリに戻る
+        
+        echo "--- 3. west init と update ---"
+        # west update は v3.5.0 のコードに合わせて依存関係を取得する
         west init -l .
         west update
         
-        echo "--- 2. Zephyr SDKのインストール ---"
-        # SDK v0.16.0を使用
+        echo "--- 4. Zephyr SDKのインストール ---"
         wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.0/zephyr-sdk-0.16.0_linux-x86_64.tar.xz
         mkdir -p $HOME/zephyr-sdk
         tar xf zephyr-sdk-0.16.0_linux-x86_64.tar.xz -C $HOME/zephyr-sdk --strip-components=1
         
-        echo "--- 3. ZMK Python要件をインストール ---"
+        echo "--- 5. ZMK Python要件をインストール ---"
         pip install -r zmk/requirements.txt || true
 
     - name: --- 🚨 ビルドとKconfig対話モードの強制回避 🚨 ---
@@ -46,17 +54,16 @@ jobs:
         # 究極の対話モード回避策を環境変数で設定
         export KCONFIG_NONINTERACTIVE=1
         
-        # Zephyr 環境を初期化し、このステップ全体で環境変数を有効化
+        # Zephyr 環境を初期化
         echo "--- Sourcing Zephyr environment setup.sh ---"
         source $HOME/zephyr-sdk/setup.sh
         
-        # Kconfigの対話モードを強制的に回避するためのダミー設定作成
+        # ダミー設定を作成
         mkdir -p build/zephyr/
         echo "CONFIG_ZMK_CONFIG_NAME=\"prospector\"" > build/zephyr/.config
         
-        # ZMK Firmwareのビルドを実行
-        echo "--- Starting west build (Kconfig Hard Avoidance) ---"
-        # 🚨 修正: ZMK_CONFIGとSHIELDの指定を外し、最もシンプルな形式にする 🚨
+        # ZMK Firmwareのビルドを実行 (v3.5.0に固定されているため安定性が高い)
+        echo "--- Starting west build (Stable Avoidance) ---"
         west build -s zmk/app -d build --sysbuild \
           -b seeeduino_xiao_ble \
           -- -DSHIELD=prospector_scanner \
