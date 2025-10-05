@@ -27,7 +27,7 @@ jobs:
         
         echo "--- 1. ZMKコアをmainブランチでクローンし、west初期化 ---"
         rm -rf .west zmk # クリーンアップ
-        git clone --depth 1 [https://github.com/zmkfirmware/zmk](https://github.com/zmkfirmware/zmk) zmk
+        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
         
         west init -l .
         west update
@@ -38,9 +38,9 @@ jobs:
     - name: --- 🚨 ツールチェーンの依存関係を安定版で強制更新 🚨 ---
       run: |
         echo "--- 3. west.ymlを安定版から取得し、ツールチェーン定義を追加 ---"
-        # 安定版 (zmk-v3.5.0) の west.yml の内容で現在の west.yml を上書き
-        # これにより、必要なすべての west 拡張コマンドがロードされる
-        curl -s [https://raw.githubusercontent.com/zmkfirmware/zmk/zmk-v3.5.0/west.yml](https://raw.githubusercontent.com/zmkfirmware/zmk/zmk-v3.5.0/west.yml) > west.yml
+        # 安定版 zmk-v3.5.0 の west.yml の内容で現在の west.yml を上書きします
+        # これにより、必要なすべての west 拡張コマンドがロードされます
+        curl -s https://raw.githubusercontent.com/zmkfirmware/zmk/zmk-v3.5.0/west.yml > west.yml
         
         echo "--- 4. west updateを再実行して依存関係を解決 ---"
         west update
@@ -48,7 +48,7 @@ jobs:
     - name: --- 🚨 ツールチェーンのインストールと環境設定 🚨 ---
       run: |
         echo "--- 5. 必要なツールチェーンのダウンロードと設定 ---"
-        # 安定版のwest.ymlがロードされたため、west toolchain downloadが実行可能になるはず
+        # 安定版のwest.ymlがロードされたため、west toolchain downloadが実行可能になるはずです
         west toolchain download
 
         echo "--- 6. 環境変数設定 ---"
@@ -58,7 +58,7 @@ jobs:
     - name: --- 🚨 ビルド実行 🚨 ---
       run: |
         echo "--- Starting west build ---"
-        # ツールチェーンが設定された状態でビルドを実行
+        # ツールチェーンが設定された状態でビルドを実行します
         west build -s zmk/app -d build --sysbuild \
           -b seeeduino_xiao_ble \
           -- -DSHIELD=prospector_scanner \
