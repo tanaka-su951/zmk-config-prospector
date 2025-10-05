@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (Kconfig環境変数強制)
+# ZMKの公式安定版外部ビルドワークフローを使用
 
-name: Build ZMK Firmware (Kconfig Env Final)
+name: Build ZMK Firmware (Official Stable)
 
 on:
   push:
@@ -11,67 +11,11 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout ZMK Config
-      uses: actions/checkout@v4
-      with:
-        # サブモジュールの自動クローンは行わない
-        submodules: false
-        fetch-depth: 0
-
-    - name: --- 🚨 セットアップと初期化の実行 🚨 ---
-      run: |
-        # 0. westをインストール
-        pip install west
-        
-        # 1. ZMKコアをmainブランチでクローンし、west初期化
-        echo "--- DEBUG: Cloning ZMK Core (main branch) and running west init ---"
-        rm -rf .west zmk # クリーンアップ
-        
-        # mainブランチの最新版を浅くクローン
-        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
-        
-        # westを初期化し、残りの依存関係を取得
-        west init -l .
-        west update
-        
-        # 2. Zephyr SDKのインストール
-        echo "--- Setting up Zephyr SDK ---"
-        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.0/zephyr-sdk-0.16.0_linux-x86_64.tar.xz
-        mkdir -p $HOME/zephyr-sdk
-        tar xf zephyr-sdk-0.16.0_linux-x86_64.tar.xz -C $HOME/zephyr-sdk --strip-components=1
-        
-        # 3. ZMK Python要件をインストール
-        pip install -r zmk/requirements.txt || true
-
-    - name: --- 🚨 ビルドとKconfig非対話モードの強制 🚨 ---
-      run: |
-        # Zephyr 環境を初期化し、このステップ全体で環境変数を有効化
-        echo "--- Sourcing Zephyr environment setup.sh ---"
-        source $HOME/zephyr-sdk/setup.sh
-        
-        # 🚨 究極のKconfig非対話モード強制 🚨
-        export KCONFIG_NONINTERACTIVE=1
-        echo "KCONFIG_NONINTERACTIVE is set to 1. Building non-interactively."
-        
-        # Kconfigの対話モードを強制的に回避するためのダミー設定作成
-        mkdir -p build/zephyr/
-        echo "CONFIG_ZMK_CONFIG_NAME=\"prospector\"" > build/zephyr/.config
-        
-        # ZMK Firmwareのビルドを実行
-        echo "--- Starting west build (Kconfig Hard Avoidance) ---"
-        west build -s zmk/app -d build --sysbuild \
-          -b seeeduino_xiao_ble \
-          -- -DSHIELD=prospector_scanner \
-          -DZMK_CONFIG=$GITHUB_WORKSPACE \
-          -DCONFIG_BUILD_WITH_CMAKE=n
-
-    # ビルド後の成果物アップロードステップ
-    - name: Archive artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: firmware
-        path: build/zephyr/zmk.uf2
-
+    # ZMKの外部ワークフローを呼び出す
+    # 🚨 安定版タグ (zmk-v3.6.0) を使用して、ビルドの安定性を高めます 🚨
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@zmk-v3.6.0
+    with:
+      # ZMKコミュニティで確認されている、最もシンプルな入力名を使用
+      board: seeeduino_xiao_ble
+      shield: prospector_scanner
+      zmk_config_path: ${{ github.workspace }}
