@@ -24,16 +24,11 @@ jobs:
         submodules: true
         fetch-depth: 0
 
-    - name: Clone ZMK Core and Checkout Stable Tag
+    - name: Clone ZMK Core and Checkout Stable Tag (Final Git Fix)
       run: |
-        echo "--- 1. ZMKコアリポジトリをクローンし、タグ ${{ env.ZMK_STABLE_TAG }} にチェックアウト ---"
-        # ZMKコアをクローン
-        git clone https://github.com/zmkfirmware/zmk zmk
-        cd zmk
-        # 🚨 タグ情報を取得してチェックアウトを確実にする 🚨
-        git fetch --tags
-        git checkout ${{ env.ZMK_STABLE_TAG }}
-        cd ..
+        echo "--- 1. ZMKコアリポジトリをタグ ${{ env.ZMK_STABLE_TAG }} でクローン ---"
+        # 🚨 修正済み: clone 時にタグを直接指定することで、チェックアウトの失敗を防ぐ 🚨
+        git clone --depth 1 --branch ${{ env.ZMK_STABLE_TAG }} https://github.com/zmkfirmware/zmk zmk
         
     - name: Initialize West Workspace
       run: |
