@@ -1,4 +1,4 @@
-name: Build ZMK Firmware (Manual Setup Final Attempt v6)
+name: Build ZMK Firmware (Manual Setup Final Attempt v7)
 
 on:
   push:
@@ -28,15 +28,14 @@ jobs:
         echo "--- 1. Westをセットアップし、全依存関係をクローン ---"
         pip install west
         
-        # west init で ZMK コアと依存関係をすべて取得
         west init -m https://github.com/zmkfirmware/zmk --mr ${{ env.ZMK_CORE_REF }} --mf app/west.yml
         west update
         
-    - name: Install Python Dependencies
+    - name: Install Python Dependencies (Bypass requirements.txt)
       run: |
-        echo "--- 2. Python要件をインストール ---"
-        # 🚨 最終修正: パスを zmk/scripts/requirements.txt に変更 🚨
-        pip install -r zmk/scripts/requirements.txt
+        echo "--- 2. Python要件をインストール (手動) ---"
+        # 🚨 最終修正: requirements.txt のパス問題を回避 🚨
+        pip install pyyaml setuptools
         
     - name: Manually Setup Zephyr SDK (v0.16.1)
       run: |
