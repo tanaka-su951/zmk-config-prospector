@@ -1,7 +1,7 @@
-# ZMK Custom Config Build Workflow (SDK URL修正と安定版ビルド)
-# 🚨 これが、すべての環境エラーとKconfigフリーズを回避する最終構成です 🚨
+# ZMK Custom Config Build Workflow (Gitタグ認識エラー最終修正)
+# 🚨 これが、タグ認識エラーと環境フリーズを回避する最終構成です 🚨
 
-name: Build ZMK Firmware (Final Robust Build)
+name: Build ZMK Firmware (Git Tag Final Eradication)
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
-    # 環境変数を定義して、ビルドのコマンドをシンプルにします
+    # 環境変数を定義
     env:
       BOARD: seeeduino_xiao_ble
       SHIELD: prospector_scanner
@@ -30,16 +30,17 @@ jobs:
     - name: Clone ZMK Core
       run: |
         echo "--- 1. ZMKコアリポジトリをクローン ---"
-        # 履歴をすべて取得（タグ認識のため）
+        # 履歴をすべて取得
         git clone https://github.com/zmkfirmware/zmk zmk
         
-    - name: Checkout Stable Tag
+    - name: Checkout Stable Tag (Final Fix)
       run: |
         echo "--- 2. 安定版タグ ${{ env.ZMK_STABLE_TAG }} に強制チェックアウト ---"
         cd zmk
-        # リモートのタグ情報をフェッチしてタグを認識させる
+        # リモートのタグ情報とブランチ情報を完全にローカルに同期させる
         git fetch --tags
-        # 安定版タグに切り替えることで、依存関係の不整合を解消
+        git remote update origin --prune
+        # 安定版タグに切り替える
         git checkout ${{ env.ZMK_STABLE_TAG }}
         cd ..
         
@@ -59,7 +60,7 @@ jobs:
     - name: Manually Setup Zephyr SDK (v0.16.1 Fix)
       run: |
         echo "--- 5. Zephyr SDKを手動でダウンロードして環境変数を設定 ---"
-        # 🚨 404エラーを解消するため、SDKのURLを v0.16.1 に更新 🚨
+        # SDK v0.16.1 の正しいURLを使用
         WEST_TOOLCHAIN_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.1/zephyr-sdk-0.16.1_linux-x86_64.tar.gz"
         WEST_TOOLCHAIN_DIR="$HOME/zephyr-sdk"
         
