@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (手動SDKセットアップとビルド)
+# ZMK Custom Config Build Workflow (手動SDKセットアップと安定版タグ使用)
 
-name: Build ZMK Firmware (Manual SDK Setup Final)
+name: Build ZMK Firmware (Stable Tag Final)
 
 on:
   push:
@@ -21,11 +21,12 @@ jobs:
         fetch-depth: 0
 
     # 1. ZMKコアをクローンし、west initを実行
-    - name: Clone ZMK and Initialize West Workspace
+    - name: Clone ZMK and Initialize West Workspace (using stable tag)
       run: |
         echo "--- 1. ZMKコアをクローンし、west initを実行 ---"
         pip install west
-        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
+        # ZMKコアを安定版タグでクローン
+        git clone --branch zmk-v3.5.0 --depth 1 https://github.com/zmkfirmware/zmk zmk
         
         # Manifest Repository (--mr) と Manifest File (--mf) を正確に指定
         # これにより、ローカルの 'zmk' フォルダ内の west.yml が参照されます
