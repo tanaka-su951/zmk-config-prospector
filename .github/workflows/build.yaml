@@ -1,4 +1,7 @@
-name: Build ZMK Firmware (Manual Setup Final Attempt v10)
+# ZMK Custom Config Build Workflow (SDK v0.15.2 ロールバック)
+# 🚨 これが、SDKのダウンロードエラーと環境フリーズを回避する最終構成です 🚨
+
+name: Build ZMK Firmware (SDK Rollback Final)
 
 on:
   push:
@@ -11,10 +14,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
+    # 環境変数を定義
     env:
       BOARD: seeeduino_xiao_ble
       SHIELD: prospector_scanner
-      ZMK_CORE_REF: main 
 
     steps:
     - name: Checkout ZMK Config (Your Repo)
@@ -23,41 +26,37 @@ jobs:
         submodules: true
         fetch-depth: 0
 
-    - name: Set up West and Initialize Workspace
+    - name: Initialize West Workspace
       run: |
-        echo "--- 1. Westをセットアップし、全依存関係をクローン ---"
-        pip install west
-        
-        west init -m https://github.com/zmkfirmware/zmk --mr ${{ env.ZMK_CORE_REF }} --mf app/west.yml
+        echo "--- 1. West initとWest updateを実行 ---"
+        # Git/タグ認識エラーを避けるため、WestにZMKコアの最新版を直接指定
+        west init -m https://github.com/zmkfirmware/zmk --mr main
+        # 依存関係をダウンロード
         west update
         
-    - name: Install Python Dependencies (Bypass requirements.txt)
+    - name: Install Python Dependencies
       run: |
-        echo "--- 2. Python要件をインストール (手動) ---"
-        pip install pyyaml setuptools
+        echo "--- 2. Python要件をインストール ---"
+        # WestでクローンしたZMKコアのrequirements.txtを使用
+        pip install -r zmk/requirements.txt
         
-    - name: Manually Setup Zephyr SDK (Final URL Pattern Fix)
+    - name: Manually Setup Zephyr SDK (v0.15.2 Stable Fix)
       run: |
         echo "--- 3. Zephyr SDKを手動でダウンロードして環境変数を設定 ---"
-        
-        # 🚨 最終修正: URLパターンを簡略化し、確実なファイル名を指定する 🚨
-        SDK_VERSION="0.16.6"
-        SDK_FILENAME="zephyr-sdk-${SDK_VERSION}_linux-x86_64.tar.gz"
-        # リリース名を含めず、ダウンロードファイルに直接リンクするパターンに変更
-        SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${SDK_VERSION}/${SDK_FILENAME}"
+        # 🚨 ダウンロードエラーを解消するため、確実に安定している v0.15.2 を使用 🚨
+        WEST_TOOLCHAIN_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.15.2/zephyr-sdk-0.15.2_linux-x86_64.tar.gz"
         WEST_TOOLCHAIN_DIR="$HOME/zephyr-sdk"
         
-        # 念のため、今回は v0.16.5 のURLをそのまま使用し、-Lオプションを付けることでリダイレクトに対応させます。
-        # 以前のバージョンは v0.16.1 だったので、今回は v0.16.5 で試します。
-        
-        # 最終手段として、curl -L を使用してリダイレクトを完全に追跡します。
-        curl -L "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.5/zephyr-sdk-0.16.5_linux-x86_64.tar.gz" -o "${SDK_FILENAME}"
-        
         mkdir -p $WEST_TOOLCHAIN_DIR
-        tar -xzf "${SDK_FILENAME}" --strip-components=1 -C $WEST_TOOLCHAIN_DIR
+        # curlのダウンロード失敗チェックと、tarの確実な実行
+        curl -L $WEST_TOOLCHAIN_URL -o sdk.tar.gz
+        if [ $? -ne 0 ]; then
+          echo "SDKダウンロードに失敗しました。"
+          exit 1
+        fi
+        tar -xzf sdk.tar.gz -C $WEST_TOOLCHAIN_DIR --strip-components=1
         
-        rm "${SDK_FILENAME}"
-        
+        # setup.shを実行せず、環境変数だけを設定（フリーズ回避）
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=$WEST_TOOLCHAIN_DIR" >> $GITHUB_ENV
         export KCONFIG_NONINTERACTIVE=1
@@ -65,6 +64,7 @@ jobs:
     - name: Run West Build
       run: |
         echo "--- 4. west build実行 ---"
+        # ツールチェーンと環境が設定された状態でビルドを実行
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DSHIELD=${{ env.SHIELD }} \
