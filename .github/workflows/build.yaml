@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - ビルドソース修正)
+# ZMK Custom Config Build Workflow (究極の最終版 - コマンドオプション修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -32,7 +32,7 @@ jobs:
     - name: 3. Initialize West Workspace and Download Dependencies
       run: |
         echo "--- ZMKワークスペースを構築 ---"
-        # West初期化 (ZMKコアとZephyrがダウンロードされる)
+        # West初期化
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml .
         
         # 依存関係をダウンロード
@@ -66,8 +66,8 @@ jobs:
         # source コマンドで環境変数をシェルで設定
         source zephyr/zephyr-env.sh
         
-        # 🚨 最終修正：-s zmk/app を -p zmk/app に変更し、--sysbuild を再導入 🚨
-        west build -p zmk/app -d build --sysbuild \
+        # 🚨 最終修正：-p を --project に変更 🚨
+        west build --project zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=config \
           -DEXTRA_CONF_FILE=config/prospector_scanner.conf \
