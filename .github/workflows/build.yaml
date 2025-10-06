@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - 外部アクションによる解決)
+# ZMK Custom Config Build Workflow (究極の最終版 - YAMLインデント修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -24,8 +24,7 @@ jobs:
         submodules: true
         fetch-depth: 0
 
-    # 🚨 最終修正：Step 2を actions-rs/toolchain で置き換え、依存関係を解決 🚨
-    # SDKのダウンロードはwest buildが自動で行います
+    # 🚨 修正：with: ブロック内のインデントを修正 🚨
     - name: 2. Setup Toolchain and Zephyr Environment
       uses: actions-rs/toolchain@v1
       with:
@@ -44,7 +43,6 @@ jobs:
         pip install -r zephyr/scripts/requirements.txt
         
         echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
-        # ZEPHYR_SDK_INSTALL_DIR は west build が自動で処理するため不要
 
     - name: 5. Run West Build (ビルド実行)
       run: |
@@ -68,4 +66,3 @@ jobs:
         name: firmware-${{ env.BOARD }}-prospector_scanner
         path: build/zephyr/zmk.uf2
         retention-days: 7
-7
