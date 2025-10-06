@@ -16,8 +16,8 @@ jobs:
     env:
       BOARD: seeeduino_xiao_ble
       ZEPHYR_SDK_VERSION: 0.16.0 
-      # 🚨 最終修正：公式のファイル命名規則に合わせて URL を調整 🚨
-      ZEPHYR_SDK_URL: https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.0/zephyr-sdk-0.16.0-x86_64-linux.tar.gz
+      # 🚨 最終修正：v0.16.0 のファイル名を 'zephyr-sdk-0.16.0_linux.tar.gz' に変更 🚨
+      ZEPHYR_SDK_URL: https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.0/zephyr-sdk-0.16.0_linux.tar.gz
       KCONFIG_NONINTERACTIVE: 1
 
     steps:
