@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - 非推奨コマンドの削除)
+# ZMK Custom Config Build Workflow (究極の最終版 - SDKのインストール強制)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -26,8 +26,6 @@ jobs:
 
     - name: 2. Install West Tool
       run: pip install west
-    
-    # Toolchainのインストールステップは不要です
 
     - name: 3. Initialize West Workspace and Download Dependencies
       run: |
@@ -35,17 +33,17 @@ jobs:
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml .
         west update
 
-    - name: 4. Install Python Dependencies and Set Environment
+    - name: 4. Install Python Dependencies, SDK, and Set Environment
       run: |
         echo "--- Python依存関係をインストールとZephyr SDKのセットアップ ---"
         
         # Python依存関係のインストール
         pip install -r zephyr/scripts/requirements.txt
         
-        # 🚨 最終修正：非推奨の west zephyr-tools setup を削除 🚨
-        # SDKのセットアップは、west buildが自動で処理します。
+        # 🚨 最終修正：west sdk install を明示的に実行し、SDKのダウンロードを強制 🚨
+        west sdk install
         
-        # 環境変数の設定
+        # 環境変数の設定 (SDKインストール後に実行)
         echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
@@ -56,7 +54,7 @@ jobs:
         # Zephyrの環境設定スクリプトを実行し、SDKパスをPATHに追加
         source zephyr/zephyr-env.sh
         
-        # west build を実行。このコマンドが、SDKが見つからない場合に自動でダウンロードを試みます。
+        # west build を実行。
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=config \
