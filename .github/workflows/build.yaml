@@ -1,5 +1,5 @@
 # ZMK Custom Config Build Workflow (最終確定版)
-# zephyr-env.sh を実行して環境初期化を完了
+# 環境初期化とビルドを単一ステップに統合
 
 name: Build ZMK Firmware (Final Stable Build)
 
@@ -27,8 +27,11 @@ jobs:
         submodules: true
         fetch-depth: 0
 
-    - name: 2. Install West Tool
-      run: pip install west
+    - name: 2. Install West and Python Dependencies
+      # WestとPython依存関係のインストールを統合
+      run: |
+        pip install west
+        pip install -r zephyr/scripts/requirements.txt # 依存関係は次のステップでダウンロードされる前提
 
     - name: 3. Clone ZMK Core and Initialize West Workspace
       run: |
@@ -38,16 +41,10 @@ jobs:
         mv zmk/app/west.yml zmk/west.yml
         
         west init -l zmk
+        # 🚨 以前の Step 4 (Python依存関係インストール) が成功するために west update は先に行う
         west update
 
-    - name: 4. Install Python Dependencies
-      run: |
-        echo "--- ZephyrのPython依存関係をインストール ---"
-        pip install -r zephyr/scripts/requirements.txt
-        
-        # 以前の環境変数設定は削除 (Step 6で zephyr-env.sh が処理するため)
-
-    - name: 5. Download and Setup Zephyr SDK
+    - name: 4. Download and Setup Zephyr SDK
       run: |
         ZEPHYR_SDK_DIR="${{ runner.tool_cache }}/zephyr-sdk"
 
@@ -59,13 +56,16 @@ jobs:
         
         tar -xzf sdk.tar.gz -C ${ZEPHYR_SDK_DIR} --strip-components=1
 
+        # SDKの環境変数をエクスポート (Step 6に引き継がれる)
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=${ZEPHYR_SDK_DIR}" >> $GITHUB_ENV
         
-    - name: 6. Run West Build (環境初期化後、ビルド開始)
+    - name: 5. Run West Build (単一シェルセッションで環境設定とビルドを実行)
       run: |
-        echo "--- Zephyrビルド環境をセットアップ ---"
-        # 🚨 最終修正：zephyr-env.sh を実行して環境変数を完全に初期化 🚨
+        echo "--- Zephyr環境セットアップとビルドの実行 ---"
+        
+        # 🚨 最終解決策：zephyr-env.sh をソースし、同じシェルセッションでビルドを実行 🚨
+        # これにより、find_package(Zephyr) が成功するために必要なすべての変数が設定されます。
         source zephyr/zephyr-env.sh
         
         west build -s zmk/app -d build --sysbuild \
@@ -76,7 +76,7 @@ jobs:
           -DEXTRA_OVERLAY_FILE=${{ github.workspace }}/config/prospector_scanner.overlay
           
 
-    - name: 7. Archive Firmware Artifacts
+    - name: 6. Archive Firmware Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
