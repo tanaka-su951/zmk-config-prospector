@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - セットアップスクリプト名の修正)
+# ZMK Custom Config Build Workflow (Setup-Toolchainsによる最終解決)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -15,7 +15,6 @@ jobs:
     
     env:
       BOARD: seeeduino_xiao_ble
-      ZEPHYR_SDK_VERSION: 0.16.4 
       KCONFIG_NONINTERACTIVE: 1
 
     steps:
@@ -42,25 +41,18 @@ jobs:
         echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
+    # 🚨 最終修正：SDKのダウンロードとセットアップを actions/setup-toolchains に置き換える 🚨
+    - name: 5. Setup Zephyr Toolchain (SDK)
+      uses: zephyrproject-rtos/setup-toolchains@v1
+      with:
+        # このアクションが、正しいバージョンの SDK を自動的にダウンロードし、環境変数を設定します
+        # 手動での SDK_VERSION 設定は不要です。
 
-    - name: 5. Download and Setup Zephyr SDK (公式スクリプトを使用)
-      run: |
-        echo "--- Zephyr SDK v${{ env.ZEPHYR_SDK_VERSION }} を公式の方法でセットアップ ---"
-        
-        # 🚨 最終修正：ファイル名からアンダースコア '_' をハイフン '-' に変更 🚨
-        SDK_SETUP_FILE="zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}-setup.run"
-        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${{ env.ZEPHYR_SDK_VERSION }}/$SDK_SETUP_FILE
-        chmod +x $SDK_SETUP_FILE
-        ./$SDK_SETUP_FILE -- -y -d $HOME/zephyr-sdk
-        
-        # ツールチェーンの環境変数をエクスポート
-        echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
-        echo "ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk" >> $GITHUB_ENV 
-        
     - name: 6. Run West Build (ビルド実行)
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
+        # setup-toolchains が環境変数を設定するため、source zephyr/zephyr-env.sh は不要だが、互換性のために残す
         source zephyr/zephyr-env.sh
         
         west build -s zmk/app -d build --sysbuild \
