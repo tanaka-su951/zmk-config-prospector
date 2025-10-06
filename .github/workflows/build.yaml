@@ -35,17 +35,19 @@ jobs:
       run: |
         pip install west
         # ZMKコアを一時的にクローンし、requirements.txtを使用
-        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk_tmp
+        # 🚨 修正：完全なクローン（--depth 1なし）に変更し、次のステップで再利用 🚨
+        git clone https://github.com/zmkfirmware/zmk zmk_tmp
         
-        # 🚨 最終修正：requirements.txt のパスを ZMK ルートに修正 🚨
+        # requirements.txt のパスを ZMK ルートに指定
         pip install -r zmk_tmp/requirements.txt
         
-        rm -rf zmk_tmp # 一時ディレクトリは削除
-
-    - name: 3. Initialize West Workspace with Local ZMK Core
+        # 🚨 修正：一時ディレクトリを削除せず、リネームしてZMKコアとして再利用 🚨
+        
+    - name: 3. Initialize West Workspace with Local ZMK Core (クローン処理を統合)
       run: |
-        # ZMKコアをクローン
-        git clone https://github.com/zmkfirmware/zmk zmk
+        # 🚨 修正：一時クローン (zmk_tmp) を正式なZMKコアディレクトリにリネーム 🚨
+        mv zmk_tmp zmk
+        
         # ローカルマニフェストとしてZMKコアディレクトリを指定
         west init -l zmk
         # 依存関係をダウンロード
@@ -76,8 +78,6 @@ jobs:
     - name: 5. Run West Build
       run: |
         # ツールチェーンと環境が設定された状態でビルドを実行
-        # -s zmk/app: ZMKアプリケーションソースディレクトリ
-        # -d build: ビルド出力ディレクトリ
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DSHIELD=${{ env.SHIELD }} \
@@ -87,6 +87,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-${{ env.SHIELD }}
-        # UF2ファイルが生成されていることを前提
         path: build/zephyr/zmk.uf2
         retention-days: 7
