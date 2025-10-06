@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - 絶対パスと相対パスの調整)
+# ZMK Custom Config Build Workflow (究極の最終版 - ビルドソース修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -59,16 +59,15 @@ jobs:
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=${ZEPHYR_SDK_DIR}" >> $GITHUB_ENV
         
-    - name: 6. Run West Build (パス解決の修正)
+    - name: 6. Run West Build (プロジェクト指定によるビルド実行)
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
         # source コマンドで環境変数をシェルで設定
         source zephyr/zephyr-env.sh
         
-        # 🚨 最終修正：カスタム設定のパスを相対パスに変更 🚨
-        # west buildはワークスペースのルートから実行されるため、configフォルダは相対パスでアクセス可能
-        west build -s zmk/app -d build \
+        # 🚨 最終修正：-s zmk/app を -p zmk/app に変更し、--sysbuild を再導入 🚨
+        west build -p zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=config \
           -DEXTRA_CONF_FILE=config/prospector_scanner.conf \
