@@ -25,14 +25,14 @@ jobs:
         fetch-depth: 0
 
     - name: 2. Setup ZMK Environment
-      # 🚨 最終修正：バージョンタグを @v0 から @main に変更 🚨
+      # 🚨 最終修正：アクション名とバージョンを zmkfirmware/zmk-setup-action@main に戻す 🚨
       uses: zmkfirmware/zmk-setup-action@main
         
     - name: 3. Run West Build (ビルド実行)
       run: |
         echo "--- ZMK環境の最終セットアップとビルドの実行 ---"
         
-        # ZMK Setup Actionが環境変数を設定済み
+        # Toolchainアクションが環境変数を設定済み
         
         # west init の実行ディレクトリからビルドを実行
         west build -s app -d build --sysbuild \
