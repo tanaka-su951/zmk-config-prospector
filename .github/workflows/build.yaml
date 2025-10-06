@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - ZMK Setup Action ブランチ指定)
+# ZMK Custom Config Build Workflow (究極の最終版 - 真の公式アクション導入)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -24,9 +24,9 @@ jobs:
         submodules: true
         fetch-depth: 0
 
-    - name: 2. Setup ZMK Environment
-      # 🚨 最終修正：アクション名とバージョンを zmkfirmware/zmk-setup-action@main に戻す 🚨
-      uses: zmkfirmware/zmk-setup-action@main
+    # 🚨 最終修正：アクション名を zmkfirmware/actions/setup-zephyr@v1 に修正 🚨
+    - name: 2. Setup ZMK Environment (Official Method)
+      uses: zmkfirmware/actions/setup-zephyr@v1
         
     - name: 3. Run West Build (ビルド実行)
       run: |
