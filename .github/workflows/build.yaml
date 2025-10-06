@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - アクション名修正)
+# ZMK Custom Config Build Workflow (究極の最終版 - ZMK公式アクション導入)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -42,14 +42,14 @@ jobs:
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
     - name: 5. Setup Zephyr Toolchain (SDK)
-      # 🚨 最終修正：アクションリポジトリ名を bjdokter/setup-toolchains に修正 🚨
-      uses: bjdokter/setup-toolchains@v1
+      # 🚨 最終修正：アクション名を zmkfirmware/setup-toolchains に修正 🚨
+      uses: zmkfirmware/setup-toolchains@v1
 
     - name: 6. Run West Build (ビルド実行)
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # Toolchainアクションが環境を設定するため、これは冗長ですが安全のために残します
+        # Toolchainアクションが環境を設定しますが、互換性のために残します
         source zephyr/zephyr-env.sh
         
         west build -s zmk/app -d build --sysbuild \
@@ -66,4 +66,3 @@ jobs:
         name: firmware-${{ env.BOARD }}-prospector_scanner
         path: build/zephyr/zmk.uf2
         retention-days: 7
-
