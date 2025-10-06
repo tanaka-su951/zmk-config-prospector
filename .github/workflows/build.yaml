@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - YAMLインデント修正)
+# ZMK Custom Config Build Workflow (究極の最終版 - West インストールの復元)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -24,34 +24,38 @@ jobs:
         submodules: true
         fetch-depth: 0
 
-    # 🚨 修正：with: ブロック内のインデントを修正 🚨
-    - name: 2. Setup Toolchain and Zephyr Environment
+    # 🚨 修正：Westツールのインストールステップを復元 🚨
+    - name: 2. Install West Tool
+      run: pip install west
+
+    - name: 3. Setup Toolchain and Zephyr Environment
       uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
         target: thumbv7em-none-eabihf # Seeeduino Xiao BLE の ARM アーキテクチャ
 
-    - name: 3. Initialize West Workspace and Download Dependencies
+    - name: 4. Initialize West Workspace and Download Dependencies
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml .
         west update
 
-    - name: 4. Install Python Dependencies and Set Environment
+    - name: 5. Install Python Dependencies and Set Environment
       run: |
         echo "--- Python依存関係をインストールと環境変数の永続化 ---"
+        # West環境がセットアップされた後に実行
         pip install -r zephyr/scripts/requirements.txt
         
         echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
 
-    - name: 5. Run West Build (ビルド実行)
+    - name: 6. Run West Build (ビルド実行)
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
         # Zephyrの環境設定スクリプトを実行し、依存関係を読み込む
         source zephyr/zephyr-env.sh
         
-        # west build を実行。必要なSDKはwestが自動でダウンロードします。
+        # west build を実行。
         west build -s app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=config \
@@ -60,9 +64,10 @@ jobs:
           -DEXTRA_OVERLAY_FILE=config/prospector_scanner.overlay
           
 
-    - name: 6. Archive Firmware Artifacts
+    - name: 7. Archive Firmware Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
         path: build/zephyr/zmk.uf2
         retention-days: 7
+
