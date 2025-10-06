@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - West Build ソースディレクトリの修正)
+# ZMK Custom Config Build Workflow (究極の最終版 - 環境変数の復元)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -42,19 +42,22 @@ jobs:
     - name: 5. Install Python Dependencies and Set Environment
       run: |
         echo "--- Python依存関係をインストールと環境変数の永続化 ---"
-        # West環境がセットアップされた後に実行
+        # Python依存関係のインストール
         pip install -r zephyr/scripts/requirements.txt
         
+        # 🚨 最終修正：west zephyr-export を復元し、すべての環境変数を設定 🚨
         echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
+        # west export が ZEPHYR_TOOLCHAIN_VARIANT, ZEPHYR_SDK_INSTALL_DIR を設定
+        west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
     - name: 6. Run West Build (ビルド実行)
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # Zephyrの環境設定スクリプトを実行し、依存関係を読み込む
+        # Zephyrの環境設定スクリプトを実行
         source zephyr/zephyr-env.sh
         
-        # 🚨 最終修正：ソースディレクトリを 'app' から 'zmk/app' に戻す 🚨
+        # west build を実行
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=config \
