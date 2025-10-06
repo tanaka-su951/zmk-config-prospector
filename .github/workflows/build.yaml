@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - コマンドオプション修正)
+# ZMK Custom Config Build Workflow (究極の最終版 - ビルドコマンドの単純化)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -59,15 +59,16 @@ jobs:
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=${ZEPHYR_SDK_DIR}" >> $GITHUB_ENV
         
-    - name: 6. Run West Build (プロジェクト指定によるビルド実行)
+    - name: 6. Run West Build (シンプルで標準的なビルドコマンド)
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
         # source コマンドで環境変数をシェルで設定
         source zephyr/zephyr-env.sh
         
-        # 🚨 最終修正：-p を --project に変更 🚨
-        west build --project zmk/app -d build --sysbuild \
+        # 🚨 最終修正：--projectを削除し、--sysbuildを再導入 🚨
+        # zmk/app を source_dir として渡し、環境変数の設定に全てを依存させる
+        west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=config \
           -DEXTRA_CONF_FILE=config/prospector_scanner.conf \
