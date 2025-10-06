@@ -35,17 +35,14 @@ jobs:
       run: |
         pip install west
         # ZMKコアを一時的にクローンし、requirements.txtを使用
-        # 🚨 修正：完全なクローン（--depth 1なし）に変更し、次のステップで再利用 🚨
         git clone https://github.com/zmkfirmware/zmk zmk_tmp
         
-        # requirements.txt のパスを ZMK ルートに指定
-        pip install -r zmk_tmp/requirements.txt
-        
-        # 🚨 修正：一時ディレクトリを削除せず、リネームしてZMKコアとして再利用 🚨
+        # 🚨 最終修正：絶対パスを使用して requirements.txt を参照 🚨
+        pip install -r ${{ github.workspace }}/zmk_tmp/requirements.txt
         
     - name: 3. Initialize West Workspace with Local ZMK Core (クローン処理を統合)
       run: |
-        # 🚨 修正：一時クローン (zmk_tmp) を正式なZMKコアディレクトリにリネーム 🚨
+        # 一時クローン (zmk_tmp) を正式なZMKコアディレクトリにリネーム
         mv zmk_tmp zmk
         
         # ローカルマニフェストとしてZMKコアディレクトリを指定
