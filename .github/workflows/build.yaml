@@ -1,5 +1,5 @@
 # ZMK Custom Config Build Workflow (最終確定版)
-# zephyr-env.sh の実行を削除し、環境変数に一本化
+# ZMKビルドの標準的な構造に完全に準拠
 
 name: Build ZMK Firmware (Final Stable Build)
 
@@ -29,58 +29,64 @@ jobs:
 
     - name: 2. Install West Tool
       run: pip install west
-
-    - name: 3. Clone ZMK Core and Initialize West Workspace
+      
+    - name: 3. Clone ZMK Core, Initialize West, and Move Config Files
       run: |
-        echo "--- ZMKコアをクローンし、west.ymlを移動して初期化 ---"
+        echo "--- ZMKコアをクローンし、ワークスペースを構築 ---"
         
-        git clone https://github.com/zmkfirmware/zmk zmk
-        mv zmk/app/west.yml zmk/west.yml
+        # 🚨 ZMKコアを現在のディレクトリにクローンし、ワークスペースルートにする 🚨
+        git clone https://github.com/zmkfirmware/zmk zmk_workspace
         
-        west init -l zmk
+        # 作業ディレクトリを ZMK ワークスペースに移動
+        cd zmk_workspace
+        
+        # カスタム設定ファイルを新しいワークスペースに移動
+        # (ワークフローの実行場所: ${{ github.workspace }} が親ディレクトリになる)
+        mv ../config .
+        
+        # West初期化と依存関係のダウンロード
+        west init -l .  # 現在のディレクトリをローカルマニフェストとして使用
         west update
-
-    - name: 4. Install Python Dependencies and Set ZEPHYR_BASE
-      run: |
-        echo "--- ZephyrのPython依存関係をインストールと環境変数の設定 ---"
+        
+        # 依存関係のインストール（ZMKの公式パスを使用）
         pip install -r zephyr/scripts/requirements.txt
         
-        # 🚨 最終修正：環境変数をここで設定
-        echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
+        # ZMKのビルドは zmk/app ではなく、コアリポジトリのルート (zmk_workspace) から実行するため、
+        # 後続のステップのために環境変数を設定
+        echo "ZMK_WORKSPACE=${{ github.workspace }}/zmk_workspace" >> $GITHUB_ENV
 
-
-    - name: 5. Download and Setup Zephyr SDK
+    - name: 4. Download and Setup Zephyr SDK
       run: |
         ZEPHYR_SDK_DIR="${{ runner.tool_cache }}/zephyr-sdk"
-
         echo "Installing Zephyr SDK v${{ env.ZEPHYR_SDK_VERSION }} to ${ZEPHYR_SDK_DIR}"
-        
         mkdir -p ${ZEPHYR_SDK_DIR}
-        
         curl -L -f -sS ${{ env.ZEPHYR_SDK_URL }} -o sdk.tar.gz
-        
         tar -xzf sdk.tar.gz -C ${ZEPHYR_SDK_DIR} --strip-components=1
 
         # ツールチェーンの環境変数をエクスポート
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=${ZEPHYR_SDK_DIR}" >> $GITHUB_ENV
         
-    - name: 6. Run West Build (環境変数の引き継ぎに依存してビルドを実行)
+    - name: 5. Run West Build (完全に初期化された環境でビルドを実行)
+      # ワークスペース内へ移動し、環境を初期化してからビルド
       run: |
-        echo "--- West Buildの実行 ---"
+        cd ${{ env.ZMK_WORKSPACE }}
+        source zephyr/zephyr-env.sh
         
-        # 🚨 最終修正：source コマンドを削除 🚨
-        west build -s zmk/app -d build --sysbuild \
+        echo "--- West Buildの実行 ---"
+        # ビルドソースは zmk/app のまま、しかし ZMK_CONFIG は相対パスに変更
+        west build -s app -d build --sysbuild \
           -b ${{ env.BOARD }} \
-          -- -DZMK_CONFIG=${{ github.workspace }}/config \
-          -DEXTRA_CONF_FILE=${{ github.workspace }}/config/prospector_scanner.conf \
-          -DEXTRA_KEMAP_OVERLAY=${{ github.workspace }}/config/prospector_scanner.keymap \
-          -DEXTRA_OVERLAY_FILE=${{ github.workspace }}/config/prospector_scanner.overlay
+          -- -DZMK_CONFIG=config \
+          -DEXTRA_CONF_FILE=config/prospector_scanner.conf \
+          -DEXTRA_KEMAP_OVERLAY=config/prospector_scanner.keymap \
+          -DEXTRA_OVERLAY_FILE=config/prospector_scanner.overlay
           
 
-    - name: 7. Archive Firmware Artifacts
+    - name: 6. Archive Firmware Artifacts
+      # ファームウェアのパスもワークスペースに合わせる
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
-        path: build/zephyr/zmk.uf2
+        path: ${{ env.ZMK_WORKSPACE }}/build/zephyr/zmk.uf2
         retention-days: 7
