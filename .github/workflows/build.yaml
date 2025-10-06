@@ -64,19 +64,16 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 最も重要な修正: 設定ファイルパスの修正
-        # ZMK_CONFIG=config でカスタム設定ディレクトリ(./config)を指定し、
-        # EXTRA_CONF_FILEとEXTRA_OVERLAY_FILEのパスをルートのconfigディレクトリからの相対パスに修正
+        # 🚨 最も重要な修正: 設定ファイルパスの最終修正
+        # ZMK_CONFIG=config は維持しつつ、EXTRA_CONF/OVERLAY_FILEのパスを明示的に指定します。
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=config \
-          -DEXTRA_CONF_FILE=prospector_scanner.conf \
-          -DEXTRA_OVERLAY_FILE=prospector_scanner.overlay
-          
+          -DEXTRA_CONF_FILE=${{ github.workspace }}/config/prospector_scanner.conf \
+          -DEXTRA_OVERLAY_FILE=${{ github.workspace }}/config/prospector_scanner.overlay
 
+        # 注: ${{ github.workspace }}/ は /home/runner/work/zmk-config-prospector/zmk-config-prospector/ に展開されます。
+        # これにより、ビルドシステムはファイルシステムの正確な場所を参照します。
+          
     - name: 6. Archive Firmware Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: firmware-${{ env.BOARD }}-prospector_scanner
-        path: build/zephyr/zmk.uf2
-        retention-days: 7
+# ... (以下省略)
