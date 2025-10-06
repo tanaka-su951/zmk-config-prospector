@@ -1,5 +1,5 @@
 # ZMK Custom Config Build Workflow (究極の最終版)
-# ZMK公式が推奨するwest initのパスオプションを使用し、単一ディレクトリ構造を構築
+# West init のオプション名を環境に合わせて修正
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -34,17 +34,15 @@ jobs:
       run: |
         echo "--- ZMKコアを公式の方法で初期化 ---"
         
-        # 🚨 究極の解決策：ZMKリポジトリURLを渡し、west.ymlのパスを明示的に指定 🚨
-        # この方法なら、west init が ZMK の特殊な構造を正しく処理する
-        west init -m https://github.com/zmkfirmware/zmk --mr main --manifest-path app/west.yml 
+        # 🚨 最終修正：--manifest-path を -mf に変更 🚨
+        west init -m https://github.com/zmkfirmware/zmk --mr main -mf app/west.yml 
         
-        # 依存関係をダウンロード (Zephyr, MCUbootなど)
+        # 依存関係をダウンロード
         west update
 
     - name: 4. Install Python Dependencies
       run: |
         echo "--- ZephyrのPython依存関係をインストール ---"
-        # west updateでダウンロードされた zephyr の依存関係をインストール
         pip install -r zephyr/scripts/requirements.txt
 
     - name: 5. Download and Setup Zephyr SDK
@@ -58,12 +56,11 @@ jobs:
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=${ZEPHYR_SDK_DIR}" >> $GITHUB_ENV
         
-    - name: 6. Run West Build (単一シェルセッションで環境設定とビルドを実行)
+    - name: 6. Run West Build (環境設定とビルドを実行)
       run: |
         echo "--- Zephyr環境セットアップとビルドの実行 ---"
         
-        # zephyr-env.sh をソースし、同じシェルセッションでビルドを実行
-        # west init が成功した場合、このコマンドは正しく動作するはず
+        # 環境が正しく初期化された場合、このコマンドで環境変数が設定される
         source zephyr/zephyr-env.sh
         
         # ビルドソースは ZMK リポジトリ内の app
