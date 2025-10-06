@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (最終最終最終最終最終確定版 - Pythonパス修正)
+# ZMK Custom Config Build Workflow (最終最終最終最終最終最終確定版 - ビルドコマンド修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -43,7 +43,7 @@ jobs:
     - name: 4. Install Python Dependencies and Export Zephyr Base
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
-        # 🚨 修正: 絶対パスで requirements.txt を指定
+        # 絶対パスで requirements.txt を指定
         pip install -r ${{ github.workspace }}/zmk/zephyr/scripts/requirements.txt
         
         # 環境変数の設定 (ZEPHYR_BASE は zmk フォルダ内の zephyr を指す)
@@ -70,14 +70,13 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # ZMKのアプリディレクトリを指定してビルド。ZMK_CONFIG=../config でリポジトリルートの config を参照
-        west build -s app -d build --sysbuild \
+        # 🚨 修正: -s (ソースディレクトリ) の指定を削除。ZMK_CONFIG=../config でリポジトリルートの config を参照
+        west build -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=../config 
           
 
     - name: 7. Archive Firmware Artifacts
-      # パスの起点が zmk ディレクトリになっているため修正
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
