@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (Setup-Toolchainsによる最終解決)
+# ZMK Custom Config Build Workflow (YAML構文修正とToolchain導入)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -41,12 +41,9 @@ jobs:
         echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
-    # 🚨 最終修正：SDKのダウンロードとセットアップを actions/setup-toolchains に置き換える 🚨
     - name: 5. Setup Zephyr Toolchain (SDK)
+      # 🚨 最終修正：空の with: ブロックを削除 🚨
       uses: zephyrproject-rtos/setup-toolchains@v1
-      with:
-        # このアクションが、正しいバージョンの SDK を自動的にダウンロードし、環境変数を設定します
-        # 手動での SDK_VERSION 設定は不要です。
 
     - name: 6. Run West Build (ビルド実行)
       run: |
