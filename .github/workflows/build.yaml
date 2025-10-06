@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - URLの最終調整)
+# ZMK Custom Config Build Workflow (SDKセットアップの公式スクリプト化)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -15,9 +15,8 @@ jobs:
     
     env:
       BOARD: seeeduino_xiao_ble
+      # 🚨 修正：SDKバージョンを v0.16.4 に設定 (スクリプトが使用) 🚨
       ZEPHYR_SDK_VERSION: 0.16.4 
-      # 🚨 最終修正：公式の v0.16.4 のファイル名に厳密に合わせる 🚨
-      ZEPHYR_SDK_URL: https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.4/zephyr-sdk-0.16.4-x86_64-linux.tar.gz
       KCONFIG_NONINTERACTIVE: 1
 
     steps:
@@ -45,19 +44,19 @@ jobs:
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
 
-    - name: 5. Download and Setup Zephyr SDK
+    - name: 5. Download and Setup Zephyr SDK (公式スクリプトを使用)
       run: |
-        ZEPHYR_SDK_DIR="${{ runner.tool_cache }}/zephyr-sdk"
-        echo "Installing Zephyr SDK v${{ env.ZEPHYR_SDK_VERSION }} to ${ZEPHYR_SDK_DIR}"
-        mkdir -p ${ZEPHYR_SDK_DIR}
+        echo "--- Zephyr SDK v${{ env.ZEPHYR_SDK_VERSION }} を公式の方法でセットアップ ---"
         
-        # URLは環境変数から取得
-        curl -L -f -sS ${{ env.ZEPHYR_SDK_URL }} -o sdk.tar.gz
+        # 🚨 最終修正：手動の curl/tar を Zephyr の公式インストールスクリプトに置き換え 🚨
+        # このスクリプトが正しい URL とファイル名を自動で処理します
+        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${{ env.ZEPHYR_SDK_VERSION }}/zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}_setup.run
+        chmod +x zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}_setup.run
+        ./zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}_setup.run -- -y -d $HOME/zephyr-sdk
         
-        tar -xzf sdk.tar.gz -C ${ZEPHYR_SDK_DIR} --strip-components=1
-
+        # ツールチェーンの環境変数をエクスポート
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
-        echo "ZEPHYR_SDK_INSTALL_DIR=${ZEPHYR_SDK_DIR}" >> $GITHUB_ENV
+        echo "ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk" >> $GITHUB_ENV # SDKのインストールパス
         
     - name: 6. Run West Build (ビルド実行)
       run: |
