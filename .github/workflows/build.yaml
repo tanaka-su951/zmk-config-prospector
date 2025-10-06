@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - West/SDKの統合設定)
+# ZMK Custom Config Build Workflow (究極の最終版 - West SDKの明示的なインストール)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -27,46 +27,41 @@ jobs:
     - name: 2. Install West Tool
       run: pip install west
 
-    # 🚨 修正：Step 3 (actions-rs/toolchain) を削除 🚨
-    # SDKダウンロードと環境変数の設定を次のステップに統合します。
-    - name: 3. Initialize West Workspace and Download Dependencies
+    - name: 3. Setup Toolchain and Zephyr Environment
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: thumbv7em-none-eabihf # Seeeduino Xiao BLE の ARM アーキテクチャ
+
+    - name: 4. Initialize West Workspace and Download Dependencies
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml .
         west update
 
-    - name: 4. Install Python Dependencies and Setup Zephyr SDK
+    - name: 5. Install Python Dependencies, SDK, and Set Environment
       run: |
         echo "--- Python依存関係をインストールとZephyr SDKのセットアップ ---"
         
         # Python依存関係のインストール
         pip install -r zephyr/scripts/requirements.txt
         
-        # Zephyr SDKをインストール。Westが正しいバージョンを自動でダウンロードします。
-        # SDKのインストールディレクトリを設定
-        SDK_DIR="${{ runner.tool_cache }}/zephyr-sdk"
-        mkdir -p ${SDK_DIR}
+        # 🚨 最終修正：WestにZephyr SDKをインストールさせる 🚨
+        # これがSDKが見つからない問題を解決するはずです
+        west zephyr-tools setup
         
-        # Zephyr SDKのセットアップスクリプトを実行し、SDKをインストール
-        # 注: west update で zephyr/tools/zephyr_sdk/zephyr-sdk-setup.sh がダウンロードされます
-        # ただし、これは古い方法であるため、Zephyrの標準的なSDKインストールパスを使用します。
-        
-        # 🚨 最終手段: WestにSDKを自動で設定させる 🚨
-        west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
-        
+        # 環境変数の設定 (SDKインストール後に実行)
         echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
-        
-        # ZEPHYR_SDK_INSTALL_DIR の設定を West に任せるため、明示的な設定は省略します。
-        # west export が ZEPHYR_TOOLCHAIN_VARIANT, ZEPHYR_SDK_INSTALL_DIR を設定します
+        west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
-    - name: 5. Run West Build (ビルド実行)
+    - name: 6. Run West Build (ビルド実行)
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
         # Zephyrの環境設定スクリプトを実行し、SDKパスをPATHに追加
         source zephyr/zephyr-env.sh
         
-        # west build を実行。このコマンドが、SDKが見つからない場合は自動でダウンロードを試みます。
+        # west build を実行。
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=config \
@@ -75,7 +70,7 @@ jobs:
           -DEXTRA_OVERLAY_FILE=config/prospector_scanner.overlay
           
 
-    - name: 6. Archive Firmware Artifacts
+    - name: 7. Archive Firmware Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
