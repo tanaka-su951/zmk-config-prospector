@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - 真の公式アクションパス指定)
+# ZMK Custom Config Build Workflow (究極の最終版 - ZMKリポジトリルート指定)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -24,10 +24,10 @@ jobs:
         submodules: true
         fetch-depth: 0
 
-    # 🚨 最終修正：アクション名を zmkfirmware/zmk/actions/setup-zephyr@v1 に修正 🚨
-    # ZMKリポジトリ内のサブディレクトリにある真のアクションを参照します。
+    # 🚨 最終修正：アクション名を zmkfirmware/zmk@main に修正 🚨
+    # GitHub Actionsが内部で解釈している正しいリポジトリ名とブランチを使用します。
     - name: 2. Setup ZMK Environment (Official Method)
-      uses: zmkfirmware/zmk/actions/setup-zephyr@v1
+      uses: zmkfirmware/zmk@main
         
     - name: 3. Run West Build (ビルド実行)
       run: |
