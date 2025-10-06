@@ -1,5 +1,5 @@
 # ZMK Custom Config Build Workflow (最終確定版)
-# ファイル構造に合わせてビルドパスを調整
+# ZEPHYR_BASE環境変数を設定してビルドエラーを解消
 
 name: Build ZMK Firmware (Final Stable Build)
 
@@ -16,7 +16,6 @@ jobs:
     
     env:
       BOARD: seeeduino_xiao_ble
-      # 🚨 SHIELD: prospector_scanner はビルドコマンドで使用しないため削除 🚨
       ZEPHYR_SDK_VERSION: 0.15.2
       ZEPHYR_SDK_URL: https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.15.2/zephyr-sdk-0.15.2_linux-x86_64.tar.gz
       KCONFIG_NONINTERACTIVE: 1
@@ -36,32 +35,36 @@ jobs:
         echo "--- ZMKコアをクローンし、west.ymlを移動して初期化 ---"
         
         git clone https://github.com/zmkfirmware/zmk zmk
-        
-        # west.yml の移動
         mv zmk/app/west.yml zmk/west.yml
         
         west init -l zmk
         west update
 
-    - name: 4. Install Python Dependencies
+    - name: 4. Install Python Dependencies and Set ZEPHYR_BASE
       run: |
         echo "--- ZephyrのPython依存関係をインストール ---"
         pip install -r zephyr/scripts/requirements.txt
+        
+        # 🚨 最終修正：ZEPHYR_BASEを設定 🚨
+        echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
 
     - name: 5. Download and Setup Zephyr SDK
       run: |
         ZEPHYR_SDK_DIR="${{ runner.tool_cache }}/zephyr-sdk"
+
         echo "Installing Zephyr SDK v${{ env.ZEPHYR_SDK_VERSION }} to ${ZEPHYR_SDK_DIR}"
+        
         mkdir -p ${ZEPHYR_SDK_DIR}
+        
         curl -L -f -sS ${{ env.ZEPHYR_SDK_URL }} -o sdk.tar.gz
+        
         tar -xzf sdk.tar.gz -C ${ZEPHYR_SDK_DIR} --strip-components=1
+
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=${ZEPHYR_SDK_DIR}" >> $GITHUB_ENV
         
-    - name: 6. Run West Build (カスタム設定に合わせたビルド)
+    - name: 6. Run West Build (ビルド開始)
       run: |
-        # 🚨 最終修正：ZMK_CONFIGを config ディレクトリに設定 🚨
-        # 🚨 DSHIELD を削除し、オーバーレイファイル名を直接指定 🚨
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=${{ github.workspace }}/config \
