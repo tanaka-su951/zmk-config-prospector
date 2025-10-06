@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - ZMK公式アクション導入)
+# ZMK Custom Config Build Workflow (究極の最終版 - ZMK公式アクション最終修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -42,8 +42,8 @@ jobs:
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
     - name: 5. Setup Zephyr Toolchain (SDK)
-      # 🚨 最終修正：アクション名を zmkfirmware/setup-toolchains に修正 🚨
-      uses: zmkfirmware/setup-toolchains@v1
+      # 🚨 最終修正：アクション名を zmkfirmware/setup-toolchain (単数形) に修正 🚨
+      uses: zmkfirmware/setup-toolchain@v1
 
     - name: 6. Run West Build (ビルド実行)
       run: |
