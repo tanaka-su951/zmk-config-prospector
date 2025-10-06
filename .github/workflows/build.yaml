@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - West SDKの明示的なインストール)
+# ZMK Custom Config Build Workflow (究極の最終版 - 非推奨コマンドの削除)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -26,6 +26,8 @@ jobs:
 
     - name: 2. Install West Tool
       run: pip install west
+    
+    # Toolchainのインストールステップは不要です
 
     - name: 3. Initialize West Workspace and Download Dependencies
       run: |
@@ -40,11 +42,10 @@ jobs:
         # Python依存関係のインストール
         pip install -r zephyr/scripts/requirements.txt
         
-        # 🚨 最終修正：WestにZephyr SDKをインストールさせる 🚨
-        # これがSDKが見つからない問題を解決するはずです
-        west zephyr-tools setup
+        # 🚨 最終修正：非推奨の west zephyr-tools setup を削除 🚨
+        # SDKのセットアップは、west buildが自動で処理します。
         
-        # 環境変数の設定 (SDKインストール後に実行)
+        # 環境変数の設定
         echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
@@ -55,7 +56,7 @@ jobs:
         # Zephyrの環境設定スクリプトを実行し、SDKパスをPATHに追加
         source zephyr/zephyr-env.sh
         
-        # west build を実行。
+        # west build を実行。このコマンドが、SDKが見つからない場合に自動でダウンロードを試みます。
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=config \
