@@ -1,5 +1,5 @@
 # ZMK Custom Config Build Workflow (最終確定版)
-# 環境変数エクスポートにフィルタリングを追加
+# zephyr-env.sh を実行して環境初期化を完了
 
 name: Build ZMK Firmware (Final Stable Build)
 
@@ -40,30 +40,34 @@ jobs:
         west init -l zmk
         west update
 
-    - name: 4. Install Dependencies and Export Zephyr Environment
+    - name: 4. Install Python Dependencies
       run: |
         echo "--- ZephyrのPython依存関係をインストール ---"
         pip install -r zephyr/scripts/requirements.txt
         
-        # 🚨 最終修正：west zephyr-export の出力をフィルタリング 🚨
-        # 有効な export NAME=VALUE の行のみを抽出し、$GITHUB_ENV 形式に変換
-        west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
-        
-        # ZEPHYR_BASE は west zephyr-export で設定されるはずですが、念のため再設定
-        echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
+        # 以前の環境変数設定は削除 (Step 6で zephyr-env.sh が処理するため)
 
     - name: 5. Download and Setup Zephyr SDK
       run: |
         ZEPHYR_SDK_DIR="${{ runner.tool_cache }}/zephyr-sdk"
+
         echo "Installing Zephyr SDK v${{ env.ZEPHYR_SDK_VERSION }} to ${ZEPHYR_SDK_DIR}"
+        
         mkdir -p ${ZEPHYR_SDK_DIR}
+        
         curl -L -f -sS ${{ env.ZEPHYR_SDK_URL }} -o sdk.tar.gz
+        
         tar -xzf sdk.tar.gz -C ${ZEPHYR_SDK_DIR} --strip-components=1
+
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=${ZEPHYR_SDK_DIR}" >> $GITHUB_ENV
         
-    - name: 6. Run West Build (ビルド開始)
+    - name: 6. Run West Build (環境初期化後、ビルド開始)
       run: |
+        echo "--- Zephyrビルド環境をセットアップ ---"
+        # 🚨 最終修正：zephyr-env.sh を実行して環境変数を完全に初期化 🚨
+        source zephyr/zephyr-env.sh
+        
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=${{ github.workspace }}/config \
