@@ -1,4 +1,5 @@
-# ZMK Custom Config Build Workflow (究極の最終版)
+# ZMK Custom Config Build Workflow (究極の最終版 - 環境変数の完全保証)
+# west init の修正済みロジックと、環境変数の永続化ロジックを統合
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -32,17 +33,22 @@ jobs:
     - name: 3. Initialize West Workspace and Download Dependencies
       run: |
         echo "--- ZMKコアを公式の方法で初期化 ---"
-        
-        # 🚨 最終修正：引数を明確に分離し、現在のディレクトリ (.) をワークスペースとして指定 🚨
+        # 最新の修正 (マニフェストURLとファイルパスの指定)
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml .
         
         # 依存関係をダウンロード
         west update
 
-    - name: 4. Install Python Dependencies
+    - name: 4. Install Python Dependencies and Set ZEPHYR_BASE
       run: |
-        echo "--- ZephyrのPython依存関係をインストール ---"
+        echo "--- ZephyrのPython依存関係をインストールと環境変数の永続化 ---"
         pip install -r zephyr/scripts/requirements.txt
+        
+        # 🚨 環境変数を永続的に設定 🚨
+        echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
+        # Westが管理するパスも環境に追加 (CMAKEがZephyrConfig.cmakeを見つけるのに必要)
+        west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
+
 
     - name: 5. Download and Setup Zephyr SDK
       run: |
@@ -52,13 +58,15 @@ jobs:
         curl -L -f -sS ${{ env.ZEPHYR_SDK_URL }} -o sdk.tar.gz
         tar -xzf sdk.tar.gz -C ${ZEPHYR_SDK_DIR} --strip-components=1
 
+        # ツールチェーンの環境変数をエクスポート
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=${ZEPHYR_SDK_DIR}" >> $GITHUB_ENV
         
-    - name: 6. Run West Build (環境設定とビルドを実行)
+    - name: 6. Run West Build (二重初期化とビルドを実行)
       run: |
-        echo "--- Zephyr環境セットアップとビルドの実行 ---"
+        echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
+        # 🚨 source コマンドを再度実行して現在のシェルを初期化 🚨
         source zephyr/zephyr-env.sh
         
         west build -s zmk/app -d build --sysbuild \
