@@ -27,7 +27,7 @@ jobs:
     - name: 2. Install West Tool
       run: pip install west
     
-    # Toolchainのインストールステップは不要です
+    # Step 3 (旧ツールチェイン) は削除済み
 
     - name: 3. Initialize West Workspace and Download Dependencies
       run: |
@@ -42,8 +42,7 @@ jobs:
         # Python依存関係のインストール
         pip install -r zephyr/scripts/requirements.txt
         
-        # 🚨 最終修正：非推奨の west zephyr-tools setup を削除 🚨
-        # SDKのセットアップは、west buildが自動で処理します。
+        # 🚨 ここに west zephyr-tools setup の行がないことを確認してください 🚨
         
         # 環境変数の設定
         echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
