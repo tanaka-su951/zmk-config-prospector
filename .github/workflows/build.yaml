@@ -24,19 +24,15 @@ jobs:
         submodules: true
         fetch-depth: 0
 
-    # 🚨 最終修正：Step 2, 3, 4, 5 をすべて削除し、ZMK公式アクションに置き換え 🚨
     - name: 2. Setup ZMK Environment
+      # 🚨 最終修正：空の with: ブロックを削除 🚨
       uses: zmkfirmware/zmk-setup-action@v0
-      with:
-        # このアクションが West, Zephyr, Python依存関係, SDK を全て自動でセットアップします。
-        # これまでの手動設定はすべてこのアクションが内部で処理します。
         
     - name: 3. Run West Build (ビルド実行)
       run: |
         echo "--- ZMK環境の最終セットアップとビルドの実行 ---"
         
-        # ZMK Setup Actionが全ての環境変数を設定済みのため、これらは不要です
-        # source zephyr/zephyr-env.sh は不要
+        # ZMK Setup Actionが West, Python, SDK を全て設定済み
         
         # west init の実行ディレクトリからビルドを実行
         west build -s app -d build --sysbuild \
