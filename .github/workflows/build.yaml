@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - West SDKの明示的なインストール)
+# ZMK Custom Config Build Workflow (究極の最終版 - 非推奨コマンドの削除)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -26,42 +26,37 @@ jobs:
 
     - name: 2. Install West Tool
       run: pip install west
+    
+    # Toolchainのインストールステップは不要です
 
-    - name: 3. Setup Toolchain and Zephyr Environment
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        target: thumbv7em-none-eabihf # Seeeduino Xiao BLE の ARM アーキテクチャ
-
-    - name: 4. Initialize West Workspace and Download Dependencies
+    - name: 3. Initialize West Workspace and Download Dependencies
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml .
         west update
 
-    - name: 5. Install Python Dependencies, SDK, and Set Environment
+    - name: 4. Install Python Dependencies and Set Environment
       run: |
         echo "--- Python依存関係をインストールとZephyr SDKのセットアップ ---"
         
         # Python依存関係のインストール
         pip install -r zephyr/scripts/requirements.txt
         
-        # 🚨 最終修正：WestにZephyr SDKをインストールさせる 🚨
-        # これがSDKが見つからない問題を解決するはずです
-        west zephyr-tools setup
+        # 🚨 最終修正：非推奨の west zephyr-tools setup を削除 🚨
+        # SDKのセットアップは、west buildが自動で処理します。
         
-        # 環境変数の設定 (SDKインストール後に実行)
+        # 環境変数の設定
         echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
-    - name: 6. Run West Build (ビルド実行)
+    - name: 5. Run West Build (ビルド実行)
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
         # Zephyrの環境設定スクリプトを実行し、SDKパスをPATHに追加
         source zephyr/zephyr-env.sh
         
-        # west build を実行。
+        # west build を実行。このコマンドが、SDKが見つからない場合に自動でダウンロードを試みます。
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=config \
@@ -70,7 +65,7 @@ jobs:
           -DEXTRA_OVERLAY_FILE=config/prospector_scanner.overlay
           
 
-    - name: 7. Archive Firmware Artifacts
+    - name: 6. Archive Firmware Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
