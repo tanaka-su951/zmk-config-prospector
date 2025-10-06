@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - West インストールの復元)
+# ZMK Custom Config Build Workflow (究極の最終版 - West Build ソースディレクトリの修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -24,7 +24,6 @@ jobs:
         submodules: true
         fetch-depth: 0
 
-    # 🚨 修正：Westツールのインストールステップを復元 🚨
     - name: 2. Install West Tool
       run: pip install west
 
@@ -55,8 +54,8 @@ jobs:
         # Zephyrの環境設定スクリプトを実行し、依存関係を読み込む
         source zephyr/zephyr-env.sh
         
-        # west build を実行。
-        west build -s app -d build --sysbuild \
+        # 🚨 最終修正：ソースディレクトリを 'app' から 'zmk/app' に戻す 🚨
+        west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=config \
           -DEXTRA_CONF_FILE=config/prospector_scanner.conf \
@@ -70,4 +69,3 @@ jobs:
         name: firmware-${{ env.BOARD }}-prospector_scanner
         path: build/zephyr/zmk.uf2
         retention-days: 7
-
