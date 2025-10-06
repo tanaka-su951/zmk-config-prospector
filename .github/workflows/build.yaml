@@ -1,7 +1,7 @@
-# ZMK Custom Config Build Workflow (Westローカルマニフェスト指定/堅牢版)
-# WestローカルマニフェストとSDK手動設定による安定ビルド構成
+# ZMK Custom Config Build Workflow (Westローカルマニフェスト指定/究極の安定版)
+# Westの推奨方式とSDK手動設定による安定ビルド構成
 
-name: Build ZMK Firmware (Robust West Local Manifest)
+name: Build ZMK Firmware (Ultimate Stable Build)
 
 on:
   push:
@@ -14,14 +14,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
-    # 環境変数を一箇所に集約
     env:
       BOARD: seeeduino_xiao_ble
       SHIELD: prospector_scanner
-      # 安定版SDKのバージョンとURLを定義
       ZEPHYR_SDK_VERSION: 0.15.2
       ZEPHYR_SDK_URL: https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.15.2/zephyr-sdk-0.15.2_linux-x86_64.tar.gz
-      # ビルド時の非対話モードを強制
       KCONFIG_NONINTERACTIVE: 1
 
     steps:
@@ -31,50 +28,41 @@ jobs:
         submodules: true
         fetch-depth: 0
 
-    - name: 2. Install West and ZMK Python Dependencies
+    - name: 2. Install West Tool
+      # Westをまずインストール
+      run: pip install west
+
+    - name: 3. Initialize West Workspace and Install Dependencies
       run: |
-        pip install west
-        # ZMKコアを一時的にクローンし、requirements.txtを使用
-        git clone https://github.com/zmkfirmware/zmk zmk_tmp
-        
-        # 🚨 最終修正：絶対パスを使用して requirements.txt を参照 🚨
-        pip install -r ${{ github.workspace }}/zmk_tmp/requirements.txt
-        
-    - name: 3. Initialize West Workspace with Local ZMK Core (クローン処理を統合)
-      run: |
-        # 一時クローン (zmk_tmp) を正式なZMKコアディレクトリにリネーム
-        mv zmk_tmp zmk
+        echo "--- West初期化、ZMKクローン、依存関係のダウンロードとインストール ---"
+        # 🚨 ZMKコアを直接 'zmk' ディレクトリにクローン 🚨
+        git clone https://github.com/zmkfirmware/zmk zmk
         
         # ローカルマニフェストとしてZMKコアディレクトリを指定
         west init -l zmk
-        # 依存関係をダウンロード
+        # 依存関係をダウンロード (Zephyr、MCUbootなど)
         west update
+        
+        # 🚨 修正：WestにPython依存関係のインストールを任せる (最も確実) 🚨
+        west python -m pip install -r zmk/requirements.txt
 
     - name: 4. Download and Setup Zephyr SDK
-      # Zephyr SDKをダウンロード、展開し、環境変数を設定
       run: |
-        # runner.tool_cache をステップ内で定義
         ZEPHYR_SDK_DIR="${{ runner.tool_cache }}/zephyr-sdk"
 
         echo "Installing Zephyr SDK v${{ env.ZEPHYR_SDK_VERSION }} to ${ZEPHYR_SDK_DIR}"
         
-        # ツールキャッシュディレクトリがなければ作成
         mkdir -p ${ZEPHYR_SDK_DIR}
         
-        # ダウンロードとエラーチェックの堅牢化
         curl -L -f -sS ${{ env.ZEPHYR_SDK_URL }} -o sdk.tar.gz
         
-        # ダウンロードしたアーカイブを展開
         tar -xzf sdk.tar.gz -C ${ZEPHYR_SDK_DIR} --strip-components=1
 
-        # Zephyrビルドに必要な環境変数を設定
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
-        # SDKインストールディレクトリを設定
         echo "ZEPHYR_SDK_INSTALL_DIR=${ZEPHYR_SDK_DIR}" >> $GITHUB_ENV
         
     - name: 5. Run West Build
       run: |
-        # ツールチェーンと環境が設定された状態でビルドを実行
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DSHIELD=${{ env.SHIELD }} \
