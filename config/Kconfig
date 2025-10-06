@@ -1,0 +1,7 @@
+# config/Kconfig
+
+menu "Prospector Config"
+
+source "prospector_scanner.conf"
+
+endmenu
