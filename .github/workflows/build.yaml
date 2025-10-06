@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - ビルド引数とSDKの確実なインストール)
+# ZMK Custom Config Build Workflow (究極の最終版 - パスの最終修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -27,13 +27,9 @@ jobs:
     - name: 2. Install West Tool
       run: pip install west
 
-    # 注: ここにキャッシュステップを導入することで、次回以降のビルドが高速化されますが、
-    # 確実性を優先し、今回は省略します。
-
     - name: 3. Initialize West Workspace and Download Dependencies
       run: |
         echo "--- ZMKワークスペースを構築 ---"
-        # ZMKリポジトリとその依存関係をダウンロード
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml .
         west update
 
@@ -44,15 +40,12 @@ jobs:
         # Python依存関係のインストール
         pip install -r zephyr/scripts/requirements.txt
         
-        # 🚨 SDKの明示的なインストールとパス設定 (Zephyr SDKが見つからない問題の最終解決策)
-        # ZMKが依存する v0.16.5 を直接ダウンロード
+        # SDKの明示的なインストールとパス設定 (v0.16.5)
         wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.5/zephyr-sdk-0.16.5_linux-x86_64.tar.xz -O /tmp/zephyr-sdk.tar.xz
         
-        # SDKをインストールするディレクトリを定義
         SDK_ROOT="${{ runner.tool_cache }}/zephyr-sdk-0.16.5"
         mkdir -p ${SDK_ROOT}
         
-        # 圧縮を解凍してインストール
         tar xf /tmp/zephyr-sdk.tar.xz -C ${SDK_ROOT} --strip-components=1
         
         # 環境変数の設定
@@ -64,16 +57,17 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 最も重要な修正: 設定ファイルパスの最終修正
-        # ZMK_CONFIG=config は維持しつつ、EXTRA_CONF/OVERLAY_FILEのパスを明示的に指定します。
+        # 🚨 パスをワークスペースのルートからのフルパスで指定
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=config \
           -DEXTRA_CONF_FILE=${{ github.workspace }}/config/prospector_scanner.conf \
           -DEXTRA_OVERLAY_FILE=${{ github.workspace }}/config/prospector_scanner.overlay
-
-        # 注: ${{ github.workspace }}/ は /home/runner/work/zmk-config-prospector/zmk-config-prospector/ に展開されます。
-        # これにより、ビルドシステムはファイルシステムの正確な場所を参照します。
           
+
     - name: 6. Archive Firmware Artifacts
-# ... (以下省略)
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware-${{ env.BOARD }}-prospector_scanner
+        path: build/zephyr/zmk.uf2
+        retention-days: 7
