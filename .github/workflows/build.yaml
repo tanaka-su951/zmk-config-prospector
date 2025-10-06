@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (ZMK Setup Actionによる最終解決)
+# ZMK Custom Config Build Workflow (究極の最終版 - ZMK Setup Action ブランチ指定)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -25,14 +25,14 @@ jobs:
         fetch-depth: 0
 
     - name: 2. Setup ZMK Environment
-      # 🚨 最終修正：空の with: ブロックを削除 🚨
-      uses: zmkfirmware/zmk-setup-action@v0
+      # 🚨 最終修正：バージョンタグを @v0 から @main に変更 🚨
+      uses: zmkfirmware/zmk-setup-action@main
         
     - name: 3. Run West Build (ビルド実行)
       run: |
         echo "--- ZMK環境の最終セットアップとビルドの実行 ---"
         
-        # ZMK Setup Actionが West, Python, SDK を全て設定済み
+        # ZMK Setup Actionが環境変数を設定済み
         
         # west init の実行ディレクトリからビルドを実行
         west build -s app -d build --sysbuild \
