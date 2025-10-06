@@ -41,6 +41,7 @@ jobs:
         pip install -r zephyr/scripts/requirements.txt
         
         # 🚨 最終修正：west sdk install を明示的に実行し、SDKのダウンロードを強制 🚨
+        # これがZephyr SDKが見つからない問題を最終的に解決するはずです。
         west sdk install
         
         # 環境変数の設定 (SDKインストール後に実行)
