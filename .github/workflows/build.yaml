@@ -1,5 +1,5 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - 環境変数の完全保証)
-# west init の修正済みロジックと、環境変数の永続化ロジックを統合
+# ZMK Custom Config Build Workflow (最終最終版)
+# ZMKコアリポジトリの手動クローンと環境変数の完全保証
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -30,23 +30,27 @@ jobs:
     - name: 2. Install West Tool
       run: pip install west
 
-    - name: 3. Initialize West Workspace and Download Dependencies
+    - name: 3. Initialize West Workspace, Clone ZMK Core, and Download Dependencies
       run: |
-        echo "--- ZMKコアを公式の方法で初期化 ---"
-        # 最新の修正 (マニフェストURLとファイルパスの指定)
+        echo "--- ZMKワークスペースを構築し、ZMKコアをクローン ---"
+        
+        # 1. WestをZMKのマニフェストで初期化
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml .
         
-        # 依存関係をダウンロード
+        # 🚨 最終修正：ZMKコアリポジトリを 'zmk' ディレクトリに手動でクローン 🚨
+        # これにより、west build が探す /zmk/app が存在することになります
+        git clone https://github.com/zmkfirmware/zmk zmk
+        
+        # 2. 依存関係をダウンロード
         west update
 
-    - name: 4. Install Python Dependencies and Set ZEPHYR_BASE
+    - name: 4. Install Python Dependencies and Set Environment
       run: |
-        echo "--- ZephyrのPython依存関係をインストールと環境変数の永続化 ---"
+        echo "--- Python依存関係をインストールと環境変数の永続化 ---"
         pip install -r zephyr/scripts/requirements.txt
         
-        # 🚨 環境変数を永続的に設定 🚨
+        # 環境変数を永続的に設定
         echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
-        # Westが管理するパスも環境に追加 (CMAKEがZephyrConfig.cmakeを見つけるのに必要)
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
 
@@ -58,7 +62,6 @@ jobs:
         curl -L -f -sS ${{ env.ZEPHYR_SDK_URL }} -o sdk.tar.gz
         tar -xzf sdk.tar.gz -C ${ZEPHYR_SDK_DIR} --strip-components=1
 
-        # ツールチェーンの環境変数をエクスポート
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=${ZEPHYR_SDK_DIR}" >> $GITHUB_ENV
         
@@ -66,9 +69,10 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 source コマンドを再度実行して現在のシェルを初期化 🚨
+        # 環境変数が設定された状態で source を実行し、シェルを初期化
         source zephyr/zephyr-env.sh
         
+        # /zmk/app が存在する状態でビルドを実行
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=${{ github.workspace }}/config \
