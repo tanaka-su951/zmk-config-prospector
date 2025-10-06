@@ -1,7 +1,7 @@
-# ZMK Custom Config Build Workflow (Westローカルマニフェスト指定/究極の安定版)
-# Westの推奨方式とSDK手動設定による安定ビルド構成
+# ZMK Custom Config Build Workflow (Westローカルマニフェスト指定/最終ロジック)
+# ZMKの特殊な構造に合わせた、手動クローンとローカルマニフェストの構成
 
-name: Build ZMK Firmware (Ultimate Stable Build)
+name: Build ZMK Firmware (Final Logic Stable Build)
 
 on:
   push:
@@ -31,19 +31,24 @@ jobs:
     - name: 2. Install West Tool
       run: pip install west
 
-    - name: 3. Initialize West Workspace and Install Dependencies (ロジック修正)
+    - name: 3. Clone ZMK Core and Initialize West Workspace
       run: |
-        echo "--- West初期化、ZMKクローン、依存関係のダウンロードとインストール ---"
+        echo "--- ZMKコアを手動でクローンし、ローカルマニフェストとして使用 ---"
         
-        # 🚨 修正：west init でZMKリポジトリを直接指定し、Westにクローンを任せる 🚨
-        #   これにより west.yml が正しく取得される
-        west init -m https://github.com/zmkfirmware/zmk --mr main
+        # 🚨 修正：ZMKコアを手動でクローン (これがZMKの west.yml 配置上、最も確実な方法) 🚨
+        git clone https://github.com/zmkfirmware/zmk zmk
+        
+        # 🚨 ZMKコアをローカルディレクトリとしてマニフェストに指定 🚨
+        #   west init を実行すると、カレントディレクトリに .west/ が作成される
+        west init -l zmk 
         
         # 依存関係をダウンロード (Zephyr、MCUbootなど)
         west update
         
         # Westが管理するPython環境に依存関係をインストール
-        west python -m pip install -r zmk/requirements.txt
+        # west python -m pip install -r zmk/requirements.txt がエラーの原因となるため、
+        # より古い、しかしZMKのクイックスタートで推奨されるパスを使用
+        west python -m pip install -r zmk/app/west.yml --manifest-reqs
 
     - name: 4. Download and Setup Zephyr SDK
       run: |
