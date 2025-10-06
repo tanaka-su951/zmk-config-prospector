@@ -1,5 +1,5 @@
 # ZMK Custom Config Build Workflow (最終確定版)
-# West Update と Python依存関係の順序を修正
+# zephyr-env.sh の実行を削除し、環境変数に一本化
 
 name: Build ZMK Firmware (Final Stable Build)
 
@@ -28,7 +28,6 @@ jobs:
         fetch-depth: 0
 
     - name: 2. Install West Tool
-      # Westツール自体は、最初のステップでインストールする必要がある
       run: pip install west
 
     - name: 3. Clone ZMK Core and Initialize West Workspace
@@ -39,33 +38,38 @@ jobs:
         mv zmk/app/west.yml zmk/west.yml
         
         west init -l zmk
-        # 依存関係をダウンロード (ここで zephyr/scripts/requirements.txt が作成される)
         west update
 
-    - name: 4. Install Python Dependencies
+    - name: 4. Install Python Dependencies and Set ZEPHYR_BASE
       run: |
-        echo "--- ZephyrのPython依存関係をインストール ---"
-        # 🚨 修正：west update後に実行することでファイルパスエラーを解消 🚨
+        echo "--- ZephyrのPython依存関係をインストールと環境変数の設定 ---"
         pip install -r zephyr/scripts/requirements.txt
+        
+        # 🚨 最終修正：環境変数をここで設定
+        echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
+
 
     - name: 5. Download and Setup Zephyr SDK
       run: |
         ZEPHYR_SDK_DIR="${{ runner.tool_cache }}/zephyr-sdk"
+
         echo "Installing Zephyr SDK v${{ env.ZEPHYR_SDK_VERSION }} to ${ZEPHYR_SDK_DIR}"
+        
         mkdir -p ${ZEPHYR_SDK_DIR}
+        
         curl -L -f -sS ${{ env.ZEPHYR_SDK_URL }} -o sdk.tar.gz
+        
         tar -xzf sdk.tar.gz -C ${ZEPHYR_SDK_DIR} --strip-components=1
 
+        # ツールチェーンの環境変数をエクスポート
         echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
         echo "ZEPHYR_SDK_INSTALL_DIR=${ZEPHYR_SDK_DIR}" >> $GITHUB_ENV
         
-    - name: 6. Run West Build (単一シェルセッションで環境設定とビルドを実行)
+    - name: 6. Run West Build (環境変数の引き継ぎに依存してビルドを実行)
       run: |
-        echo "--- Zephyr環境セットアップとビルドの実行 ---"
+        echo "--- West Buildの実行 ---"
         
-        # zephyr-env.sh をソースし、同じシェルセッションでビルドを実行
-        source zephyr/zephyr-env.sh
-        
+        # 🚨 最終修正：source コマンドを削除 🚨
         west build -s zmk/app -d build --sysbuild \
           -b ${{ env.BOARD }} \
           -- -DZMK_CONFIG=${{ github.workspace }}/config \
