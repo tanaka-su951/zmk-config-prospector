@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終版 - SDKのインストール強制)
+# ZMK Custom Config Build Workflow (究極の最終版 - SDKインストールスクリプト実行)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -40,11 +40,22 @@ jobs:
         # Python依存関係のインストール
         pip install -r zephyr/scripts/requirements.txt
         
-        # 🚨 最終修正：west sdk install を明示的に実行し、SDKのダウンロードを強制 🚨
-        # これがZephyr SDKが見つからない問題を最終的に解決するはずです。
-        west sdk install
+        # 🚨 最終修正：公式のSDKセットアップスクリプトを実行 🚨
+        # このスクリプトは Zephyr SDK のダウンロードとインストールを保証します。
+        # ZEPHYR_SDK_INSTALL_DIR のデフォルトパスにインストールされます。
+        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.5/zephyr-sdk-0.16.5_linux-x86_64.tar.xz -O /tmp/zephyr-sdk.tar.xz
         
-        # 環境変数の設定 (SDKインストール後に実行)
+        # SDKをインストールするディレクトリを定義 (ZMK公式ドキュメント準拠)
+        SDK_ROOT="${{ runner.tool_cache }}/zephyr-sdk-0.16.5"
+        mkdir -p ${SDK_ROOT}
+        
+        # 圧縮を解凍してインストール
+        tar xf /tmp/zephyr-sdk.tar.xz -C ${SDK_ROOT} --strip-components=1
+        
+        # 環境変数としてSDKのインストールディレクトリを設定
+        echo "ZEPHYR_SDK_INSTALL_DIR=${SDK_ROOT}" >> $GITHUB_ENV
+        
+        # 環境変数の設定 (ZEPHYR_BASE およびその他の環境変数)
         echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
@@ -53,7 +64,8 @@ jobs:
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
         # Zephyrの環境設定スクリプトを実行し、SDKパスをPATHに追加
-        source zephyr/zephyr-env.sh
+        # 注意: west zephyr-export と ZEPHYR_SDK_INSTALL_DIR が設定されているため、
+        # source zephyr/zephyr-env.sh はここでは省略します。
         
         # west build を実行。
         west build -s zmk/app -d build --sysbuild \
