@@ -37,8 +37,8 @@ jobs:
         # ZMKコアを一時的にクローンし、requirements.txtを使用
         git clone --depth 1 https://github.com/zmkfirmware/zmk zmk_tmp
         
-        # 🚨 修正済み：requirements.txt の正しいパスを指定 🚨
-        pip install -r zmk_tmp/scripts/requirements.txt
+        # 🚨 最終修正：requirements.txt のパスを ZMK ルートに修正 🚨
+        pip install -r zmk_tmp/requirements.txt
         
         rm -rf zmk_tmp # 一時ディレクトリは削除
 
@@ -54,7 +54,7 @@ jobs:
     - name: 4. Download and Setup Zephyr SDK
       # Zephyr SDKをダウンロード、展開し、環境変数を設定
       run: |
-        # 🚨 修正済み：runner.tool_cache をステップ内で定義 🚨
+        # runner.tool_cache をステップ内で定義
         ZEPHYR_SDK_DIR="${{ runner.tool_cache }}/zephyr-sdk"
 
         echo "Installing Zephyr SDK v${{ env.ZEPHYR_SDK_VERSION }} to ${ZEPHYR_SDK_DIR}"
