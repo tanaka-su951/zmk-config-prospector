@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (最終最終最終最終確定版 - ステップ分割とパス修正)
+# ZMK Custom Config Build Workflow (最終最終最終最終最終確定版 - Pythonパス修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -43,8 +43,8 @@ jobs:
     - name: 4. Install Python Dependencies and Export Zephyr Base
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
-        # Python依存関係のインストール (zephyr/scripts/requirements.txt は zmk/zephyr/scripts/requirements.txt を参照)
-        pip install -r zephyr/scripts/requirements.txt
+        # 🚨 修正: 絶対パスで requirements.txt を指定
+        pip install -r ${{ github.workspace }}/zmk/zephyr/scripts/requirements.txt
         
         # 環境変数の設定 (ZEPHYR_BASE は zmk フォルダ内の zephyr を指す)
         echo "ZEPHYR_BASE=${{ github.workspace }}/zmk/zephyr" >> $GITHUB_ENV
