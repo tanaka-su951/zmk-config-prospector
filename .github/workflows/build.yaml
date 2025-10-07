@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK 公式のワークスペース初期化)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - west.yml パスを再度明示的に指定 & ZMK_ROOT 修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build - Final Pattern)
 
@@ -16,7 +16,6 @@ jobs:
     env:
       BOARD: seeeduino_xiao_ble
       KCONFIG_NONINTERACTIVE: 1
-      # ZMK_DIR は廃止。ZMKリポジトリは West によって自動的に適切な場所にダウンロードされる。
 
     steps:
     - name: 1. Checkout ZMK Config
@@ -32,9 +31,8 @@ jobs:
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         
-        # 🚨 究極の最終修正: 現在のリポジトリのルートをWestワークスペースとして初期化
-        # ZMKリポジトリをマニフェストとして指定し、現在のディレクトリにダウンロードさせる
-        west init -m https://github.com/zmkfirmware/zmk --mr main
+        # 🚨 究極の最終修正: ZMKリポジトリの 'app/west.yml' を明示的に指定して初期化
+        west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml
         
         # ワークスペースの依存関係を更新（ZMKリポジトリがダウンロードされる）
         west update
@@ -43,16 +41,14 @@ jobs:
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # ZMKリポジトリは 'zmk' または 'modules/zmk' にダウンロードされると想定されるため、
-        # そのパスを正確に取得する (通常は 'zmk' にダウンロードされる)
-        # 🚨 究極の最終修正: ZMKリポジトリのルートを特定
-        ZMK_ROOT=$(west topdir) 
+        # 🚨 究極の最終修正: ZMKリポジトリのルートは通常 'zmk' サブディレクトリになる
+        ZMK_ROOT="zmk" 
         
         # zephyr/scripts/requirements.txt を ZMK_ROOT から参照
         pip install -r "${ZMK_ROOT}/zephyr/scripts/requirements.txt"
         
         # ZEPHYR_BASE のパスを絶対パスで設定
-        echo "ZEPHYR_BASE=${ZMK_ROOT}/zephyr" >> $GITHUB_ENV
+        echo "ZEPHYR_BASE=${{ github.workspace }}/${ZMK_ROOT}/zephyr" >> $GITHUB_ENV
         
         # west zephyr-export はワークスペースのルートから実行
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
@@ -77,8 +73,7 @@ jobs:
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
         # ビルドはワークスペースのルート（現在のリポジトリのルート）から実行
-        # ZMKの公式推奨パターンでは、west build は現在のワークスペース全体をビルド対象とするため、-s は不要か '.' となる
-        # 🚨 究極の最終修正: ZMKリポジトリ自体がビルドソースとなるため、'zmk' を指定
+        # ZMKリポジトリ自体がビルドソースとなるため、'zmk' を指定
         west build -s zmk -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=config 
           
