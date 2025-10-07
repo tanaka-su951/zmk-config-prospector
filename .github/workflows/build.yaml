@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK公式推奨ワークフロー準拠)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - 各ステップでの cd zmk)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -34,7 +34,7 @@ jobs:
         # ZMKのソースコードを 'zmk' フォルダにダウンロードし、app/west.yml を指定
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml zmk 
         
-        # クローンされた ZMK ワークスペースのルートに移動
+        # このステップのカレントディレクトリを zmk に変更
         cd zmk
         west update
 
@@ -42,10 +42,13 @@ jobs:
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # zmk ワークスペースのルートにいるので、zephyr/scripts/requirements.txt を直接参照
+        # 🚨 最終修正: zmk ワークスペースのルートに移動
+        cd zmk
+        
+        # zephyr/scripts/requirements.txt を直接参照
         pip install -r zephyr/scripts/requirements.txt
         
-        # ZEPHYR_BASE のパスを絶対パスで設定
+        # ZEPHYR_BASE のパスを絶対パスで設定 (このステップは zmk/ にいるため、その下の zephyr)
         echo "ZEPHYR_BASE=${{ github.workspace }}/zmk/zephyr" >> $GITHUB_ENV
         
         # west zephyr-export は、ワークスペースのルートで実行
@@ -70,9 +73,10 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # ZMK ワークスペースのルート (zmk/ ディレクトリ) に移動
+        # 🚨 最終修正: ZMK ワークスペースのルート (zmk/ ディレクトリ) に移動
+        cd zmk
+        
         # ここでカスタム設定ファイルがあるリポジトリルート (config/) を参照
-        cd zmk && \
         west build -s app -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=${{ github.workspace }}/config 
           
