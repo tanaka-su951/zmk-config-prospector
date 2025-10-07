@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK アプリ層への絶対パス)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - west init の修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -31,8 +31,8 @@ jobs:
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         
-        # ZMKのソースコードを 'zmk' フォルダにダウンロード
-        west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml zmk 
+        # 🚨 最終修正: ZMKリポジトリにある標準の west.yml を使用させる
+        west init -m https://github.com/zmkfirmware/zmk --mr main zmk 
         
         cd zmk
         west update
@@ -69,8 +69,8 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 究極の最終修正: -s に ZMKのアプリケーション層の絶対パスを指定
-        west build -s ${{ github.workspace }}/zmk/app -d zmk/build -b ${{ env.BOARD }} -- \
+        # 🚨 最終修正: ソース指定を zmk に戻す
+        west build -s zmk -d zmk/build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=config 
           
 
