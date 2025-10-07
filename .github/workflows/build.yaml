@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - ビルド強制オプションの適用)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - ls -R 再導入 & app + force)
 
 name: Build ZMK Firmware (Ultimate Stable Build - Final Pattern)
 
@@ -39,6 +39,11 @@ jobs:
         cd "${{ env.ZMK_DIR }}"
         # その後、ワークスペースの依存関係を更新
         west update
+        
+        # 🚨 究極の最終修正: ZMK ワークスペース内のディレクトリ構造を再度ダンプ（これが決定打になるはず）
+        echo "--- ZMK ワークスペース内の最終ディレクトリ構造 ---"
+        ls -R .
+        echo "---------------------------------------------------"
 
     - name: 4. Install Python Dependencies and Export Zephyr Base
       run: |
@@ -78,8 +83,8 @@ jobs:
         # ZMK ワークスペースのルートに移動
         cd "${{ env.ZMK_DIR }}"
         
-        # 🚨 究極の最終修正: カレントディレクトリをソースとし、--force オプションでビルドを強制
-        west build -s . -d build -b ${{ env.BOARD }} --force -- \
+        # 🚨 究極の最終修正: ZMKアプリケーション層 'app' をソースとし、ビルドを強制
+        west build -s app -d build -b ${{ env.BOARD }} --force -- \
           -DZMK_CONFIG=${{ github.workspace }}/config 
           
 
