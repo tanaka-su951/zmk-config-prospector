@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (最終最終最終最終最終最終最終最終最終最終最終確定版 - ビルドコマンド最終修正)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - ディレクトリ移動修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -61,7 +61,7 @@ jobs:
         SDK_ROOT="${{ runner.tool_cache }}/zephyr-sdk-0.16.5"
         mkdir -p ${SDK_ROOT}
         
-        # 🚨 SDK展開のファイル名を修正済み
+        # SDK展開のファイル名を修正済み
         tar xf /tmp/zephyr-sdk.tar.xz -C ${SDK_ROOT} --strip-components=1
         
         # ZEPHYR_SDK_INSTALL_DIR のみを環境変数に設定
@@ -71,12 +71,18 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 修正: --sysbuild を削除し、ZMK の標準的なビルド形式にする。
-        west build -s app -d build -b ${{ env.BOARD }} -- \
-          -DZMK_CONFIG=../config 
+        # 🚨 修正: リポジトリのルートに戻る
+        cd ..
+
+        # リポジトリルートから ZMK のソースをビルドする。
+        # -s zmk/app: ZMKソースディレクトリを指定
+        # -DZMK_CONFIG=config: リポジトリルートにある config ディレクトリを指定
+        west build -s zmk/app -d build -b ${{ env.BOARD }} -- \
+          -DZMK_CONFIG=config 
           
 
     - name: 7. Archive Firmware Artifacts
+      # パスがリポジトリルートになっているため、zmk/app の build ディレクトリを参照
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
