@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - 各ステップでの cd zmk)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - ビルドソースをカレントディレクトリに指定)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -73,11 +73,11 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 最終修正: ZMK ワークスペースのルート (zmk/ ディレクトリ) に移動
+        # 🚨 究極の最終修正: ZMK ワークスペースのルート (zmk/ ディレクトリ) に移動
         cd zmk
         
-        # ここでカスタム設定ファイルがあるリポジトリルート (config/) を参照
-        west build -s app -d build -b ${{ env.BOARD }} -- \
+        # カレントディレクトリ (.) をソースとして使用
+        west build -s . -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=${{ github.workspace }}/config 
           
 
