@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK_DIR 変数の導入と各ステップでの cd)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK アプリ層をソースパスに再修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build - Final Pattern)
 
@@ -16,7 +16,7 @@ jobs:
     env:
       BOARD: seeeduino_xiao_ble
       KCONFIG_NONINTERACTIVE: 1
-      ZMK_DIR: ${{ github.workspace }}/zmk # 🚨 究極の最終修正: ZMK ワークスペースの絶対パスを定義
+      ZMK_DIR: ${{ github.workspace }}/zmk # ZMK ワークスペースの絶対パスを定義
 
     steps:
     - name: 1. Checkout ZMK Config
@@ -36,7 +36,7 @@ jobs:
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml zmk 
         
         # west init で作成されたワークスペースのルートに移動
-        cd "${{ env.ZMK_DIR }}" # 🚨 ZMK_DIR を使用して移動
+        cd "${{ env.ZMK_DIR }}"
         # その後、ワークスペースの依存関係を更新
         west update
 
@@ -44,14 +44,14 @@ jobs:
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # 🚨 究極の最終修正: ZMK ワークスペースのルートに移動
+        # ZMK ワークスペースのルートに移動
         cd "${{ env.ZMK_DIR }}"
         
         # zephyr/scripts/requirements.txt を直接参照
         pip install -r zephyr/scripts/requirements.txt
         
         # ZEPHYR_BASE のパスを絶対パスで設定
-        echo "ZEPHYR_BASE=${{ env.ZMK_DIR }}/zephyr" >> $GITHUB_ENV # 🚨 ZMK_DIR を使用
+        echo "ZEPHYR_BASE=${{ env.ZMK_DIR }}/zephyr" >> $GITHUB_ENV
         
         # west zephyr-export はワークスペースのルート（zmk/）から実行
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
@@ -75,11 +75,11 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 究極の最終修正: ZMK ワークスペースのルートに移動
+        # ZMK ワークスペースのルートに移動
         cd "${{ env.ZMK_DIR }}"
         
-        # ソースディレクトリとして、カレントディレクトリ '.' を指定
-        west build -s . -d build -b ${{ env.BOARD }} -- \
+        # 🚨 究極の最終修正: ZMKアプリケーション層 'app' をソースとして指定
+        west build -s app -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=${{ github.workspace }}/config 
           
 
@@ -87,6 +87,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
-        # 🚨 究極の最終修正: ワークスペースのルートからの絶対パスを指定
+        # ワークスペースのルートからの絶対パスを指定
         path: ${{ env.ZMK_DIR }}/build/zephyr/zmk.uf2
         retention-days: 7
