@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (標準的なビルドプロセスに修正)
+# ZMK Custom Config Build Workflow (ZMK公式アクション使用版)
 
-name: Build ZMK Firmware (Corrected Stable Build)
+name: Build ZMK Firmware (Using Official ZMK Action)
 
 on:
   push:
@@ -13,59 +13,27 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
-    env:
-      BOARD: seeeduino_xiao_ble
-      # KCONFIG_NONINTERACTIVE: 1 # west buildでは通常不要
-
     steps:
+    # ステップ1: まず、あなたの設定リポジトリをチェックアウトします
     - name: 1. Checkout ZMK Config
       uses: actions/checkout@v4
-      # submodules は west update で処理するため、ここでは不要
-      # fetch-depth: 0 も通常は不要
 
-    - name: 2. Install West Tool
-      run: pip install west
+    # ステップ2: ZMK公式のセットアップアクションを実行します
+    # これ一つで、west, Python, Zephyr SDKのセットアップが完了します
+    - name: 2. Setup ZMK build environment
+      uses: zmkfirmware/setup-zmk-action@v1
 
-    ### <<< 変更点: Westワークスペースの初期化方法を修正
-    - name: 3. Initialize West Workspace
-      run: |
-        echo "--- Initializing West workspace ---"
-        # -l: このディレクトリ(.)をワークスペースとして初期化する
-        # このコマンドはリポジトリのルートにある west.yml を読み込みます
-        west init -l .
-        
-        echo "--- Updating West dependencies ---"
-        # 依存関係（ZMK, Zephyrなど）をダウンロード・更新します
-        west update
-
-    ### <<< 変更点: Python依存関係のインストールを簡略化
-    - name: 4. Install Python Dependencies
-      run: |
-        echo "--- Installing Python dependencies ---"
-        pip install -r zephyr/scripts/requirements.txt
-
-    ### <<< 変更点: Zephyr SDKのセットアップを簡略化 (Zephyr公式アクションを使用)
-    - name: 5. Setup Zephyr SDK
-      uses: zephyrproject-rtos/setup-zephyr@v1
-      with:
-        # このアクションがSDKのダウンロード、設定、環境変数のエクスポートを全て行います
-        sdk-version: '0.16.5'
-
-    ### <<< 変更点: ビルドコマンドを標準的な形式に修正
-    - name: 6. Run West Build
+    # ステップ3: ビルドを実行します
+    # BOARDはここで指定するか、envブロックで指定します
+    - name: 3. Run West Build
       run: |
         echo "--- Building firmware ---"
-        # cd は不要。リポジトリのルートで実行する
-        # -p auto: 前回のビルドキャッシュをクリアしてビルド (推奨)
-        # westは自動的に app ディレクトリをソースとして認識します
-        west build -p auto -b ${{ env.BOARD }} -- -DZMK_CONFIG="${{ github.workspace }}/config"
+        west build -p auto -b seeeduino_xiao_ble -- -DZMK_CONFIG="${{ github.workspace }}/config"
 
-    ### <<< 変更点: アーティファクトのパスを修正
-    - name: 7. Archive Firmware Artifacts
+    # ステップ4: ビルドされたファームウェアをアーティファクトとしてアップロードします
+    - name: 4. Archive Firmware Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: firmware-${{ env.BOARD }}-prospector_scanner
-        # パスから 'zmk/' を削除
+        name: firmware-seeeduino_xiao_ble-prospector_scanner
         path: build/zephyr/zmk.uf2
         retention-days: 7
-
