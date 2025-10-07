@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK公式カスタムビルドパターン)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - west.yml パスを再度明示的に指定)
 
 name: Build ZMK Firmware (Ultimate Stable Build - Final Pattern)
 
@@ -31,9 +31,8 @@ jobs:
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         
-        # 🚨 究極の最終修正: ZMKリポジトリを現在のリポジトリ（カスタム設定リポジトリ）のサブディレクトリとしてダウンロード
-        # これにより、zmk/ フォルダの中にZMK本体のソースコードが格納される
-        west init -m https://github.com/zmkfirmware/zmk --mr main zmk 
+        # 🚨 究極の最終修正: ZMKリポジトリの 'app/west.yml' を明示的に指定して初期化
+        west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml zmk 
         
         # ダウンロードされたZMKリポジトリ（zmk/）を含め、ワークスペースの依存関係を更新
         west update
