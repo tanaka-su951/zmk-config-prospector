@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - 絶対パスと明示的ソース指定)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK 公式テンプレート回帰)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -31,22 +31,21 @@ jobs:
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         
-        # ZMKのソースコードを 'app' フォルダにダウンロード (ZMK標準)
-        west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml app 
-
-        # ワークスペースのルート（app）に移動し、west update を実行
-        cd app
+        # ZMKのソースコードを 'zmk' フォルダにダウンロード (ZMK標準)
+        west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml zmk 
+        
+        cd zmk
         west update
 
     - name: 4. Install Python Dependencies and Export Zephyr Base
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # 🚨 修正: cd app を削除。リポジトリルートから app/ のパスを参照
-        pip install -r app/zephyr/scripts/requirements.txt
+        # 🚨 修正: zmk/ のパスを参照
+        pip install -r zmk/zephyr/scripts/requirements.txt
         
-        # ZEPHYR_BASE の絶対パスはそのまま
-        echo "ZEPHYR_BASE=${{ github.workspace }}/app/zephyr" >> $GITHUB_ENV
+        # 🚨 修正: ZEPHYR_BASE のパスを zmk/zephyr に変更
+        echo "ZEPHYR_BASE=${{ github.workspace }}/zmk/zephyr" >> $GITHUB_ENV
         
         # west zephyr-export はリポジトリルートで実行
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
@@ -70,8 +69,8 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 最終修正: リポジトリルートから -s app を使い、-d app/build に出力
-        west build -s app -d app/build -b ${{ env.BOARD }} -- \
+        # 🚨 最終修正: ソースディレクトリを zmk/app と明示し、出力も zmk/build に指定
+        west build -s zmk/app -d zmk/build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=config 
           
 
@@ -79,6 +78,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
-        # app/build のパスを指定
-        path: app/build/zephyr/zmk.uf2
+        # zmk/build のパスを指定
+        path: zmk/build/zephyr/zmk.uf2
         retention-days: 7
