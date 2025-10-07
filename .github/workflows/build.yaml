@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - west.yml パスを再度明示的に指定 & ZMK_ROOT 修正)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - west list による ZMK パスの動的取得)
 
 name: Build ZMK Firmware (Ultimate Stable Build - Final Pattern)
 
@@ -31,7 +31,7 @@ jobs:
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         
-        # 🚨 究極の最終修正: ZMKリポジトリの 'app/west.yml' を明示的に指定して初期化
+        # ZMKリポジトリの 'app/west.yml' を明示的に指定して初期化
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml
         
         # ワークスペースの依存関係を更新（ZMKリポジトリがダウンロードされる）
@@ -41,8 +41,10 @@ jobs:
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # 🚨 究極の最終修正: ZMKリポジトリのルートは通常 'zmk' サブディレクトリになる
-        ZMK_ROOT="zmk" 
+        # 🚨 究極の最終修正: west list コマンドで ZMK リポジトリの実際のパスを動的に取得
+        # この ZMK_ROOT はワークスペースのルートからの相対パスになる
+        ZMK_ROOT=$(west list zmk -f '{posixpath}')
+        echo "Detected ZMK_ROOT: ${ZMK_ROOT}" # デバッグ用にパスを出力
         
         # zephyr/scripts/requirements.txt を ZMK_ROOT から参照
         pip install -r "${ZMK_ROOT}/zephyr/scripts/requirements.txt"
