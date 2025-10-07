@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (最終最終最終最終最終最終最終確定版 - ビルドコマンド最終修正)
+# ZMK Custom Config Build Workflow (最終最終最終最終最終最終最終最終確定版 - ビルドコマンド最終修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -70,10 +70,10 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 修正: -s app を復活。これが ZMK の正しいアプリケーションソース指定です。
-        west build -s app -d build --sysbuild \
+        # 🚨 修正: ソースディレクトリを最後の引数として渡す。
+        west build -d build --sysbuild \
           -b ${{ env.BOARD }} \
-          -- -DZMK_CONFIG=../config 
+          -- -DZMK_CONFIG=../config app
           
 
     - name: 7. Archive Firmware Artifacts
@@ -82,3 +82,4 @@ jobs:
         name: firmware-${{ env.BOARD }}-prospector_scanner
         path: build/zephyr/zmk.uf2
         retention-days: 7
+
