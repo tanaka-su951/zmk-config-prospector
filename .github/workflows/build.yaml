@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK 公式テンプレート回帰)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK ソースパス修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -31,7 +31,7 @@ jobs:
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         
-        # ZMKのソースコードを 'zmk' フォルダにダウンロード (ZMK標準)
+        # ZMKのソースコードを 'zmk' フォルダにダウンロード
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml zmk 
         
         cd zmk
@@ -41,10 +41,10 @@ jobs:
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # 🚨 修正: zmk/ のパスを参照
+        # zmk/ のパスを参照
         pip install -r zmk/zephyr/scripts/requirements.txt
         
-        # 🚨 修正: ZEPHYR_BASE のパスを zmk/zephyr に変更
+        # ZEPHYR_BASE のパスを zmk/zephyr に変更
         echo "ZEPHYR_BASE=${{ github.workspace }}/zmk/zephyr" >> $GITHUB_ENV
         
         # west zephyr-export はリポジトリルートで実行
@@ -69,8 +69,8 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 最終修正: ソースディレクトリを zmk/app と明示し、出力も zmk/build に指定
-        west build -s zmk/app -d zmk/build -b ${{ env.BOARD }} -- \
+        # 🚨 最終修正: ソースディレクトリを zmk に変更
+        west build -s zmk -d zmk/build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=config 
           
 
