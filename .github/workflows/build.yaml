@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - west.yml パスを再度明示的に指定)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - west update 実行場所の修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build - Final Pattern)
 
@@ -31,23 +31,26 @@ jobs:
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         
-        # 🚨 究極の最終修正: ZMKリポジトリの 'app/west.yml' を明示的に指定して初期化
+        # ZMKリポジトリの 'app/west.yml' を明示的に指定して初期化
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml zmk 
         
-        # ダウンロードされたZMKリポジトリ（zmk/）を含め、ワークスペースの依存関係を更新
+        # 🚨 究極の最終修正: west init で作成されたワークスペースのルートに移動
+        cd zmk
+        # その後、ワークスペースの依存関係を更新
         west update
 
     - name: 4. Install Python Dependencies and Export Zephyr Base
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # ZMKリポジトリは 'zmk' フォルダにダウンロードされているので、そこからパスを参照
-        pip install -r zmk/zephyr/scripts/requirements.txt
+        # 🚨 究極の最終修正: Step 3 で既に 'zmk' ディレクトリにいるため、cd zmk は不要
+        # zephyr/scripts/requirements.txt を直接参照
+        pip install -r zephyr/scripts/requirements.txt
         
-        # ZEPHYR_BASE のパスを絶対パスで設定
+        # ZEPHYR_BASE のパスを絶対パスで設定 (このステップは 'zmk/' ディレクトリ内にいる)
         echo "ZEPHYR_BASE=${{ github.workspace }}/zmk/zephyr" >> $GITHUB_ENV
         
-        # west zephyr-export はワークスペースのルート（現在のリポジトリのルート）から実行
+        # west zephyr-export はワークスペースのルート（zmk/）から実行
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
     - name: 5. Install Zephyr SDK
@@ -69,16 +72,16 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # ビルドはワークスペースのルート（現在のリポジトリのルート）から実行
-        # ソースディレクトリとして、ダウンロードされた ZMK リポジトリのルート 'zmk' を指定
-        west build -s zmk -d build -b ${{ env.BOARD }} -- \
-          -DZMK_CONFIG=config 
+        # 🚨 究極の最終修正: Step 3 で既に 'zmk' ディレクトリにいるため、cd zmk は不要
+        # ソースディレクトリとして、カレントディレクトリ '.' を指定
+        west build -s . -d build -b ${{ env.BOARD }} -- \
+          -DZMK_CONFIG=${{ github.workspace }}/config 
           
 
     - name: 7. Archive Firmware Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
-        # ビルド成果物はワークスペースのルート直下の 'build/zephyr/' に出力される
-        path: build/zephyr/zmk.uf2
+        # ビルド成果物は zmk/build/zephyr/ に出力される
+        path: zmk/build/zephyr/zmk.uf2
         retention-days: 7
