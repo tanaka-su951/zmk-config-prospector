@@ -82,4 +82,3 @@ jobs:
         name: firmware-${{ env.BOARD }}-prospector_scanner
         path: build/zephyr/zmk.uf2
         retention-days: 7
-
