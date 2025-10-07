@@ -34,10 +34,7 @@ jobs:
         # ZMKのソースコードを 'app' フォルダにダウンロード (ZMK標準)
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml app 
 
-        # ワークスペースに移動
-        cd app
-        
-        # ワークスペース内で west update を実行
+        # 🚨 修正: cd app は行わず、リポジトリルートで west update を実行
         west update
 
     - name: 4. Install Python Dependencies and Export Zephyr Base
@@ -50,6 +47,7 @@ jobs:
         echo "ZEPHYR_BASE=${{ github.workspace }}/app/zephyr" >> $GITHUB_ENV
         
         # west zephyr-export を実行
+        # west はリポジトリルートのワークスペースを正しく参照
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
     - name: 5. Install Zephyr SDK
@@ -71,19 +69,15 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 修正: app ディレクトリに戻り、-s なしで実行
-        cd app
-
-        # ZMK 標準ビルドコマンド
-        west build -d build -b ${{ env.BOARD }} -- \
-          -DZMK_CONFIG=../config 
+        # 🚨 修正: リポジトリルートから -s app を使ってビルド
+        west build -s app -d build -b ${{ env.BOARD }} -- \
+          -DZMK_CONFIG=config 
           
 
     - name: 7. Archive Firmware Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
-        # 🚨 修正: build/ は app フォルダ内に作られるため、このパスでOK
+        # 🚨 修正: app/build のパスを指定
         path: app/build/zephyr/zmk.uf2
         retention-days: 7
-
