@@ -81,3 +81,4 @@ jobs:
         # zmk/build のパスを指定
         path: zmk/build/zephyr/zmk.uf2
         retention-days: 7
+
