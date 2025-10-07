@@ -31,18 +31,18 @@ jobs:
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         
-        # ZMKのソースコードを 'app' フォルダにダウンロード (ZMK標準)
-        # 実行ディレクトリはリポジトリルート
+        # ZMKのソースコードを 'app' フォルダにダウンロード
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml app 
 
-        # 🚨 修正: cd せずに west update を実行
+        # 🚨 修正: west update のために app フォルダに移動
+        cd app
         west update
 
     - name: 4. Install Python Dependencies and Export Zephyr Base
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # 🚨 修正: リポジトリルートから app/ のパスを参照
+        # リポジトリルートから app/ のパスを参照
         pip install -r app/zephyr/scripts/requirements.txt
         
         # ZEPHYR_BASE の絶対パスはそのまま
@@ -70,7 +70,7 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 修正: リポジトリルートから -s app を使ってビルド
+        # リポジトリルートから -s app を使ってビルド
         west build -s app -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=config 
           
