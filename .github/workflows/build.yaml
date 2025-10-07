@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK 最安定パターン)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - ビルドディレクトリ移動)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -69,15 +69,18 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 最終修正: ソース指定（-s）を削除。リポジトリルートをアプリソースとする
+        # 🚨 最終修正: zmk フォルダへ移動
+        cd zmk
+        
+        # カレントディレクトリ（.）をソースとして使用
         west build -d build -b ${{ env.BOARD }} -- \
-          -DZMK_CONFIG=config 
+          -DZMK_CONFIG=../config 
           
 
     - name: 7. Archive Firmware Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
-        # 🚨 修正: build/ のパスを指定
-        path: build/zephyr/zmk.uf2
+        # 🚨 修正: zmk/build のパスを指定
+        path: zmk/build/zephyr/zmk.uf2
         retention-days: 7
