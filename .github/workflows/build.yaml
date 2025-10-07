@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - シンボリックリンク修正)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK 最安定パターン)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -69,11 +69,8 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 最終修正: config フォルダを zmk フォルダ内にシンボリックリンクとして配置
-        ln -s ${GITHUB_WORKSPACE}/config ${GITHUB_WORKSPACE}/zmk/config
-        
-        # ソースディレクトリを zmk に変更
-        west build -s zmk -d zmk/build -b ${{ env.BOARD }} -- \
+        # 🚨 最終修正: ソース指定（-s）を削除。リポジトリルートをアプリソースとする
+        west build -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=config 
           
 
@@ -81,6 +78,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
-        # zmk/build のパスを指定
-        path: zmk/build/zephyr/zmk.uf2
+        # 🚨 修正: build/ のパスを指定
+        path: build/zephyr/zmk.uf2
         retention-days: 7
