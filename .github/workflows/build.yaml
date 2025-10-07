@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - ビルドの絶対安定化)
+# ZMK Custom Config Build Workflow (最終確定版 - ZMK 標準構成)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -31,23 +31,25 @@ jobs:
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         
-        # ZMKのソースコードを 'app' フォルダにダウンロード (ZMK標準)
+        # ZMKのソースコードを 'app' フォルダにダウンロード
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml app 
 
-        # 🚨 修正: cd app は行わず、リポジトリルートで west update を実行
+        # 🚨 修正: ZMKソースコードのルート（app）に移動
+        cd app
+        
+        # west update は app フォルダ内で実行
         west update
 
     - name: 4. Install Python Dependencies and Export Zephyr Base
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
-        # パスを app/zephyr に変更
-        pip install -r ${{ github.workspace }}/app/zephyr/scripts/requirements.txt
+        # app フォルダ内から見て相対パスで requirements.txt を参照
+        pip install -r zephyr/scripts/requirements.txt
         
-        # ZEPHYR_BASE のパスを app/zephyr に変更
+        # ZEPHYR_BASE のパスを app/zephyr に設定
         echo "ZEPHYR_BASE=${{ github.workspace }}/app/zephyr" >> $GITHUB_ENV
         
-        # west zephyr-export を実行
-        # west はリポジトリルートのワークスペースを正しく参照
+        # west zephyr-export は app フォルダ内で実行
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
     - name: 5. Install Zephyr SDK
@@ -59,7 +61,7 @@ jobs:
         SDK_ROOT="${{ runner.tool_cache }}/zephyr-sdk-0.16.5"
         mkdir -p ${SDK_ROOT}
         
-        # SDK展開のファイル名を修正済み
+        # SDK展開のファイル名修正済み
         tar xf /tmp/zephyr-sdk.tar.xz -C ${SDK_ROOT} --strip-components=1
         
         # ZEPHYR_SDK_INSTALL_DIR のみを環境変数に設定
@@ -69,15 +71,18 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 修正: リポジトリルートから -s app を使ってビルド
-        west build -s app -d build -b ${{ env.BOARD }} -- \
-          -DZMK_CONFIG=config 
+        # 🚨 修正: app フォルダに戻り、標準ビルドコマンドを実行
+        cd app 
+
+        # ZMK 標準ビルドコマンド（-sなし）
+        west build -d build -b ${{ env.BOARD }} -- \
+          -DZMK_CONFIG=../config 
           
 
     - name: 7. Archive Firmware Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
-        # 🚨 修正: app/build のパスを指定
+        # 🚨 修正: app フォルダ内に build があるため、相対パスで build/zephyr/zmk.uf2
         path: app/build/zephyr/zmk.uf2
         retention-days: 7
