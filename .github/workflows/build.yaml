@@ -1,6 +1,5 @@
-# ZMK Custom Config Build Workflow (ZMK公式アクション使用版)
-
-name: Build ZMK Firmware (Using Official ZMK Action)
+# ZMK Custom Config Build Workflow (Official Reusable Workflow)
+name: Build ZMK Firmware
 
 on:
   push:
@@ -11,29 +10,17 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # ZMK公式のビルドワークフローを呼び出します
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
     
-    steps:
-    # ステップ1: まず、あなたの設定リポジトリをチェックアウトします
-    - name: 1. Checkout ZMK Config
-      uses: actions/checkout@v4
-
-    # ステップ2: ZMK公式のセットアップアクションを実行します
-    # これ一つで、west, Python, Zephyr SDKのセットアップが完了します
-    - name: 2. Setup ZMK build environment
-      uses: zmkfirmware/setup-zmk-action@v1
-
-    # ステップ3: ビルドを実行します
-    # BOARDはここで指定するか、envブロックで指定します
-    - name: 3. Run West Build
-      run: |
-        echo "--- Building firmware ---"
-        west build -p auto -b seeeduino_xiao_ble -- -DZMK_CONFIG="${{ github.workspace }}/config"
-
-    # ステップ4: ビルドされたファームウェアをアーティファクトとしてアップロードします
-    - name: 4. Archive Firmware Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: firmware-seeeduino_xiao_ble-prospector_scanner
-        path: build/zephyr/zmk.uf2
-        retention-days: 7
+    # with: でビルドに必要な情報を渡します
+    with:
+      # ここにビルドしたいボード名を指定します
+      board: 'seeeduino_xiao_ble'
+      
+      # もしシールド（キーボード基板）がある場合は、以下のように shield の行を追加します
+      # shield: 'corne_left nice_nano_v2' # 例: Corneキーボードの左側
+      
+    # GitHubのリリース機能にファームウェアを自動アップロードしたい場合のみ、以下の secrets が必要です
+    # secrets:
+    #   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
