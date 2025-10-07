@@ -1,5 +1,6 @@
-# ZMK Custom Config Build Workflow (Official Reusable Workflow)
-name: Build ZMK Firmware
+# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK アプリ層をソースパスに指定)
+
+name: Build ZMK Firmware (Ultimate Stable Build)
 
 on:
   push:
@@ -10,17 +11,81 @@ on:
 
 jobs:
   build:
-    # ZMK公式のビルドワークフローを呼び出します
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+    runs-on: ubuntu-latest
     
-    # with: でビルドに必要な情報を渡します
-    with:
-      # ここにビルドしたいボード名を指定します
-      board: 'seeeduino_xiao_ble'
-      
-      # もしシールド（キーボード基板）がある場合は、以下のように shield の行を追加します
-      # shield: 'corne_left nice_nano_v2' # 例: Corneキーボードの左側
-      
-    # GitHubのリリース機能にファームウェアを自動アップロードしたい場合のみ、以下の secrets が必要です
-    # secrets:
-    #   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      BOARD: seeeduino_xiao_ble
+      KCONFIG_NONINTERACTIVE: 1
+
+    steps:
+    - name: 1. Checkout ZMK Config
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+        fetch-depth: 0
+
+    - name: 2. Install West Tool
+      run: pip install west
+
+    - name: 3. Initialize West Workspace and Download Dependencies
+      run: |
+        echo "--- ZMKワークスペースを構築 ---"
+        
+        # ZMKのソースコードを 'zmk' フォルダにダウンロードし、app/west.yml を指定
+        west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml zmk 
+        
+        # このステップのカレントディレクトリを zmk に変更
+        cd zmk
+        west update
+
+    - name: 4. Install Python Dependencies and Export Zephyr Base
+      run: |
+        echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
+        
+        # 🚨 最終修正: zmk ワークスペースのルートに移動
+        cd zmk
+        
+        # zephyr/scripts/requirements.txt を直接参照
+        pip install -r zephyr/scripts/requirements.txt
+        
+        # ZEPHYR_BASE のパスを絶対パスで設定 (このステップは zmk/ にいるため、その下の zephyr)
+        echo "ZEPHYR_BASE=${{ github.workspace }}/zmk/zephyr" >> $GITHUB_ENV
+        
+        # west zephyr-export は、ワークスペースのルートで実行
+        west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
+
+    - name: 5. Install Zephyr SDK
+      run: |
+        echo "--- Zephyr SDKのセットアップ ---"
+        # SDKの明示的なインストールとパス設定 (v0.16.5)
+        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.5/zephyr-sdk-0.16.5_linux-x86_64.tar.xz -O /tmp/zephyr-sdk.tar.xz
+        
+        SDK_ROOT="${{ runner.tool_cache }}/zephyr-sdk-0.16.5"
+        mkdir -p ${SDK_ROOT}
+        
+        # SDK展開のファイル名修正済み
+        tar xf /tmp/zephyr-sdk.tar.xz -C ${SDK_ROOT} --strip-components=1
+        
+        # ZEPHYR_SDK_INSTALL_DIR のみを環境変数に設定
+        echo "ZEPHYR_SDK_INSTALL_DIR=${SDK_ROOT}" >> $GITHUB_ENV
+
+    - name: 6. Run West Build (ビルド実行)
+      run: |
+        echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
+        
+        # 🚨 究極の最終修正: ZMK ワークスペースのルート (zmk/ ディレクトリ) に移動
+        cd zmk
+        
+        # ZMKのアプリケーション層 'app' をソースとして指定
+        # カスタム設定のパスは zmk/app から見た相対パスではなく、絶対パスで指定
+        west build -s app -d build -b ${{ env.BOARD }} -- \
+          -DZMK_CONFIG=${{ github.workspace }}/config 
+          
+
+    - name: 7. Archive Firmware Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware-${{ env.BOARD }}-prospector_scanner
+        # zmk/build のパスを指定
+        path: zmk/build/zephyr/zmk.uf2
+        retention-days: 7
