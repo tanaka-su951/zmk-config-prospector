@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - ビルドソースをカレントディレクトリに指定)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK アプリ層をソースパスに指定)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -76,8 +76,9 @@ jobs:
         # 🚨 究極の最終修正: ZMK ワークスペースのルート (zmk/ ディレクトリ) に移動
         cd zmk
         
-        # カレントディレクトリ (.) をソースとして使用
-        west build -s . -d build -b ${{ env.BOARD }} -- \
+        # ZMKのアプリケーション層 'app' をソースとして指定
+        # カスタム設定のパスは zmk/app から見た相対パスではなく、絶対パスで指定
+        west build -s app -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=${{ github.workspace }}/config 
           
 
