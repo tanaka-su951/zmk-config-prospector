@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - シェル結合によるビルド)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - 絶対パス強制解決)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -69,10 +69,9 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 最終修正: cd と west build を && で結合して単一コマンドとして実行
-        cd zmk && \
-        west build -d build -b ${{ env.BOARD }} -- \
-          -DZMK_CONFIG=../config 
+        # 🚨 究極の最終修正: -s にワークスペースの絶対パスを指定
+        west build -s ${{ github.workspace }}/zmk -d zmk/build -b ${{ env.BOARD }} -- \
+          -DZMK_CONFIG=config 
           
 
     - name: 7. Archive Firmware Artifacts
