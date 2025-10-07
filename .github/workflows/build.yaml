@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (最終最終最終最終最終最終最終最終確定版 - ビルドコマンド最終修正)
+# ZMK Custom Config Build Workflow (最終最終最終最終最終最終最終最終最終確定版 - ビルドコマンド最終修正)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -61,7 +61,7 @@ jobs:
         SDK_ROOT="${{ runner.tool_cache }}/zephyr-sdk-0.16.5"
         mkdir -p ${SDK_ROOT}
         
-        tar xf /tmp/zephyr-sdk.tar.xz -C ${SDK_ROOT} --strip-components=1
+        tar xf /tmp/zephyr-sdk-0.16.5_linux-x86_64.tar.xz -C ${SDK_ROOT} --strip-components=1
         
         # ZEPHYR_SDK_INSTALL_DIR のみを環境変数に設定
         echo "ZEPHYR_SDK_INSTALL_DIR=${SDK_ROOT}" >> $GITHUB_ENV
@@ -70,10 +70,9 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 修正: ソースディレクトリを最後の引数として渡す。
-        west build -d build --sysbuild \
-          -b ${{ env.BOARD }} \
-          -- -DZMK_CONFIG=../config app
+        # 🚨 修正: -s app と CMake 引数を分離し、明確な構文とする
+        west build -s app -d build -b ${{ env.BOARD }} --sysbuild -- \
+          -DZMK_CONFIG=../config 
           
 
     - name: 7. Archive Firmware Artifacts
