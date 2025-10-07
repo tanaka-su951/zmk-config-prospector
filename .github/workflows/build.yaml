@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - 絶対パス強制解決)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - CMakeLists.txt コピー)
 
 name: Build ZMK Firmware (Ultimate Stable Build)
 
@@ -69,8 +69,11 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 🚨 究極の最終修正: -s にワークスペースの絶対パスを指定
-        west build -s ${{ github.workspace }}/zmk -d zmk/build -b ${{ env.BOARD }} -- \
+        # 🚨 究極の最終修正: ZMK本体の CMakeLists.txt をリポジトリルートにコピー
+        cp ${{ github.workspace }}/zmk/CMakeLists.txt ${{ github.workspace }}/CMakeLists.txt
+        
+        # ソース指定を削除し、カレントディレクトリ（.）をソースとする
+        west build -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=config 
           
 
@@ -78,6 +81,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ env.BOARD }}-prospector_scanner
-        # zmk/build のパスを指定
-        path: zmk/build/zephyr/zmk.uf2
+        # build/ のパスを指定
+        path: build/zephyr/zmk.uf2
         retention-days: 7
