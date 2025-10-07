@@ -1,4 +1,4 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK アプリ層をソースパスに再修正)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - ビルド強制オプションの適用)
 
 name: Build ZMK Firmware (Ultimate Stable Build - Final Pattern)
 
@@ -78,8 +78,8 @@ jobs:
         # ZMK ワークスペースのルートに移動
         cd "${{ env.ZMK_DIR }}"
         
-        # 🚨 究極の最終修正: ZMKアプリケーション層 'app' をソースとして指定
-        west build -s app -d build -b ${{ env.BOARD }} -- \
+        # 🚨 究極の最終修正: カレントディレクトリをソースとし、--force オプションでビルドを強制
+        west build -s . -d build -b ${{ env.BOARD }} --force -- \
           -DZMK_CONFIG=${{ github.workspace }}/config 
           
 
