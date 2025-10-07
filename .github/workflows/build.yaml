@@ -1,6 +1,6 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - ZMK アプリ層をソースパスに指定)
+# ZMK Custom Config Build Workflow (究極の最終確定版 - デバッグ用ディレクトリ構造ダンプ付き)
 
-name: Build ZMK Firmware (Ultimate Stable Build)
+name: Build ZMK Firmware (Ultimate Stable Build - Debugging Path)
 
 on:
   push:
@@ -42,7 +42,7 @@ jobs:
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # 🚨 最終修正: zmk ワークスペースのルートに移動
+        # zmk ワークスペースのルートに移動
         cd zmk
         
         # zephyr/scripts/requirements.txt を直接参照
@@ -76,7 +76,12 @@ jobs:
         # 🚨 究極の最終修正: ZMK ワークスペースのルート (zmk/ ディレクトリ) に移動
         cd zmk
         
-        # ZMKのアプリケーション層 'app' をソースとして指定
+        # 🚨 デバッグ用: ZMK ワークスペース内のディレクトリ構造をダンプ
+        echo "--- ZMK ワークスペース内のディレクトリ構造 ---"
+        ls -R .
+        echo "----------------------------------------------"
+        
+        # ZMKのアプリケーション層 'app' をソースとして指定 (これは仮のパス、上記ダンプで確認後修正)
         # カスタム設定のパスは zmk/app から見た相対パスではなく、絶対パスで指定
         west build -s app -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=${{ github.workspace }}/config 
