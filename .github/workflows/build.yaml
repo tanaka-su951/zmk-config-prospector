@@ -1,4 +1,4 @@
-name: Build ZMK Firmware (Self-Contained Build)
+name: Build ZMK Firmware (Self-Contained Build - Absolute Paths)
 
 on:
   push:
@@ -11,11 +11,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
-    # 📌 ZMKがキーマップなどを探すための環境変数を設定
     env:
       BOARD: seeeduino_xiao_ble
       KCONFIG_NONINTERACTIVE: 1
-      # ZMK_CONFIGにカスタム設定ディレクトリの絶対パスを設定
       ZMK_CONFIG: ${{ github.workspace }}/config 
 
     steps:
@@ -29,16 +27,13 @@ jobs:
       run: pip install west
 
     - name: 3. Initialize West Workspace and Download Dependencies
-      # ⚠️ ZMKの依存関係を全てダウンロードし、ZEPHYR_BASEを確定
       run: |
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml
         west update
         
-        # ZEPHYR_BASE をワークスペース直下の zephyr フォルダに設定
         echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
 
     - name: 4. Install Python Dependencies
-      # ⚠️ requirements.txt は 'zephyr/scripts' にあります
       run: |
         pip install -r zephyr/scripts/requirements.txt
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
@@ -57,18 +52,28 @@ jobs:
         echo "ZEPHYR_SDK_INSTALL_DIR=${SDK_ROOT}" >> $GITHUB_ENV
 
     - name: 6. Run West Build (prospector_scanner)
-      # ⚠️ ボードとキーマップを組み合わせ、オーバーレイを明示的に指定
       run: |
-        OVERLAY_FILES="config/boards/${{ env.BOARD }}.overlay config/prospector_scanner.overlay"
+        echo "--- Building prospector_scanner (Absolute Paths) ---"
+        
+        # 📌 修正: すべてのオーバーレイファイルを絶対パスに変換
+        BOARD_OVERLAY="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay"
+        SCANNER_OVERLAY="${{ github.workspace }}/config/prospector_scanner.overlay"
+        
+        OVERLAY_FILES="${BOARD_OVERLAY} ${SCANNER_OVERLAY}"
         
         west build -s zmk/app -d build/scanner -b ${{ env.BOARD }} -- \
           -DAPP_LABEL="prospector_scanner" \
           -DDTC_OVERLAY_FILE="${OVERLAY_FILES}"
           
     - name: 7. Run West Build (prospector_adapter)
-      # ⚠️ アダプター用のビルドも追加
       run: |
-        OVERLAY_FILES="config/boards/${{ env.BOARD }}.overlay config/prospector_adapter.overlay"
+        echo "--- Building prospector_adapter (Absolute Paths) ---"
+
+        # 📌 注意: config/prospector_adapter.overlay が存在しない場合は、このステップをスキップまたは修正してください
+        BOARD_OVERLAY="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay"
+        ADAPTER_OVERLAY="${{ github.workspace }}/config/prospector_adapter.overlay"
+        
+        OVERLAY_FILES="${BOARD_OVERLAY} ${ADAPTER_OVERLAY}"
         
         west build -s zmk/app -d build/adapter -b ${{ env.BOARD }} -- \
           -DAPP_LABEL="prospector_adapter" \
