@@ -25,17 +25,17 @@ jobs:
     - name: 2. Install West Tool
       run: pip install west
 
-    - name: 3. Initialize West Workspace and Download Dependencies (デバッグ追加)
+    - name: 3. Initialize West Workspace and Download Dependencies
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         
         # ZMKリポジトリの 'app/west.yml' を明示的に指定して初期化
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml
         
-        # ワークスペースの依存関係を更新（ZMKリポジトリなどがダウンロードされ、zmk/フォルダに配置される）
+        # ワークスペースの依存関係を更新（zmk/ と zephyr/ がワークスペースルートに配置される）
         west update
         
-        # 🚨 デバッグ: zmkフォルダが正しくダウンロードされたか確認
+        # ZMKリポジトリがダウンロードされたかを確認
         if [ ! -d "zmk" ]; then
           echo "::error::ERROR: The 'zmk' repository directory was not created by west update."
           exit 1
@@ -43,31 +43,28 @@ jobs:
         echo "'zmk' repository found successfully."
 
 
-    - name: 4. Install Python Dependencies and Export Zephyr Base (パス問題回避とデバッグ追加)
+    - name: 4. Install Python Dependencies and Export Zephyr Base (最終修正済み)
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # west updateで保証されている相対パス 'zmk' を直接使用
-        ZMK_REL_ROOT="zmk"
-        REQUIREMENTS_PATH="${ZMK_REL_ROOT}/zephyr/scripts/requirements.txt"
-        echo "Attempting to find requirements file at: ${REQUIREMENTS_PATH}"
+        # 📌 最終修正: requirements.txt はワークスペース直下の 'zephyr' フォルダ内にあります
+        ZEPHYR_REL_ROOT="zephyr" 
+        ZMK_REL_ROOT="zmk" # Step 6で使用するため、ZMKの相対パスも定義しておく
         
-        # 🚨 デバッグ: requirements.txt が存在するか確認
+        REQUIREMENTS_PATH="${ZEPHYR_REL_ROOT}/scripts/requirements.txt"
+        echo "Requirements file path: ${REQUIREMENTS_PATH}"
+        
+        # requirements.txt が存在するか確認
         if [ ! -f "${REQUIREMENTS_PATH}" ]; then
-          echo "::error::ERROR: Requirements file not found at ${REQUIREMENTS_PATH}."
-          echo "--- Directory Contents (ls -R . / limit) ---"
-          # ファイル構造を把握するため、現在のディレクトリの中身を再帰的に表示
-          ls -R . | head -n 50
-          echo "------------------------------------------------"
+          echo "::error::ERROR: Requirements file not found at ${REQUIREMENTS_PATH}. Check west update status."
           exit 1
         fi
-        echo "Requirements file found. Proceeding with installation."
-
-        # pip install はカレントディレクトリからの相対パスで実行
+        
+        # pip install を実行
         pip install -r "${REQUIREMENTS_PATH}"
         
-        # ZEPHYR_BASE の絶対パスを設定
-        echo "ZEPHYR_BASE=${{ github.workspace }}/${ZMK_REL_ROOT}/zephyr" >> $GITHUB_ENV
+        # ZEPHYR_BASE を Zephyrリポジトリの絶対パスに設定
+        echo "ZEPHYR_BASE=${{ github.workspace }}/${ZEPHYR_REL_ROOT}" >> $GITHUB_ENV
         
         # west zephyr-export を実行し、環境変数を設定
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
@@ -91,8 +88,8 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # ビルドはワークスペースのルートから実行
-        # ZMKリポジトリ自体がビルドソースとなるため、'zmk' を指定
+        # ビルドソースはワークスペースルート直下の ZMKリポジトリ 'zmk' を指定
+        # -DZMK_CONFIG=config は、あなたの設定ファイルがある config/ ディレクトリを参照
         west build -s zmk -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=config 
           
