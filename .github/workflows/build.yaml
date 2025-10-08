@@ -1,103 +1,87 @@
-name: Build ZMK Firmware (Self-Contained Build - Final Paths)
+name: Build Prospector Firmware
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
-    # 📌 環境変数の設定 (ボード名とZMK設定パス)
+    container:
+      image: zmkfirmware/zmk-build-arm:stable
     env:
+      ZMK_VERSION: main
       BOARD: seeeduino_xiao_ble
-      KCONFIG_NONINTERACTIVE: 1
-      ZMK_CONFIG: ${{ github.workspace }}/config 
 
     steps:
-    - name: 1. Checkout ZMK Config and Submodules
-      uses: actions/checkout@v4
-      with:
-        submodules: false
-        fetch-depth: 0
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          path: zmk-config-prospector
+          submodules: 'recursive'
+          
+      - name: Mount ZMK Firmware
+        uses: actions/checkout@v4
+        with:
+          repository: zmkfirmware/zmk
+          ref: ${{ env.ZMK_VERSION }}
+          path: zmk-config-prospector/zmk
+          submodules: 'recursive'
 
-    - name: 2. Install West Tool
-      run: pip install west
+      - name: Install ZMK Dependencies
+        shell: bash
+        run: |
+          cd zmk-config-prospector
+          pip3 install -r zmk/requirements.txt
+          
+      - name: Create Custom Module Symlink
+        shell: bash
+        run: |
+          cd zmk-config-prospector/zmk/app/modules
+          ln -s ../../../modules/prospector-zmk-module prospector-zmk-module
+        
+      - name: Export Environment Variables
+        shell: bash
+        run: |
+          cd zmk-config-prospector
+          echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module" >> $GITHUB_ENV
+          echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
+          
+      - name: Run West Build (prospector_scanner)
+        id: west_build_scanner
+        shell: bash
+        run: |
+          # 🚨 最終修正: カスタムモジュールのdtsフォルダを検索パスに強制追加
+          DTC_INCLUDE_PATH="${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module/dts" 
+          
+          OVERLAY_FILES="${{ github.workspace }}/zmk-config-prospector/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/zmk-config-prospector/config/prospector_scanner.overlay"
 
-    - name: 3. Initialize West Workspace and Download Dependencies
-      # カスタムモジュールを含むすべての依存関係をダウンロード
-      run: |
-        west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml
-        west update
-        
-        echo "ZEPHYR_BASE=${{ github.workspace }}/zephyr" >> $GITHUB_ENV
+          west build -s zmk-config-prospector/zmk/app -d build/scanner -b ${{ env.BOARD }} -- \
+            -DAPP_LABEL="prospector_scanner" \
+            -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
+            -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
 
-    - name: 4. Install Python Dependencies
-      run: |
-        pip install -r zephyr/scripts/requirements.txt
-        west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
+      - name: Run West Build (prospector_adapter)
+        id: west_build_adapter
+        shell: bash
+        run: |
+          # 🚨 最終修正: カスタムモジュールのdtsフォルダを検索パスに強制追加
+          DTC_INCLUDE_PATH="${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module/dts" 
 
-    - name: 5. Install Zephyr SDK
-      run: |
-        SDK_VERSION="0.16.5"
-        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${SDK_VERSION}/zephyr-sdk-${SDK_VERSION}_linux-x86_64.tar.xz \
-          -O /tmp/zephyr-sdk.tar.xz
-        
-        SDK_ROOT="${{ runner.tool_cache }}/zephyr-sdk-${SDK_VERSION}"
-        mkdir -p ${SDK_ROOT}
-        
-        tar xf /tmp/zephyr-sdk.tar.xz -C ${SDK_ROOT} --strip-components=1
-        
-        echo "ZEPHYR_SDK_INSTALL_DIR=${SDK_ROOT}" >> $GITHUB_ENV
+          OVERLAY_FILES="${{ github.workspace }}/zmk-config-prospector/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/zmk-config-prospector/config/prospector_adapter.overlay"
 
-    - name: 6. Run West Build (prospector_scanner)
-      run: |
-        echo "--- Building prospector_scanner ---"
-        
-        # オーバーレイファイルのパスを絶対パスで指定
-        BOARD_OVERLAY="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay"
-        SCANNER_OVERLAY="${{ github.workspace }}/config/prospector_scanner.overlay"
-        OVERLAY_FILES="${BOARD_OVERLAY} ${SCANNER_OVERLAY}"
-        
-        # 🚨 最終修正: カスタムモジュールのルートディレクトリを検索パスに強制追加
-        DTC_INCLUDE_PATH="${{ github.workspace }}/modules/prospector-zmk-module" # 👈 修正点
-        
-        west build -s zmk/app -d build/scanner -b ${{ env.BOARD }} -- \
-          -DAPP_LABEL="prospector_scanner" \
-          -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
-          -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
+          west build -s zmk-config-prospector/zmk/app -d build/adapter -b ${{ env.BOARD }} -- \
+            -DAPP_LABEL="prospector_adapter" \
+            -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
+            -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
 
-    - name: 7. Run West Build (prospector_adapter)
-      # 補足: config/prospector_adapter.overlay が存在しない場合、このステップは失敗します。
-      # その場合はこのステップ全体を削除してください。
-      run: |
-        echo "--- Building prospector_adapter ---"
+      - name: Archive Scanner Firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: prospector_scanner-firmware
+          path: zmk-config-prospector/build/scanner/zephyr/zmk_prospector_scanner.uf2
 
-        BOARD_OVERLAY="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay"
-        ADAPTER_OVERLAY="${{ github.workspace }}/config/prospector_adapter.overlay"
-        OVERLAY_FILES="${BOARD_OVERLAY} ${ADAPTER_OVERLAY}"
-        
-        # 🚨 最終修正: カスタムモジュールのルートディレクトリを検索パスに強制追加
-        DTC_INCLUDE_PATH="${{ github.workspace }}/modules/prospector-zmk-module" # 👈 修正点
-        
-        west build -s zmk/app -d build/adapter -b ${{ env.BOARD }} -- \
-          -DAPP_LABEL="prospector_adapter" \
-          -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
-          -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
-
-    - name: 8. Archive Firmware Artifacts (Scanner)
-      uses: actions/upload-artifact@v4
-      with:
-        name: firmware-prospector-scanner
-        path: build/scanner/zephyr/zmk.uf2
-        retention-days: 7
-        
-    - name: 9. Archive Firmware Artifacts (Adapter)
-      uses: actions/upload-artifact@v4
-      with:
-        name: firmware-prospector-adapter
-        path: build/adapter/zephyr/zmk.uf2
-        retention-days: 7
+      - name: Archive Adapter Firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: prospector_adapter-firmware
+          path: zmk-config-prospector/build/adapter/zephyr/zmk_prospector_adapter.uf2
