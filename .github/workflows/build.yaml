@@ -27,6 +27,12 @@ jobs:
           path: zmk-config-prospector/zmk
           submodules: 'recursive'
 
+      # 🚨 修正: Python環境をセットアップし、pip3コマンドを有効にする
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x' 
+
       - name: Install ZMK Dependencies
         shell: bash
         run: |
@@ -43,6 +49,7 @@ jobs:
         shell: bash
         run: |
           cd zmk-config-prospector
+          # このENVは使われていませんが、過去の互換性のため残します
           echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module" >> $GITHUB_ENV
           echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
           
@@ -50,7 +57,7 @@ jobs:
         id: west_build_scanner
         shell: bash
         run: |
-          # 🚨 最終修正: カスタムモジュールのdtsフォルダを検索パスに強制追加
+          # Devicetreeファイルの検索パスをカスタムモジュールのdtsフォルダに強制
           DTC_INCLUDE_PATH="${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module/dts" 
           
           OVERLAY_FILES="${{ github.workspace }}/zmk-config-prospector/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/zmk-config-prospector/config/prospector_scanner.overlay"
@@ -64,7 +71,7 @@ jobs:
         id: west_build_adapter
         shell: bash
         run: |
-          # 🚨 最終修正: カスタムモジュールのdtsフォルダを検索パスに強制追加
+          # Devicetreeファイルの検索パスをカスタムモジュールのdtsフォルダに強制
           DTC_INCLUDE_PATH="${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module/dts" 
 
           OVERLAY_FILES="${{ github.workspace }}/zmk-config-prospector/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/zmk-config-prospector/config/prospector_adapter.overlay"
@@ -85,3 +92,4 @@ jobs:
         with:
           name: prospector_adapter-firmware
           path: zmk-config-prospector/build/adapter/zephyr/zmk_prospector_adapter.uf2
+
