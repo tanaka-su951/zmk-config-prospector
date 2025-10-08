@@ -19,10 +19,8 @@ jobs:
     - name: 1. Checkout ZMK Config
       uses: actions/checkout@v4
       with:
-        # west init/updateでZMKリポジトリ全体をダウンロードするため、サブモジュールは不要
-        # ZMKリポジトリはwest updateで取得されるため、submodules: trueは不要ですが、
-        # 既存の設定を尊重しつつ、念のためfetch-depth: 0を維持します。
-        submodules: false # west init/updateを使用するため無効化
+        # west init/updateを使用するため、サブモジュールチェックアウトは不要
+        submodules: false
         fetch-depth: 0
 
     - name: 2. Install West Tool
@@ -33,28 +31,27 @@ jobs:
         echo "--- ZMKワークスペースを構築 ---"
         
         # ZMKリポジトリの 'app/west.yml' を明示的に指定して初期化
-        # これにより、ZMKリポジトリが $GITHUB_WORKSPACE/zmk にクローンされる
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml
         
-        # ワークスペースの依存関係を更新（ZMKリポジトリなどがダウンロードされる）
+        # ワークスペースの依存関係を更新（ZMKリポジトリなどがダウンロードされ、zmk/フォルダに配置される）
         west update
 
-    - name: 4. Install Python Dependencies and Export Zephyr Base (修正済み)
+    - name: 4. Install Python Dependencies and Export Zephyr Base (パス問題回避修正済み)
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # Westワークスペースのルート（$GITHUB_WORKSPACE）からZMKリポジトリの相対パスを取得
-        # 通常、これは "zmk" になります。
-        ZMK_ROOT=$(west list zmk -f '{posixpath}')
-        echo "Detected ZMK_ROOT: ${ZMK_ROOT}"
+        # 📌 修正点: west list の不安定な出力を避け、west updateで保証されている相対パス 'zmk' を直接使用
+        ZMK_REL_ROOT="zmk"
+        echo "Using guaranteed ZMK_REL_ROOT: ${ZMK_REL_ROOT}"
         
-        # requirements.txt のフルパスを作成し、Python依存関係をインストール
-        # $ZMK_ROOT がワークスペースのルートからの相対パスなので、この形式で正しくアクセスできます。
-        REQUIREMENTS_PATH="${ZMK_ROOT}/zephyr/scripts/requirements.txt"
+        # requirements.txt のパスを相対パスで構成
+        REQUIREMENTS_PATH="${ZMK_REL_ROOT}/zephyr/scripts/requirements.txt"
+        
+        # pip install はカレントディレクトリからの相対パスで実行
         pip install -r "${REQUIREMENTS_PATH}"
         
-        # ZEPHYR_BASE のパスを絶対パスで設定
-        echo "ZEPHYR_BASE=${{ github.workspace }}/${ZMK_ROOT}/zephyr" >> $GITHUB_ENV
+        # ZEPHYR_BASE の絶対パスを設定
+        echo "ZEPHYR_BASE=${{ github.workspace }}/${ZMK_REL_ROOT}/zephyr" >> $GITHUB_ENV
         
         # west zephyr-export を実行し、環境変数を設定
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
