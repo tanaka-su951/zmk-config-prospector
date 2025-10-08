@@ -19,14 +19,13 @@ jobs:
     - name: 1. Checkout ZMK Config
       uses: actions/checkout@v4
       with:
-        # west init/updateを使用するため、サブモジュールチェックアウトは不要
         submodules: false
         fetch-depth: 0
 
     - name: 2. Install West Tool
       run: pip install west
 
-    - name: 3. Initialize West Workspace and Download Dependencies
+    - name: 3. Initialize West Workspace and Download Dependencies (デバッグ追加)
       run: |
         echo "--- ZMKワークスペースを構築 ---"
         
@@ -35,18 +34,35 @@ jobs:
         
         # ワークスペースの依存関係を更新（ZMKリポジトリなどがダウンロードされ、zmk/フォルダに配置される）
         west update
+        
+        # 🚨 デバッグ: zmkフォルダが正しくダウンロードされたか確認
+        if [ ! -d "zmk" ]; then
+          echo "::error::ERROR: The 'zmk' repository directory was not created by west update."
+          exit 1
+        fi
+        echo "'zmk' repository found successfully."
 
-    - name: 4. Install Python Dependencies and Export Zephyr Base (パス問題回避修正済み)
+
+    - name: 4. Install Python Dependencies and Export Zephyr Base (パス問題回避とデバッグ追加)
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # 📌 修正点: west list の不安定な出力を避け、west updateで保証されている相対パス 'zmk' を直接使用
+        # west updateで保証されている相対パス 'zmk' を直接使用
         ZMK_REL_ROOT="zmk"
-        echo "Using guaranteed ZMK_REL_ROOT: ${ZMK_REL_ROOT}"
-        
-        # requirements.txt のパスを相対パスで構成
         REQUIREMENTS_PATH="${ZMK_REL_ROOT}/zephyr/scripts/requirements.txt"
+        echo "Attempting to find requirements file at: ${REQUIREMENTS_PATH}"
         
+        # 🚨 デバッグ: requirements.txt が存在するか確認
+        if [ ! -f "${REQUIREMENTS_PATH}" ]; then
+          echo "::error::ERROR: Requirements file not found at ${REQUIREMENTS_PATH}."
+          echo "--- Directory Contents (ls -R . / limit) ---"
+          # ファイル構造を把握するため、現在のディレクトリの中身を再帰的に表示
+          ls -R . | head -n 50
+          echo "------------------------------------------------"
+          exit 1
+        fi
+        echo "Requirements file found. Proceeding with installation."
+
         # pip install はカレントディレクトリからの相対パスで実行
         pip install -r "${REQUIREMENTS_PATH}"
         
