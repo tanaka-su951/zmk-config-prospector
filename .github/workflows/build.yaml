@@ -11,12 +11,8 @@ jobs:
   build:
     uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
     
-    # 📌 ZMKテンプレートにビルド対象のキーボード情報を渡す
+    # 📌 最新の ZMK テンプレートの引数に修正
     with:
-      # build_board_matrix に、ビルドしたいボード名とアプリケーションラベルを定義
-      # -DAPP_LABEL="prospector_scanner" に相当する設定
-      build_board_matrix: |
-        [
-          {"board": "seeeduino_xiao_ble", "shield": "prospector_scanner"},
-          {"board": "seeeduino_xiao_ble", "shield": "prospector_adapter"}
-        ]
+      # build_shields に、ビルドしたい「ボード名:シールド名」の組み合わせを渡す
+      # シールド名 (例: prospector_scanner) は、config/にある同名のファイルと一致します
+      build_shields: "seeeduino_xiao_ble:prospector_scanner seeeduino_xiao_ble:prospector_adapter"
