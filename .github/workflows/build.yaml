@@ -1,4 +1,4 @@
-name: Build ZMK Firmware (Ultimate Stable Build - Final Pattern)
+name: Build ZMK Firmware (Using ZMK Template)
 
 on:
   push:
@@ -9,90 +9,14 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
     
-    env:
-      BOARD: seeeduino_xiao_ble
-      KCONFIG_NONINTERACTIVE: 1
-
-    steps:
-    - name: 1. Checkout ZMK Config
-      uses: actions/checkout@v4
-      with:
-        submodules: false
-        fetch-depth: 0
-
-    - name: 2. Install West Tool
-      run: pip install west
-
-    - name: 3. Initialize West Workspace and Download Dependencies
-      run: |
-        echo "--- ZMKワークスペースを構築 ---"
-        
-        west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml
-        
-        west update
-        
-        if [ ! -d "zmk" ]; then
-          echo "::error::ERROR: The 'zmk' repository directory was not created by west update."
-          exit 1
-        fi
-        echo "'zmk' repository found successfully."
-
-
-    - name: 4. Install Python Dependencies and Export Zephyr Base
-      run: |
-        echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
-        
-        ZEPHYR_REL_ROOT="zephyr" 
-        REQUIREMENTS_PATH="${ZEPHYR_REL_ROOT}/scripts/requirements.txt"
-        
-        if [ ! -f "${REQUIREMENTS_PATH}" ]; then
-          echo "::error::ERROR: Requirements file not found at ${REQUIREMENTS_PATH}."
-          exit 1
-        fi
-        
-        pip install -r "${REQUIREMENTS_PATH}"
-        
-        echo "ZEPHYR_BASE=${{ github.workspace }}/${ZEPHYR_REL_ROOT}" >> $GITHUB_ENV
-        
-        west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
-
-    - name: 5. Install Zephyr SDK
-      run: |
-        echo "--- Zephyr SDKのセットアップ ---"
-        
-        SDK_VERSION="0.16.5"
-        
-        wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${SDK_VERSION}/zephyr-sdk-${SDK_VERSION}_linux-x86_64.tar.xz \
-          -O /tmp/zephyr-sdk.tar.xz
-        
-        SDK_ROOT="${{ runner.tool_cache }}/zephyr-sdk-${SDK_VERSION}"
-        mkdir -p ${SDK_ROOT}
-        
-        tar xf /tmp/zephyr-sdk.tar.xz -C ${SDK_ROOT} --strip-components=1
-        
-        echo "ZEPHYR_SDK_INSTALL_DIR=${SDK_ROOT}" >> $GITHUB_ENV
-
-
-    - name: 6. Run West Build (ビルド実行)
-      run: |
-        echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
-        
-        ZMK_CONFIG_PATH="${{ github.workspace }}/config"
-        
-        # 📌 最終修正: オーバーレイファイルをカンマ区切りで渡す
-        OVERLAY_FILES="config/boards/${{ env.BOARD }}.overlay,config/prospector_scanner.overlay"
-        
-        west build -s zmk/app -d build -b ${{ env.BOARD }} -- \
-          -DZMK_CONFIG="${ZMK_CONFIG_PATH}" \
-          -DAPP_LABEL="prospector_scanner" \
-          -DDTC_OVERLAY_FILE="${OVERLAY_FILES}"
-          
-
-    - name: 7. Archive Firmware Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: firmware-${{ env.BOARD }}-prospector_scanner
-        path: build/zephyr/zmk.uf2
-        retention-days: 7
+    # 📌 ZMKテンプレートにビルド対象のキーボード情報を渡す
+    with:
+      # build_board_matrix に、ビルドしたいボード名とアプリケーションラベルを定義
+      # -DAPP_LABEL="prospector_scanner" に相当する設定
+      build_board_matrix: |
+        [
+          {"board": "seeeduino_xiao_ble", "shield": "prospector_scanner"},
+          {"board": "seeeduino_xiao_ble", "shield": "prospector_adapter"}
+        ]
