@@ -6,7 +6,7 @@
 // I2C0 configuration for ambient light sensor
 &i2c0 {
     compatible = "nordic,nrf-twim";
-    status = "okay";
+    status = "disabled"; // 🚨 修正: I2C バス全体を無効化
     pinctrl-0 = <&i2c0_default>;
     pinctrl-1 = <&i2c0_sleep>;
     pinctrl-names = "default", "sleep";
@@ -16,12 +16,12 @@
     apds9960: apds9960@39 {
         compatible = "avago,apds9960";
         reg = <0x39>;
-        status = "disabled";
+        status = "disabled"; // 🚨 修正済み: センサーノードも無効化
         int-gpios = <&gpio0 28 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; // D2 = P0.28
     };
 };
 
-// Required pinctrl configurations
+// Required pinctrl configurations (これは I2C が disabled でも通常は残します)
 &pinctrl {
     i2c0_default: i2c0_default {
         group1 {
