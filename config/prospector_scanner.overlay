@@ -1,3 +1,4 @@
+#include <modules/prospector-zmk-module/devicetree/st7789v.dtsi> 
 / {
    chosen {
       zephyr,display = &st7789v;
