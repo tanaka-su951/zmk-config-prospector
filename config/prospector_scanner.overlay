@@ -1,11 +1,7 @@
-// config/prospector_scanner.overlay
-
-// 🚨 最終修正: モジュールルート（DDTC_INCLUDE_DIRS）にファイルが直下にあると仮定し、ファイル名のみを指定します。
 #include <st7789v.dtsi> 
  
 / {
    chosen {
-      // プライマリディスプレイとして st7789v を参照
       zephyr,display = &st7789v;
-  };
+   };
 };
