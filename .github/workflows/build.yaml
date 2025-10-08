@@ -81,11 +81,13 @@ jobs:
         
         ZMK_CONFIG_PATH="${{ github.workspace }}/config"
         
-        # 📌 最終修正: -DDTC_OVERLAY_FILE で、使用するすべてのオーバーレイファイルを明示的に指定
+        # 📌 最終修正: オーバーレイファイルをカンマ区切りで渡す
+        OVERLAY_FILES="config/boards/${{ env.BOARD }}.overlay,config/prospector_scanner.overlay"
+        
         west build -s zmk/app -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG="${ZMK_CONFIG_PATH}" \
           -DAPP_LABEL="prospector_scanner" \
-          -DDTC_OVERLAY_FILE="config/boards/${{ env.BOARD }}.overlay config/prospector_scanner.overlay"
+          -DDTC_OVERLAY_FILE="${OVERLAY_FILES}"
           
 
     - name: 7. Archive Firmware Artifacts
