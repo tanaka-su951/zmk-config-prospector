@@ -43,13 +43,12 @@ jobs:
         echo "'zmk' repository found successfully."
 
 
-    - name: 4. Install Python Dependencies and Export Zephyr Base (最終修正済み)
+    - name: 4. Install Python Dependencies and Export Zephyr Base
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # 📌 最終修正: requirements.txt はワークスペース直下の 'zephyr' フォルダ内にあります
+        # requirements.txt はワークスペース直下の 'zephyr' フォルダ内にあります
         ZEPHYR_REL_ROOT="zephyr" 
-        ZMK_REL_ROOT="zmk" # Step 6で使用するため、ZMKの相対パスも定義しておく
         
         REQUIREMENTS_PATH="${ZEPHYR_REL_ROOT}/scripts/requirements.txt"
         echo "Requirements file path: ${REQUIREMENTS_PATH}"
@@ -88,9 +87,9 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # ビルドソースはワークスペースルート直下の ZMKリポジトリ 'zmk' を指定
-        # -DZMK_CONFIG=config は、あなたの設定ファイルがある config/ ディレクトリを参照
-        west build -s zmk -d build -b ${{ env.BOARD }} -- \
+        # 📌 修正点: ソースディレクトリを ZMK アプリケーションルートの 'zmk/app' に変更
+        # ここにビルドに必要な CMakeLists.txt が存在する
+        west build -s zmk/app -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=config 
           
 
