@@ -58,35 +58,34 @@ jobs:
         
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
-    - name: 5. Install Zephyr SDK (推奨修正版)
+    - name: 5. Install Zephyr SDK
       run: |
         echo "--- Zephyr SDKのセットアップ ---"
         
         SDK_VERSION="0.16.5"
         
-        # SDKのダウンロードと展開
         wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${SDK_VERSION}/zephyr-sdk-${SDK_VERSION}_linux-x86_64.tar.xz \
           -O /tmp/zephyr-sdk.tar.xz
         
         SDK_ROOT="${{ runner.tool_cache }}/zephyr-sdk-${SDK_VERSION}"
         mkdir -p ${SDK_ROOT}
         
-        # tar のファイル名と展開先を明示
         tar xf /tmp/zephyr-sdk.tar.xz -C ${SDK_ROOT} --strip-components=1
         
-        # 環境変数を設定
         echo "ZEPHYR_SDK_INSTALL_DIR=${SDK_ROOT}" >> $GITHUB_ENV
 
 
-    - name: 6. Run West Build
+    - name: 6. Run West Build (ビルド実行)
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
         ZMK_CONFIG_PATH="${{ github.workspace }}/config"
         
+        # 📌 最終修正: -DDTC_OVERLAY_FILE で、使用するすべてのオーバーレイファイルを明示的に指定
         west build -s zmk/app -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG="${ZMK_CONFIG_PATH}" \
-          -DAPP_LABEL="prospector_scanner" 
+          -DAPP_LABEL="prospector_scanner" \
+          -DDTC_OVERLAY_FILE="config/boards/${{ env.BOARD }}.overlay config/prospector_scanner.overlay"
           
 
     - name: 7. Archive Firmware Artifacts
