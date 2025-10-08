@@ -1,8 +1,7 @@
 // config/prospector_scanner.overlay
 
-// 🚨 修正: ZMKの標準的なDevicetreeインクルードパス形式に戻す
-// DTC_INCLUDE_DIRSが正しく設定されているため、これで解決する可能性が高い
-#include <devicetree/st7789v.dtsi> 
+// 🚨 最終修正: DTC_INCLUDE_DIRSがdtsフォルダを指すため、ファイル名のみを指定
+#include <st7789v.dtsi> 
  
 / {
    chosen {
