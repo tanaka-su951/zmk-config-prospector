@@ -1,4 +1,4 @@
-name: Build ZMK Firmware (Self-Contained Build - Absolute Paths)
+name: Build ZMK Firmware (Self-Contained Build - Final Paths)
 
 on:
   push:
@@ -11,13 +11,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
+    # 📌 環境変数の設定 (ボード名とZMK設定パス)
     env:
       BOARD: seeeduino_xiao_ble
       KCONFIG_NONINTERACTIVE: 1
       ZMK_CONFIG: ${{ github.workspace }}/config 
 
     steps:
-    - name: 1. Checkout ZMK Config
+    - name: 1. Checkout ZMK Config and Submodules
       uses: actions/checkout@v4
       with:
         submodules: false
@@ -27,6 +28,7 @@ jobs:
       run: pip install west
 
     - name: 3. Initialize West Workspace and Download Dependencies
+      # カスタムモジュールを含むすべての依存関係をダウンロード
       run: |
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml
         west update
@@ -53,33 +55,40 @@ jobs:
 
     - name: 6. Run West Build (prospector_scanner)
       run: |
-        echo "--- Building prospector_scanner (Absolute Paths) ---"
+        echo "--- Building prospector_scanner ---"
         
-        # 📌 修正: すべてのオーバーレイファイルを絶対パスに変換
+        # オーバーレイファイルのパスを絶対パスで指定
         BOARD_OVERLAY="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay"
         SCANNER_OVERLAY="${{ github.workspace }}/config/prospector_scanner.overlay"
-        
         OVERLAY_FILES="${BOARD_OVERLAY} ${SCANNER_OVERLAY}"
+        
+        # 🚨 最終修正: カスタムモジュールの Devicetree フォルダを検索パスに強制追加
+        DTC_INCLUDE_PATH="${{ github.workspace }}/modules/prospector-zmk-module/devicetree"
         
         west build -s zmk/app -d build/scanner -b ${{ env.BOARD }} -- \
           -DAPP_LABEL="prospector_scanner" \
-          -DDTC_OVERLAY_FILE="${OVERLAY_FILES}"
-          
-    - name: 7. Run West Build (prospector_adapter)
-      run: |
-        echo "--- Building prospector_adapter (Absolute Paths) ---"
+          -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
+          -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
 
-        # 📌 注意: config/prospector_adapter.overlay が存在しない場合は、このステップをスキップまたは修正してください
+    - name: 7. Run West Build (prospector_adapter)
+      # 補足: config/prospector_adapter.overlay が存在しない場合、このステップは失敗します。
+      # その場合はこのステップ全体を削除してください。
+      run: |
+        echo "--- Building prospector_adapter ---"
+
         BOARD_OVERLAY="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay"
         ADAPTER_OVERLAY="${{ github.workspace }}/config/prospector_adapter.overlay"
-        
         OVERLAY_FILES="${BOARD_OVERLAY} ${ADAPTER_OVERLAY}"
+        
+        # 🚨 最終修正: カスタムモジュールの Devicetree フォルダを検索パスに強制追加
+        DTC_INCLUDE_PATH="${{ github.workspace }}/modules/prospector-zmk-module/devicetree"
         
         west build -s zmk/app -d build/adapter -b ${{ env.BOARD }} -- \
           -DAPP_LABEL="prospector_adapter" \
-          -DDTC_OVERLAY_FILE="${OVERLAY_FILES}"
+          -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
+          -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
 
-    - name: 8. Archive Firmware Artifacts
+    - name: 8. Archive Firmware Artifacts (Scanner)
       uses: actions/upload-artifact@v4
       with:
         name: firmware-prospector-scanner
