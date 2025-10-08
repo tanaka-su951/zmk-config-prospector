@@ -1,9 +1,11 @@
-// 🚨 修正: DTC_INCLUDE_DIRS にモジュールフォルダが追加されたため、ファイル名のみを指定します。
-#include <st7789v.dtsi> 
+// config/prospector_scanner.overlay
+
+// 🚨 修正: モジュールルートからの相対パスでディスプレイ定義をインクルード
+#include <devicetree/st7789v.dtsi> 
  
 / {
    chosen {
-      // &st7789v ノードが、インクルードされたファイルによって定義されることを期待
+      // プライマリディスプレイとして st7789v を参照
       zephyr,display = &st7789v;
   };
 };
