@@ -1,72 +1,12 @@
-/*
- * Device Tree overlay for Seeeduino XIAO BLE - Prospector Config
- * Final check for I2C cleanup, SPI pin assignment, and PWM pin assignment.
- */
+// config/prospector_scanner.overlay
 
-// I2C0 configuration for ambient light sensor (強制無効化)
-&i2c0 {
-    compatible = "nordic,nrf-twim";
-    status = "disabled"; 
-    // pinctrl関連のプロパティは全て削除済み
-    
-    apds9960: apds9960@39 {
-        compatible = "avago,apds9960";
-        reg = <0x39>;
-        status = "disabled"; 
-        int-gpios = <&gpio0 28 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; // D2 = P0.28
-    };
-};
-
-// Required pinctrl configurations 
-&pinctrl {
-    // I2Cのピン定義 (無効化されているため競合しない)
-    i2c0_default: i2c0_default {
-        group1 {
-            psels = <NRF_PSEL(TWIM_SDA, 0, 4)>,  // Pin 4 (D4) = P0.04 = SDA
-                    <NRF_PSEL(TWIM_SCL, 0, 5)>;  // Pin 5 (D5) = P0.05 = SCL
-        };
-    };
-
-    i2c0_sleep: i2c0_sleep {
-        group1 {
-            psels = <NRF_PSEL(TWIM_SDA, 0, 4)>,  // Pin 4 (D4) = P0.04 = SDA
-                    <NRF_PSEL(TWIM_SCL, 0, 5)>;  // Pin 5 (D5) = P0.05 = SCL
-            low-power-enable;
-        };
-    };
-    
-    // SPI0ピンを正確に定義 (LCD用)
-    spi0_default: spi0_default {
-        group1 {
-            psels = <NRF_PSEL(SPIM_SCK, 0, 13)>,  // Pin 8 (D8) = P0.13 = LCD_CLK
-                    <NRF_PSEL(SPIM_MOSI, 0, 12)>, // Pin 10 (D10) = P0.12 = LCD_DIN
-                    <NRF_PSEL(SPIM_CSN, 0, 15)>;  // Pin 9 (D9) = P0.15 = LCD_CS
-        };
-    };
-
-    // 🚨 追記: PWMピンを正確に定義 (バックライト用)
-    pwm0_default: pwm0_default {
-        group1 {
-            psels = <NRF_PSEL(PWM_OUT0, 0, 9)>; // Pin 6 (D6) = P0.09 = LCD_BL
-        };
-    };
-};
-
-// SPI0を有効化し、新しいピン設定を適用
-&spi0 {
-    status = "okay";
-    pinctrl-0 = <&spi0_default>;
-    pinctrl-names = "default";
-};
-
-// 🚨 修正: PWM0を有効化し、新しいピン設定を適用
-&pwm0 {
-    status = "okay";
-    pinctrl-0 = <&pwm0_default>;
-    pinctrl-names = "default";
-};
-
-// GPIO ノードの有効化 (LCD_DCとLCD_RSTピンを使用するため必須)
-&gpio0 {
-    status = "okay";
+// 🚨 修正: ZMKの標準的なDevicetreeインクルードパス形式に戻す
+// DTC_INCLUDE_DIRSが正しく設定されているため、これで解決する可能性が高い
+#include <devicetree/st7789v.dtsi> 
+ 
+/ {
+   chosen {
+      // プライマリディスプレイとして st7789v を参照
+      zephyr,display = &st7789v;
+   };
 };
