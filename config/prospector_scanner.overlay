@@ -1,7 +1,7 @@
 // config/prospector_scanner.overlay
 
-// 🚨 修正: モジュールルートからの相対パスでディスプレイ定義をインクルード
-#include <devicetree/st7789v.dtsi> 
+// 🚨 最終修正: モジュールルート（DDTC_INCLUDE_DIRS）にファイルが直下にあると仮定し、ファイル名のみを指定します。
+#include <st7789v.dtsi> 
  
 / {
    chosen {
