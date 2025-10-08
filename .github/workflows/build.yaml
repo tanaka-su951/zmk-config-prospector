@@ -67,7 +67,7 @@ jobs:
         SDK_ROOT="${{ runner.tool_cache }}/zephyr-sdk-0.16.5"
         mkdir -p ${SDK_ROOT}
         
-        tar xf /tmp/zephyr-sdk.tar.xz -C ${SDK_ROOT} --strip-components=1
+        tar xf /tmp/zephyr-sdk-0.16.5_linux-x86_64.tar.xz -C ${SDK_ROOT} --strip-components=1
         
         echo "ZEPHYR_SDK_INSTALL_DIR=${SDK_ROOT}" >> $GITHUB_ENV
 
@@ -75,12 +75,12 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # 📌 最終修正: -DZMK_CONFIG に絶対パスを指定して、オーバーレイファイルの検索パス問題を解消
         ZMK_CONFIG_PATH="${{ github.workspace }}/config"
         
-        # ソースディレクトリを ZMK アプリケーションルートの 'zmk/app' に変更
+        # 📌 最終修正: -DAPP_LABEL を追加し、ビルド対象のキーマップ(prospector_scanner.keymap)を明示的に指定
         west build -s zmk/app -d build -b ${{ env.BOARD }} -- \
-          -DZMK_CONFIG="${ZMK_CONFIG_PATH}"
+          -DZMK_CONFIG="${ZMK_CONFIG_PATH}" \
+          -DAPP_LABEL="prospector_scanner" 
           
 
     - name: 7. Archive Firmware Artifacts
