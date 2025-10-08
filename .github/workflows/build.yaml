@@ -1,5 +1,3 @@
-# ZMK Custom Config Build Workflow (究極の最終確定版 - west list による ZMK パスの動的取得)
-
 name: Build ZMK Firmware (Ultimate Stable Build - Final Pattern)
 
 on:
@@ -21,7 +19,10 @@ jobs:
     - name: 1. Checkout ZMK Config
       uses: actions/checkout@v4
       with:
-        submodules: true
+        # west init/updateでZMKリポジトリ全体をダウンロードするため、サブモジュールは不要
+        # ZMKリポジトリはwest updateで取得されるため、submodules: trueは不要ですが、
+        # 既存の設定を尊重しつつ、念のためfetch-depth: 0を維持します。
+        submodules: false # west init/updateを使用するため無効化
         fetch-depth: 0
 
     - name: 2. Install West Tool
@@ -32,27 +33,30 @@ jobs:
         echo "--- ZMKワークスペースを構築 ---"
         
         # ZMKリポジトリの 'app/west.yml' を明示的に指定して初期化
+        # これにより、ZMKリポジトリが $GITHUB_WORKSPACE/zmk にクローンされる
         west init -m https://github.com/zmkfirmware/zmk --mr main --mf app/west.yml
         
-        # ワークスペースの依存関係を更新（ZMKリポジトリがダウンロードされる）
+        # ワークスペースの依存関係を更新（ZMKリポジトリなどがダウンロードされる）
         west update
 
-    - name: 4. Install Python Dependencies and Export Zephyr Base
+    - name: 4. Install Python Dependencies and Export Zephyr Base (修正済み)
       run: |
         echo "--- Python依存関係のインストールとZEPHYR_BASEの設定 ---"
         
-        # 🚨 究極の最終修正: west list コマンドで ZMK リポジトリの実際のパスを動的に取得
-        # この ZMK_ROOT はワークスペースのルートからの相対パスになる
+        # Westワークスペースのルート（$GITHUB_WORKSPACE）からZMKリポジトリの相対パスを取得
+        # 通常、これは "zmk" になります。
         ZMK_ROOT=$(west list zmk -f '{posixpath}')
-        echo "Detected ZMK_ROOT: ${ZMK_ROOT}" # デバッグ用にパスを出力
+        echo "Detected ZMK_ROOT: ${ZMK_ROOT}"
         
-        # zephyr/scripts/requirements.txt を ZMK_ROOT から参照
-        pip install -r "${ZMK_ROOT}/zephyr/scripts/requirements.txt"
+        # requirements.txt のフルパスを作成し、Python依存関係をインストール
+        # $ZMK_ROOT がワークスペースのルートからの相対パスなので、この形式で正しくアクセスできます。
+        REQUIREMENTS_PATH="${ZMK_ROOT}/zephyr/scripts/requirements.txt"
+        pip install -r "${REQUIREMENTS_PATH}"
         
         # ZEPHYR_BASE のパスを絶対パスで設定
         echo "ZEPHYR_BASE=${{ github.workspace }}/${ZMK_ROOT}/zephyr" >> $GITHUB_ENV
         
-        # west zephyr-export はワークスペースのルートから実行
+        # west zephyr-export を実行し、環境変数を設定
         west zephyr-export | grep -E "^export " | sed -E 's/^export\s+//' >> $GITHUB_ENV
 
     - name: 5. Install Zephyr SDK
@@ -74,7 +78,7 @@ jobs:
       run: |
         echo "--- Zephyr環境の最終セットアップとビルドの実行 ---"
         
-        # ビルドはワークスペースのルート（現在のリポジトリのルート）から実行
+        # ビルドはワークスペースのルートから実行
         # ZMKリポジトリ自体がビルドソースとなるため、'zmk' を指定
         west build -s zmk -d build -b ${{ env.BOARD }} -- \
           -DZMK_CONFIG=config 
