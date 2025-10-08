@@ -6,15 +6,11 @@
 // I2C0 configuration for ambient light sensor
 &i2c0 {
     compatible = "nordic,nrf-twim";
-    status = "disabled"; // 🚨 修正: I2C バス全体を無効化
+    status = "disabled"; // I2C バス全体を無効化
 
-    // 以下の pinctrl 参照は、I2C が disabled のため削除します。
-    // ビルドシステムが、無効な I2C ドライバと有効な pinctrl を結びつけてエラーを出すのを防ぎます。
-    // pinctrl-0 = <&i2c0_default>; // 👈 削除
-    // pinctrl-1 = <&i2c0_sleep>;   // 👈 削除
-    pinctrl-names = "default", "sleep"; // 🚨 pinctrl-0, pinctrl-1 を削除する場合は、これも削除
-    
-    clock-frequency = <I2C_BITRATE_STANDARD>;
+    // 🚨 修正: 以下の pinctrl 参照は全て削除します。
+    // pinctrl-names = "default", "sleep"; // 削除済み
+    // clock-frequency = <I2C_BITRATE_STANDARD>; // 削除済み
 
     // APDS9960 ambient light sensor
     apds9960: apds9960@39 {
@@ -27,6 +23,7 @@
 
 // Required pinctrl configurations (ノード定義自体は残します)
 &pinctrl {
+    // I2Cバスが disabled のため、これらの定義はビルドに影響しませんが、定義自体は残します
     i2c0_default: i2c0_default {
         group1 {
             psels = <NRF_PSEL(TWIM_SDA, 0, 4)>,  // Pin 4 (D4) = P0.04 = SDA
@@ -41,4 +38,9 @@
             low-power-enable;
         };
     };
+};
+
+// ST7789V ディスプレイが使用する SPI バスを有効化
+&spi0 {
+    status = "okay";
 };
