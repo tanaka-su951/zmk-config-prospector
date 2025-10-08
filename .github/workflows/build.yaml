@@ -62,8 +62,8 @@ jobs:
         SCANNER_OVERLAY="${{ github.workspace }}/config/prospector_scanner.overlay"
         OVERLAY_FILES="${BOARD_OVERLAY} ${SCANNER_OVERLAY}"
         
-        # 🚨 最終修正: カスタムモジュールの Devicetree フォルダを検索パスに強制追加
-        DTC_INCLUDE_PATH="${{ github.workspace }}/modules/prospector-zmk-module/devicetree"
+        # 🚨 最終修正: カスタムモジュールのルートディレクトリを検索パスに強制追加
+        DTC_INCLUDE_PATH="${{ github.workspace }}/modules/prospector-zmk-module" # 👈 修正点
         
         west build -s zmk/app -d build/scanner -b ${{ env.BOARD }} -- \
           -DAPP_LABEL="prospector_scanner" \
@@ -80,8 +80,8 @@ jobs:
         ADAPTER_OVERLAY="${{ github.workspace }}/config/prospector_adapter.overlay"
         OVERLAY_FILES="${BOARD_OVERLAY} ${ADAPTER_OVERLAY}"
         
-        # 🚨 最終修正: カスタムモジュールの Devicetree フォルダを検索パスに強制追加
-        DTC_INCLUDE_PATH="${{ github.workspace }}/modules/prospector-zmk-module/devicetree"
+        # 🚨 最終修正: カスタムモジュールのルートディレクトリを検索パスに強制追加
+        DTC_INCLUDE_PATH="${{ github.workspace }}/modules/prospector-zmk-module" # 👈 修正点
         
         west build -s zmk/app -d build/adapter -b ${{ env.BOARD }} -- \
           -DAPP_LABEL="prospector_adapter" \
