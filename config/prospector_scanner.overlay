@@ -1,7 +1,11 @@
-#include <st7789v.dtsi> 
+// config/prospector_scanner.overlay
+
+// 🚨 最終修正: ファイルがモジュールルートの下の "dts/" フォルダにあると仮定
+#include <dts/st7789v.dtsi> 
  
 / {
    chosen {
+      // プライマリディスプレイとして st7789v を参照
       zephyr,display = &st7789v;
-   };
+  };
 };
