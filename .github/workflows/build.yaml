@@ -12,14 +12,14 @@ jobs:
       BOARD: seeeduino_xiao_ble
 
     steps:
-      # 1. あなたの設定ファイル（config、modules）をワークスペースのルートにチェックアウト (修正)
+      # 1. あなたの設定ファイル（config、modules）をワークスペースのルートにチェックアウト
       - name: Checkout Config Files
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}
-          # 🚨 修正: submodules を 'true' にし、すべての依存モジュールを確実に取得
+          # 🚨 サブモジュールを確実に取得
           submodules: 'true' 
-          fetch-depth: 0 # 安定性を高めるため追加
+          fetch-depth: 0 
           
       # 2. ZMK コアコードを 'zmk' フォルダにチェックアウト
       - name: Mount ZMK Firmware
@@ -38,20 +38,14 @@ jobs:
           west init -l app
           west update
           
-      # 4. カスタムモジュールのコピー / シンボリックリンクのステップは完全に削除
-
-      # 5. 環境変数のエクスポート (ZEPHYR_EXTRA_MODULES を使用)
+      # 4. 環境変数のエクスポート (ZEPHYR_EXTRA_MODULES を使用)
       - name: Export Environment Variables
         shell: bash
         run: |
-          # 🚨 最終修正: ZEPHYR_EXTRA_MODULES を設定して、カスタムモジュールをビルドシステムに認識させる
-          echo "ZEPHYR_EXTRA_MODULES=$GITHUB_WORKSPACE/modules" >> $GITHUB_ENV
+          # 🚨 カスタムモジュールを含むディレクトリを ZEPHYR_EXTRA_MODULES に設定
+          echo "ZEPHYR_EXTRA_MODULES=$GITHUB_WORKSPACE/modules" >> $GITHUB_ENV 
           
-          # ビルド引数に使用するその他の変数
-          echo "DTC_INCLUDE_DIRS=$GITHUB_WORKSPACE/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
-          echo "CONFIG_DIR=$GITHUB_WORKSPACE/config" >> $GITHUB_ENV
-          
-      # 6. ビルドの実行
+      # 5. ビルドの実行 (CONFIG_DIR を追加し、DTC_INCLUDE_DIRS を削除)
       - name: Run West Build (prospector_scanner)
         id: west_build_scanner
         shell: bash
@@ -59,8 +53,8 @@ jobs:
         run: |
           west build -s app -d ../build/scanner -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_scanner" \
-            -DDTC_OVERLAY_FILE="$GITHUB_WORKSPACE/config/boards/${{ env.BOARD }}.overlay;$GITHUB_WORKSPACE/config/prospector_scanner.overlay" \
-            -DDTC_INCLUDE_DIRS="$GITHUB_WORKSPACE/modules/prospector-zmk-module/dts"
+            -DCONFIG_DIR="$GITHUB_WORKSPACE/config" \
+            -DDTC_OVERLAY_FILE="$GITHUB_WORKSPACE/config/boards/${{ env.BOARD }}.overlay;$GITHUB_WORKSPACE/config/prospector_scanner.overlay"
 
       - name: Run West Build (prospector_adapter)
         id: west_build_adapter
@@ -69,8 +63,8 @@ jobs:
         run: |
           west build -s app -d ../build/adapter -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_adapter" \
-            -DDTC_OVERLAY_FILE="$GITHUB_WORKSPACE/config/boards/${{ env.BOARD }}.overlay;$GITHUB_WORKSPACE/config/prospector_adapter.overlay" \
-            -DDTC_INCLUDE_DIRS="$GITHUB_WORKSPACE/modules/prospector-zmk-module/dts"
+            -DCONFIG_DIR="$GITHUB_WORKSPACE/config" \
+            -DDTC_OVERLAY_FILE="$GITHUB_WORKSPACE/config/boards/${{ env.BOARD }}.overlay;$GITHUB_WORKSPACE/config/prospector_adapter.overlay"
 
       - name: Archive Scanner Firmware
         uses: actions/upload-artifact@v4
