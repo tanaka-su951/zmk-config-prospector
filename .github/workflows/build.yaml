@@ -27,7 +27,7 @@ jobs:
           path: zmk-config-prospector/zmk
           submodules: 'recursive'
           
-      # 🚨 最終修正: sudoを削除して直接apt-getを実行
+      # ZMKビルドコンテナがrootで実行されているため、sudoは不要
       - name: Install pip
         shell: bash
         run: |
@@ -38,7 +38,8 @@ jobs:
         shell: bash
         run: |
           cd zmk-config-prospector
-          python3 -m pip install -r zmk/requirements.txt
+          # 🚨 最終修正: PEP 668のエラー回避のため、--break-system-packagesを追加
+          python3 -m pip install -r zmk/requirements.txt --break-system-packages
           
       - name: Create Custom Module Symlink
         shell: bash
