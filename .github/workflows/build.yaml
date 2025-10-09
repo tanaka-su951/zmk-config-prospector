@@ -36,54 +36,57 @@ jobs:
           west init -l app
           west update
           
-      # 3.5. 🚨 デバッグ用: ファイル構造を確認する (NEW)
+      # 3.5. デバッグ用: ファイル構造を確認する (パス修正)
       - name: Debug Workspace Structure
         shell: bash
         run: |
           echo "Listing contents of the entire workspace:"
-          ls -lR ${{ github.workspace }}
+          # 🚨 修正: $GITHUB_WORKSPACE を使用
+          ls -lR $GITHUB_WORKSPACE
           
           echo "Checking for custom module path:"
-          ls -ld ${{ github.workspace }}/modules/prospector-zmk-module
+          # 🚨 修正: $GITHUB_WORKSPACE を使用
+          ls -ld $GITHUB_WORKSPACE/modules/prospector-zmk-module
           
-      # 4. カスタムモジュールのコピー 
+      # 4. カスタムモジュールのコピー (パス修正)
       - name: Copy Custom Module
         shell: bash
         # working-directory は zmk/app で維持
         working-directory: zmk/app
         run: |
-          # 🚨 最終修正: 物理的にモジュールを app/modules/ にコピー（絶対パス使用）
-          # コピー元: ワークスペースルート/modules/prospector-zmk-module
-          # コピー先: カレントディレクトリ/modules/
-          cp -r ${{ github.workspace }}/modules/prospector-zmk-module modules/
+          # 🚨 修正: $GITHUB_WORKSPACE を使用
+          cp -r $GITHUB_WORKSPACE/modules/prospector-zmk-module modules/
         
-      # 5. 環境変数のエクスポート 
+      # 5. 環境変数のエクスポート (パス修正)
       - name: Export Environment Variables
         shell: bash
         run: |
-          echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
-          echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
+          # 🚨 修正: $GITHUB_WORKSPACE を使用
+          echo "DTC_INCLUDE_DIRS=$GITHUB_WORKSPACE/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
+          echo "CONFIG_DIR=$GITHUB_WORKSPACE/config" >> $GITHUB_ENV
           
-      # 6. ビルドの実行
+      # 6. ビルドの実行 (パス修正)
       - name: Run West Build (prospector_scanner)
         id: west_build_scanner
         shell: bash
         working-directory: zmk
         run: |
+          # 🚨 修正: $GITHUB_WORKSPACE を使用
           west build -s app -d ../build/scanner -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_scanner" \
-            -DDTC_OVERLAY_FILE="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay;${{ github.workspace }}/config/prospector_scanner.overlay" \
-            -DDTC_INCLUDE_DIRS="${{ github.workspace }}/modules/prospector-zmk-module/dts"
+            -DDTC_OVERLAY_FILE="$GITHUB_WORKSPACE/config/boards/${{ env.BOARD }}.overlay;$GITHUB_WORKSPACE/config/prospector_scanner.overlay" \
+            -DDTC_INCLUDE_DIRS="$GITHUB_WORKSPACE/modules/prospector-zmk-module/dts"
 
       - name: Run West Build (prospector_adapter)
         id: west_build_adapter
         shell: bash
         working-directory: zmk
         run: |
+          # 🚨 修正: $GITHUB_WORKSPACE を使用
           west build -s app -d ../build/adapter -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_adapter" \
-            -DDTC_OVERLAY_FILE="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay;${{ github.workspace }}/config/prospector_adapter.overlay" \
-            -DDTC_INCLUDE_DIRS="${{ github.workspace }}/modules/prospector-zmk-module/dts"
+            -DDTC_OVERLAY_FILE="$GITHUB_WORKSPACE/config/boards/${{ env.BOARD }}.overlay;$GITHUB_WORKSPACE/config/prospector_adapter.overlay" \
+            -DDTC_INCLUDE_DIRS="$GITHUB_WORKSPACE/modules/prospector-zmk-module/dts"
 
       - name: Archive Scanner Firmware
         uses: actions/upload-artifact@v4
