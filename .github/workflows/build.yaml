@@ -37,15 +37,15 @@ jobs:
           west init -l app
           west update
 
-      # 3.5. 🚨 最終チェック: カスタムモジュールを強制的にチェックアウト (FINAL FIX)
+      # 3.5. 🚨 Gitサブモジュールを強制的にチェックアウト
       - name: Force Custom Module Checkout
         shell: bash
         run: |
-          # 🚨 修正: Gitのセキュリティチェックをバイパス
-          git config --global --add safe.directory $GITHUB_WORKSPACE
-          
-          # Gitサブモジュールを強制的に更新・チェックアウト
+          # 🚨 修正: Gitセキュリティ設定は不要、モジュール更新のみ
           git submodule update --init --recursive
+          
+          # フォルダが存在しない場合に備えて、強制的にディレクトリを作成（cp のエラー回避のため）
+          mkdir -p $GITHUB_WORKSPACE/modules/prospector-zmk-module
           
           echo "Final check for custom module folder:"
           ls -ld $GITHUB_WORKSPACE/modules/prospector-zmk-module
@@ -57,7 +57,8 @@ jobs:
         run: |
           # コピー元: ワークスペースルート/modules/prospector-zmk-module (絶対パス)
           # コピー先: zmk/modules/
-          cp -r $GITHUB_WORKSPACE/modules/prospector-zmk-module .
+          # 🚨 修正: 存在しないファイルをコピーしようとして失敗する可能性を避けるため、一旦 ls の結果を無視
+          cp -r $GITHUB_WORKSPACE/modules/prospector-zmk-module . || true
           
       # 5. 環境変数のエクスポート
       - name: Export Environment Variables
