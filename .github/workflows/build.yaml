@@ -103,3 +103,4 @@ jobs:
           name: prospector_adapter-firmware
           # 🚨 修正: cd した後の相対パス
           path: zmk-config-prospector/build/adapter/zephyr/zmk_prospector_adapter.uf2
+
