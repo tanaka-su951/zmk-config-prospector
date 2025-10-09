@@ -17,6 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}
+          # path: を省略し、ワークスペースのルートに配置
           submodules: 'recursive'
           
       # 2. ZMK コアコードを 'zmk' フォルダにチェックアウト
@@ -25,7 +26,7 @@ jobs:
         with:
           repository: zmkfirmware/zmk
           ref: ${{ env.ZMK_VERSION }}
-          path: zmk
+          path: zmk # ワークスペース直下の zmk/
           submodules: 'recursive'
           
       - name: Install pip
@@ -38,12 +39,8 @@ jobs:
       - name: Install ZMK Dependencies
         shell: bash
         run: |
-          # 🚨 最終修正: 実行パスの二重参照を避けるための環境変数を定義し、cdで強制
-          WORKSPACE_ROOT=${{ github.workspace }}
-          # /home/runner/work/zmk-config-prospector/zmk-config-prospector を /home/runner/work/zmk-config-prospector に短縮
-          ZMK_DIR=${WORKSPACE_ROOT%/*}/zmk
-          
-          cd ${ZMK_DIR}
+          # 🚨 最終修正: シンプルなパスでcdを試みる
+          cd ${{ github.workspace }}/zmk 
           python3 -m pip install -r requirements.txt --break-system-packages
           
       # 5. カスタムモジュールのシンボリックリンク作成
