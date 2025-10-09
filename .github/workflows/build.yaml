@@ -37,22 +37,23 @@ jobs:
           west init -l app
           west update
           
-      # 3.5. 🚨 ZMK Kconfigへのカスタムモジュール手動追加 (最終手段)
-      - name: Force Include Custom Module Kconfig
+      # 4. 🚨 カスタムモジュールをZMKコアの 'modules' フォルダに直接コピー (FINAL FIX)
+      - name: Copy Custom Module to ZMK Core Modules
         shell: bash
-        working-directory: zmk
+        working-directory: zmk/modules
         run: |
-          # 🚨 修正: ZMK/app/Kconfig に、あなたのカスタムモジュールのKconfigファイルを強制的にインクルードする行を追加
-          echo "source \"$GITHUB_WORKSPACE/modules/prospector-zmk-module/Kconfig\"" >> app/Kconfig
+          # コピー元: ワークスペースルート/modules/prospector-zmk-module
+          # コピー先: zmk/modules/
+          cp -r $GITHUB_WORKSPACE/modules/prospector-zmk-module .
           
-      # 4. 環境変数のエクスポート (ZEPHYR_EXTRA_MODULES を維持)
+      # 5. 環境変数のエクスポート (ZEPHYR_EXTRA_MODULES を削除)
       - name: Export Environment Variables
         shell: bash
         run: |
-          # カスタムモジュールを含むディレクトリを ZEPHYR_EXTRA_MODULES に設定
-          echo "ZEPHYR_EXTRA_MODULES=$GITHUB_WORKSPACE/modules" >> $GITHUB_ENV 
+          # CONFIG_DIRのみをエクスポート
+          echo "CONFIG_DIR=$GITHUB_WORKSPACE/config" >> $GITHUB_ENV 
           
-      # 5. ビルドの実行 
+      # 6. ビルドの実行
       - name: Run West Build (prospector_scanner)
         id: west_build_scanner
         shell: bash
