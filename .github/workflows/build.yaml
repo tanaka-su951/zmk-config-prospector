@@ -6,7 +6,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      # ZMK公式のビルドコンテナを使用
       image: zmkfirmware/zmk-build-arm:stable 
     env:
       ZMK_VERSION: main
@@ -29,16 +28,17 @@ jobs:
           path: zmk # ワークスペース直下の zmk/
           submodules: 'recursive'
           
-      # 3. 依存関係のインストールステップは削除
+      # 依存関係インストールステップは削除済み
           
-      # 4. カスタムモジュールのシンボリックリンク作成
+      # 4. カスタムモジュールのシンボリックリンク作成 (修正済み)
       - name: Create Custom Module Symlink
         shell: bash
-        # working-directory を ZMK の app/modules の親フォルダに設定
-        working-directory: zmk/app/modules
+        # 🚨 修正: working-directory を確実に存在する zmk/app に変更
+        working-directory: zmk/app 
         run: |
+          # 🚨 修正: リンクの作成場所が zmk/app になったので、modules/ を付けて実行
           # シンボリックリンクのリンク先はルートからの相対パス (../../modules/...)
-          ln -s ../../../modules/prospector-zmk-module prospector-zmk-module
+          ln -s ../../modules/prospector-zmk-module modules/prospector-zmk-module
         
       - name: Export Environment Variables
         shell: bash
@@ -46,7 +46,7 @@ jobs:
           echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
           echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
           
-      # 5. ビルドの実行（west build が依存関係処理を自動的に行う）
+      # 5. ビルドの実行
       - name: Run West Build (prospector_scanner)
         id: west_build_scanner
         shell: bash
