@@ -26,13 +26,8 @@ jobs:
           ref: ${{ env.ZMK_VERSION }}
           path: zmk-config-prospector/zmk
           submodules: 'recursive'
-
-      # 🚨 修正: Python環境をセットアップし、pip3コマンドを有効にする
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x' 
-
+          
+      # 🚨 修正: 外部の 'Set up Python' アクションは削除。コンテナ内部のpip3を使用する。
       - name: Install ZMK Dependencies
         shell: bash
         run: |
@@ -49,7 +44,6 @@ jobs:
         shell: bash
         run: |
           cd zmk-config-prospector
-          # このENVは使われていませんが、過去の互換性のため残します
           echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module" >> $GITHUB_ENV
           echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
           
@@ -92,4 +86,3 @@ jobs:
         with:
           name: prospector_adapter-firmware
           path: zmk-config-prospector/build/adapter/zephyr/zmk_prospector_adapter.uf2
-
