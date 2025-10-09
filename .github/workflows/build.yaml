@@ -30,15 +30,18 @@ jobs:
           
       # 依存関係インストールステップは削除済み
           
-      # 4. カスタムモジュールのシンボリックリンク作成 (修正済み)
+      # 4. カスタムモジュールのシンボリックリンク作成 (最終最終修正)
       - name: Create Custom Module Symlink
         shell: bash
-        # 🚨 修正: working-directory を確実に存在する zmk/app に変更
-        working-directory: zmk/app 
+        # 🚨 修正: working-directory を ZMK のルート (zmk/) に変更
+        working-directory: zmk 
         run: |
-          # 🚨 修正: リンクの作成場所が zmk/app になったので、modules/ を付けて実行
-          # シンボリックリンクのリンク先はルートからの相対パス (../../modules/...)
-          ln -s ../../modules/prospector-zmk-module modules/prospector-zmk-module
+          # 🚨 修正: ZMKのルートに「app/modules」ディレクトリを作成
+          mkdir -p app/modules
+          # ZMKのルートから、カスタムモジュール（ワークスペース直下にある）へのシンボリックリンクを作成
+          # リンク元: ../../modules/prospector-zmk-module (zmk/ から見てワークスペースルートの modules へ戻る)
+          # リンク先: app/modules/prospector-zmk-module
+          ln -s ../../modules/prospector-zmk-module app/modules/prospector-zmk-module
         
       - name: Export Environment Variables
         shell: bash
