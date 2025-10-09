@@ -17,7 +17,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}
-          # 🚨 サブモジュールを確実に取得
           submodules: 'true' 
           fetch-depth: 0 
           
@@ -38,14 +37,22 @@ jobs:
           west init -l app
           west update
           
-      # 4. 環境変数のエクスポート (ZEPHYR_EXTRA_MODULES を使用)
+      # 3.5. 🚨 ZMK Kconfigへのカスタムモジュール手動追加 (最終手段)
+      - name: Force Include Custom Module Kconfig
+        shell: bash
+        working-directory: zmk
+        run: |
+          # 🚨 修正: ZMK/app/Kconfig に、あなたのカスタムモジュールのKconfigファイルを強制的にインクルードする行を追加
+          echo "source \"$GITHUB_WORKSPACE/modules/prospector-zmk-module/Kconfig\"" >> app/Kconfig
+          
+      # 4. 環境変数のエクスポート (ZEPHYR_EXTRA_MODULES を維持)
       - name: Export Environment Variables
         shell: bash
         run: |
-          # 🚨 カスタムモジュールを含むディレクトリを ZEPHYR_EXTRA_MODULES に設定
+          # カスタムモジュールを含むディレクトリを ZEPHYR_EXTRA_MODULES に設定
           echo "ZEPHYR_EXTRA_MODULES=$GITHUB_WORKSPACE/modules" >> $GITHUB_ENV 
           
-      # 5. ビルドの実行 (CONFIG_DIR を追加し、DTC_INCLUDE_DIRS を削除)
+      # 5. ビルドの実行 
       - name: Run West Build (prospector_scanner)
         id: west_build_scanner
         shell: bash
