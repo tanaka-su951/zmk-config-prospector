@@ -37,19 +37,20 @@ jobs:
       # 4. ZMK 依存関係のインストール
       - name: Install ZMK Dependencies
         shell: bash
+        # 🚨 最終修正: working-directory を使ってカレントディレクトリを zmk/ に強制
+        working-directory: zmk
         run: |
-          # 🚨 最終修正: パスが二重に展開されるバグを補正するロジックを強制適用
-          # sedを使って二重参照を修正し、正しいパスを構築
-          CORRECT_ZMK_PATH=$(echo ${{ github.workspace }} | sed "s/\\/zmk-config-prospector//g")/zmk
-          
-          cd ${CORRECT_ZMK_PATH}
+          # working-directory のおかげで、requirements.txt はこのディレクトリ直下にある
           python3 -m pip install -r requirements.txt --break-system-packages
           
-      # 5. カスタムモジュールのシンボリックリンク作成 (パスは単純な構造を維持)
+      # 5. カスタムモジュールのシンボリックリンク作成
       - name: Create Custom Module Symlink
         shell: bash
+        # working-directory を ZMK の app/modules の親フォルダに設定
+        working-directory: zmk/app/modules
         run: |
-          ln -s ${{ github.workspace }}/modules/prospector-zmk-module ${{ github.workspace }}/zmk/app/modules/prospector-zmk-module
+          # シンボリックリンクのリンク先はルートからの相対パス (../../modules/...)
+          ln -s ../../../modules/prospector-zmk-module prospector-zmk-module
         
       - name: Export Environment Variables
         shell: bash
@@ -57,15 +58,18 @@ jobs:
           echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
           echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
           
-      # 6. ビルドの実行 (パスは単純な構造を維持)
+      # 6. ビルドの実行
       - name: Run West Build (prospector_scanner)
         id: west_build_scanner
         shell: bash
+        # working-directory を ZMK のルートに設定
+        working-directory: zmk
         run: |
           DTC_INCLUDE_PATH="${{ github.workspace }}/modules/prospector-zmk-module/dts" 
           OVERLAY_FILES="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/config/prospector_scanner.overlay"
 
-          west build -s ${{ github.workspace }}/zmk/app -d ${{ github.workspace }}/build/scanner -b ${{ env.BOARD }} -- \
+          # -s は app/ を使用し、-d は build/scanner を使用
+          west build -s app -d ../build/scanner -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_scanner" \
             -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
             -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
@@ -73,11 +77,13 @@ jobs:
       - name: Run West Build (prospector_adapter)
         id: west_build_adapter
         shell: bash
+        # working-directory を ZMK のルートに設定
+        working-directory: zmk
         run: |
           DTC_INCLUDE_PATH="${{ github.workspace }}/modules/prospector-zmk-module/dts" 
           OVERLAY_FILES="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/config/prospector_adapter.overlay"
 
-          west build -s ${{ github.workspace }}/zmk/app -d ${{ github.workspace }}/build/adapter -b ${{ env.BOARD }} -- \
+          west build -s app -d ../build/adapter -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_adapter" \
             -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
             -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
