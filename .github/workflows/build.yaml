@@ -28,15 +28,17 @@ jobs:
           path: zmk # ワークスペース直下の zmk/
           submodules: 'recursive'
           
-      # 3. West ワークスペースの初期化と依存関係の取得
+      # 3. West ワークスペースの初期化と依存関係の取得 (修正済み)
       - name: Initialize West Workspace
         shell: bash
         working-directory: zmk
         run: |
-          west init -l app
-          west update
+          # 🚨 修正: --local と --manifest-dir を追加
+          west init -l app --local --manifest-dir ${{ github.workspace }}/config
+          # 🚨 修正: --local を追加
+          west update --local
           
-      # 4. カスタムモジュールのシンボリックリンク作成 (このステップはZEPHYR_EXTRA_MODULESで不要になる可能性もあるが、安全のため維持)
+      # 4. カスタムモジュールのシンボリックリンク作成
       - name: Create Custom Module Symlink
         shell: bash
         working-directory: zmk 
@@ -48,7 +50,7 @@ jobs:
       - name: Export Environment Variables
         shell: bash
         run: |
-          # 🚨 最も重要: カスタムモジュールを含むディレクトリを ZEPHYR_EXTRA_MODULES に設定
+          # カスタムモジュールを含むディレクトリを ZEPHYR_EXTRA_MODULES に設定
           echo "ZEPHYR_EXTRA_MODULES=${{ github.workspace }}/modules" >> $GITHUB_ENV 
           
           echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
