@@ -27,12 +27,12 @@ jobs:
           path: zmk-config-prospector/zmk
           submodules: 'recursive'
           
-      # 🚨 修正: 外部の 'Set up Python' アクションは削除。コンテナ内部のpip3を使用する。
       - name: Install ZMK Dependencies
         shell: bash
         run: |
           cd zmk-config-prospector
-          pip3 install -r zmk/requirements.txt
+          # 🚨 最終修正: python3 -m pip install を使用し、pipの実行を保証する
+          python3 -m pip install -r zmk/requirements.txt
           
       - name: Create Custom Module Symlink
         shell: bash
