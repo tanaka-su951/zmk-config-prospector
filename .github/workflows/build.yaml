@@ -36,21 +36,30 @@ jobs:
         run: |
           west init -l app
           west update
+
+      # 3.5. 🚨 最終チェック: カスタムモジュールを強制的にチェックアウト (FINAL FIX)
+      - name: Force Custom Module Checkout
+        shell: bash
+        run: |
+          # 🚨 修正: Gitサブモジュールを強制的に更新・チェックアウト
+          git submodule update --init --recursive
           
-      # 4. 🚨 カスタムモジュールをZMKコアの 'modules' フォルダに直接コピー (FINAL FIX)
+          echo "Final check for custom module folder:"
+          ls -ld $GITHUB_WORKSPACE/modules/prospector-zmk-module
+          
+      # 4. カスタムモジュールをZMKコアの 'modules' フォルダに直接コピー
       - name: Copy Custom Module to ZMK Core Modules
         shell: bash
         working-directory: zmk/modules
         run: |
-          # コピー元: ワークスペースルート/modules/prospector-zmk-module
+          # コピー元: ワークスペースルート/modules/prospector-zmk-module (絶対パス)
           # コピー先: zmk/modules/
           cp -r $GITHUB_WORKSPACE/modules/prospector-zmk-module .
           
-      # 5. 環境変数のエクスポート (ZEPHYR_EXTRA_MODULES を削除)
+      # 5. 環境変数のエクスポート
       - name: Export Environment Variables
         shell: bash
         run: |
-          # CONFIG_DIRのみをエクスポート
           echo "CONFIG_DIR=$GITHUB_WORKSPACE/config" >> $GITHUB_ENV 
           
       # 6. ビルドの実行
