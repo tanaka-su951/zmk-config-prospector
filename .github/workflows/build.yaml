@@ -36,7 +36,17 @@ jobs:
           west init -l app
           west update
           
-      # 4. カスタムモジュールのコピー (絶対パスに修正)
+      # 3.5. 🚨 デバッグ用: ファイル構造を確認する (NEW)
+      - name: Debug Workspace Structure
+        shell: bash
+        run: |
+          echo "Listing contents of the entire workspace:"
+          ls -lR ${{ github.workspace }}
+          
+          echo "Checking for custom module path:"
+          ls -ld ${{ github.workspace }}/modules/prospector-zmk-module
+          
+      # 4. カスタムモジュールのコピー 
       - name: Copy Custom Module
         shell: bash
         # working-directory は zmk/app で維持
@@ -51,7 +61,6 @@ jobs:
       - name: Export Environment Variables
         shell: bash
         run: |
-          # DTC_INCLUDE_DIRSとCONFIG_DIRはwest buildに渡すため、念のためここでエクスポート
           echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
           echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
           
