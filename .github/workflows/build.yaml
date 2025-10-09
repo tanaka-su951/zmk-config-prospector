@@ -41,7 +41,10 @@ jobs:
       - name: Force Custom Module Checkout
         shell: bash
         run: |
-          # 🚨 修正: Gitサブモジュールを強制的に更新・チェックアウト
+          # 🚨 修正: Gitのセキュリティチェックをバイパス
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+          
+          # Gitサブモジュールを強制的に更新・チェックアウト
           git submodule update --init --recursive
           
           echo "Final check for custom module folder:"
