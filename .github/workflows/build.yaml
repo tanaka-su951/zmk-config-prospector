@@ -36,7 +36,7 @@ jobs:
           west init -l app
           west update
           
-      # 4. カスタムモジュールのシンボリックリンク作成
+      # 4. カスタムモジュールのシンボリックリンク作成 (このステップはZEPHYR_EXTRA_MODULESで不要になる可能性もあるが、安全のため維持)
       - name: Create Custom Module Symlink
         shell: bash
         working-directory: zmk 
@@ -44,20 +44,15 @@ jobs:
           mkdir -p app/modules
           ln -s ../../modules/prospector-zmk-module app/modules/prospector-zmk-module
         
-      # 4.5. モジュール Kconfig パスを West に追加 (新しいステップ)
-      - name: Set Module Kconfig Path
-        shell: bash
-        working-directory: zmk
-        run: |
-          # ワークスペースのルートにあるカスタムモジュールの Kconfig ディレクトリを ZMK に設定
-          echo "EXTRA_KCONFIG_DIRS=${{ github.workspace }}/modules/prospector-zmk-module/config" >> $GITHUB_ENV
-          
-      # 5. 環境変数のエクスポート (DTC_INCLUDE_DIRSはwest buildに直接渡すため、これは古い設定)
+      # 5. 環境変数のエクスポート (ZEPHYR_EXTRA_MODULES を追加)
       - name: Export Environment Variables
         shell: bash
         run: |
+          # 🚨 最も重要: カスタムモジュールを含むディレクトリを ZEPHYR_EXTRA_MODULES に設定
+          echo "ZEPHYR_EXTRA_MODULES=${{ github.workspace }}/modules" >> $GITHUB_ENV 
+          
           echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
-          echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV # これはKconfigの自動検索に使われる可能性があるため維持
+          echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
           
       # 6. ビルドの実行
       - name: Run West Build (prospector_scanner)
@@ -65,7 +60,6 @@ jobs:
         shell: bash
         working-directory: zmk
         run: |
-          # DTC_OVERLAY_FILEとDTC_INCLUDE_DIRSはセミコロン区切りで渡す
           west build -s app -d ../build/scanner -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_scanner" \
             -DDTC_OVERLAY_FILE="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay;${{ github.workspace }}/config/prospector_scanner.overlay" \
