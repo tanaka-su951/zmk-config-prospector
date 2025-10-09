@@ -28,31 +28,28 @@ jobs:
           path: zmk # ワークスペース直下の zmk/
           submodules: 'recursive'
           
-      # 3. West ワークスペースの初期化と依存関係の取得 (修正済み)
+      # 3. West ワークスペースの初期化と依存関係の取得
       - name: Initialize West Workspace
         shell: bash
         working-directory: zmk
         run: |
-          # 🚨 修正: --local と --manifest-dir を追加
-          west init -l app --local --manifest-dir ${{ github.workspace }}/config
-          # 🚨 修正: --local を追加
-          west update --local
+          west init -l app
+          west update
           
-      # 4. カスタムモジュールのシンボリックリンク作成
-      - name: Create Custom Module Symlink
+      # 4. カスタムモジュールのコピー (シンボリックリンクを置き換え)
+      - name: Copy Custom Module
         shell: bash
-        working-directory: zmk 
+        # working-directory を ZMK の app/ の親フォルダに設定
+        working-directory: zmk/app
         run: |
-          mkdir -p app/modules
-          ln -s ../../modules/prospector-zmk-module app/modules/prospector-zmk-module
+          # 🚨 最終修正: 物理的にモジュールを app/modules/ にコピー
+          cp -r ../../modules/prospector-zmk-module modules/
         
-      # 5. 環境変数のエクスポート (ZEPHYR_EXTRA_MODULES を追加)
+      # 5. 環境変数のエクスポート (DTC_INCLUDE_DIRS のみ使用)
       - name: Export Environment Variables
         shell: bash
         run: |
-          # カスタムモジュールを含むディレクトリを ZEPHYR_EXTRA_MODULES に設定
-          echo "ZEPHYR_EXTRA_MODULES=${{ github.workspace }}/modules" >> $GITHUB_ENV 
-          
+          # このDTC_INCLUDE_DIRSの設定は、cp -r でモジュールがZMK内に移動したため、不要になった可能性がありますが、念のため維持します。
           echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
           echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
           
