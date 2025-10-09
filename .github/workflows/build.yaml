@@ -27,18 +27,17 @@ jobs:
           path: zmk-config-prospector/zmk
           submodules: 'recursive'
           
-      # 🚨 最終修正: pip3が見つからないため、apt-getでインストールする
+      # 🚨 最終修正: sudoを削除して直接apt-getを実行
       - name: Install pip
         shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pip
+          apt-get update
+          apt-get install -y python3-pip
           
       - name: Install ZMK Dependencies
         shell: bash
         run: |
           cd zmk-config-prospector
-          # pipのインストール後、このコマンドが実行できるはず
           python3 -m pip install -r zmk/requirements.txt
           
       - name: Create Custom Module Symlink
