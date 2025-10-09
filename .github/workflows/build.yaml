@@ -12,57 +12,62 @@ jobs:
       BOARD: seeeduino_xiao_ble
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository }}
-          path: zmk-config-prospector
-          submodules: 'recursive'
-          
+      # 1. ZMK コアコードを 'zmk' フォルダにチェックアウト (標準ZMK構造)
       - name: Mount ZMK Firmware
         uses: actions/checkout@v4
         with:
           repository: zmkfirmware/zmk
           ref: ${{ env.ZMK_VERSION }}
-          # ZMKのコアコードをzmk-config-prospector/zmkに配置
-          path: zmk-config-prospector/zmk
+          path: zmk
           submodules: 'recursive'
           
+      # 2. あなたの設定ファイル（config、modules）を 'config' フォルダにチェックアウト
+      - name: Checkout Config
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          path: config
+          submodules: 'recursive'
+          
+      # 3. pipをインストール
       - name: Install pip
         shell: bash
         run: |
           apt-get update
           apt-get install -y python3-pip
           
+      # 4. ZMK 依存関係のインストール (requirements.txt は zmk/requirements.txt)
       - name: Install ZMK Dependencies
         shell: bash
         run: |
-          # 🚨 最終修正: cd を削除し、zmk/requirements.txt への正確なパスを指定
-          python3 -m pip install -r zmk-config-prospector/zmk/requirements.txt --break-system-packages
+          # requirements.txt は zmk/ の下にある
+          python3 -m pip install -r zmk/requirements.txt --break-system-packages
           
+      # 5. カスタムモジュールのシンボリックリンク作成
       - name: Create Custom Module Symlink
         shell: bash
         run: |
-          # 🚨 最終修正: cd を削除し、フルパスを使用
-          ln -s ${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module ${{ github.workspace }}/zmk-config-prospector/zmk/app/modules/prospector-zmk-module
+          # config/modules 内の prospector-zmk-module を zmk/app/modules にリンク
+          ln -s ${{ github.workspace }}/config/modules/prospector-zmk-module ${{ github.workspace }}/zmk/app/modules/prospector-zmk-module
         
       - name: Export Environment Variables
         shell: bash
         run: |
-          # 🚨 最終修正: cd を削除
-          echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module" >> $GITHUB_ENV
-          echo "CONFIG_DIR=${{ github.workspace }}/zmk-config-prospector/config" >> $GITHUB_ENV
+          # Devicetreeのインクルードパスは config/modules 内のdts
+          echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/config/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
+          echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
           
+      # 6. ビルドの実行 (zmk/app をソースディレクトリとして使用)
       - name: Run West Build (prospector_scanner)
         id: west_build_scanner
         shell: bash
         run: |
-          # すべてフルパスで実行
-          DTC_INCLUDE_PATH="${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module/dts" 
+          DTC_INCLUDE_PATH="${{ github.workspace }}/config/modules/prospector-zmk-module/dts" 
           
-          OVERLAY_FILES="${{ github.workspace }}/zmk-config-prospector/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/zmk-config-prospector/config/prospector_scanner.overlay"
+          # overlayファイルは config/ の下に移動
+          OVERLAY_FILES="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/config/prospector_scanner.overlay"
 
-          west build -s ${{ github.workspace }}/zmk-config-prospector/zmk/app -d ${{ github.workspace }}/zmk-config-prospector/build/scanner -b ${{ env.BOARD }} -- \
+          west build -s ${{ github.workspace }}/zmk/app -d ${{ github.workspace }}/build/scanner -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_scanner" \
             -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
             -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
@@ -71,11 +76,11 @@ jobs:
         id: west_build_adapter
         shell: bash
         run: |
-          DTC_INCLUDE_PATH="${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module/dts" 
+          DTC_INCLUDE_PATH="${{ github.workspace }}/config/modules/prospector-zmk-module/dts" 
 
-          OVERLAY_FILES="${{ github.workspace }}/zmk-config-prospector/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/zmk-config-prospector/config/prospector_adapter.overlay"
+          OVERLAY_FILES="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/config/prospector_adapter.overlay"
 
-          west build -s ${{ github.workspace }}/zmk-config-prospector/zmk/app -d ${{ github.workspace }}/zmk-config-prospector/build/adapter -b ${{ env.BOARD }} -- \
+          west build -s ${{ github.workspace }}/zmk/app -d ${{ github.workspace }}/build/adapter -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_adapter" \
             -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
             -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
@@ -84,12 +89,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: prospector_scanner-firmware
-          # ビルドディレクトリのフルパス
-          path: zmk-config-prospector/build/scanner/zephyr/zmk_prospector_scanner.uf2
+          path: build/scanner/zephyr/zmk_prospector_scanner.uf2
 
       - name: Archive Adapter Firmware
         uses: actions/upload-artifact@v4
         with:
           name: prospector_adapter-firmware
-          # ビルドディレクトリのフルパス
-          path: zmk-config-prospector/build/adapter/zephyr/zmk_prospector_adapter.uf2
+          path: build/adapter/zephyr/zmk_prospector_adapter.uf2
