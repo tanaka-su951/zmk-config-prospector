@@ -36,20 +36,22 @@ jobs:
           west init -l app
           west update
           
-      # 4. カスタムモジュールのコピー (シンボリックリンクを置き換え)
+      # 4. カスタムモジュールのコピー (絶対パスに修正)
       - name: Copy Custom Module
         shell: bash
-        # working-directory を ZMK の app/ の親フォルダに設定
+        # working-directory は zmk/app で維持
         working-directory: zmk/app
         run: |
-          # 🚨 最終修正: 物理的にモジュールを app/modules/ にコピー
-          cp -r ../../modules/prospector-zmk-module modules/
+          # 🚨 最終修正: 物理的にモジュールを app/modules/ にコピー（絶対パス使用）
+          # コピー元: ワークスペースルート/modules/prospector-zmk-module
+          # コピー先: カレントディレクトリ/modules/
+          cp -r ${{ github.workspace }}/modules/prospector-zmk-module modules/
         
-      # 5. 環境変数のエクスポート (DTC_INCLUDE_DIRS のみ使用)
+      # 5. 環境変数のエクスポート 
       - name: Export Environment Variables
         shell: bash
         run: |
-          # このDTC_INCLUDE_DIRSの設定は、cp -r でモジュールがZMK内に移動したため、不要になった可能性がありますが、念のため維持します。
+          # DTC_INCLUDE_DIRSとCONFIG_DIRはwest buildに渡すため、念のためここでエクスポート
           echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
           echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
           
