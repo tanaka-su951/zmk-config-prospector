@@ -1,4 +1,4 @@
-name: Build Prospector Firmware
+Name: Build Prospector Firmware
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -34,14 +34,14 @@ jobs:
           apt-get update
           apt-get install -y python3-pip
           
-      # 4. ZMK 依存関係のインストール
+      # 4. ZMK 依存関係のインストール (修正済み)
       - name: Install ZMK Dependencies
         shell: bash
-        # 🚨 最終修正: working-directory を使ってカレントディレクトリを zmk/ に強制
+        # working-directory を zmk/ に設定
         working-directory: zmk
         run: |
-          # working-directory のおかげで、requirements.txt はこのディレクトリ直下にある
-          python3 -m pip install -r requirements.txt --break-system-packages
+          # 🚨 修正: tools/requirements.txt を参照
+          python3 -m pip install -r tools/requirements.txt --break-system-packages
           
       # 5. カスタムモジュールのシンボリックリンク作成
       - name: Create Custom Module Symlink
