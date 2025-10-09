@@ -24,7 +24,7 @@ jobs:
         with:
           repository: zmkfirmware/zmk
           ref: ${{ env.ZMK_VERSION }}
-          # 🚨 修正: ZMKのパスを zmk-config-prospector/zmk に戻す
+          # ZMKのコアコードをzmk-config-prospector/zmkに配置
           path: zmk-config-prospector/zmk
           submodules: 'recursive'
           
@@ -37,39 +37,32 @@ jobs:
       - name: Install ZMK Dependencies
         shell: bash
         run: |
-          # 🚨 修正: cd を復活させ、相対パス zmk/requirements.txt を使用
-          cd zmk-config-prospector
-          python3 -m pip install -r zmk/requirements.txt --break-system-packages
+          # 🚨 最終修正: cd を削除し、zmk/requirements.txt への正確なパスを指定
+          python3 -m pip install -r zmk-config-prospector/zmk/requirements.txt --break-system-packages
           
       - name: Create Custom Module Symlink
         shell: bash
         run: |
-          # 🚨 修正: cd を復活
-          cd zmk-config-prospector/zmk/app/modules
-          ln -s ../../../modules/prospector-zmk-module prospector-zmk-module
+          # 🚨 最終修正: cd を削除し、フルパスを使用
+          ln -s ${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module ${{ github.workspace }}/zmk-config-prospector/zmk/app/modules/prospector-zmk-module
         
       - name: Export Environment Variables
         shell: bash
         run: |
-          # 🚨 修正: cd を復活
-          cd zmk-config-prospector
-          echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module" >> $GITHUB_ENV
-          echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
+          # 🚨 最終修正: cd を削除
+          echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module" >> $GITHUB_ENV
+          echo "CONFIG_DIR=${{ github.workspace }}/zmk-config-prospector/config" >> $GITHUB_ENV
           
       - name: Run West Build (prospector_scanner)
         id: west_build_scanner
         shell: bash
         run: |
-          # 🚨 修正: cd を復活
-          cd zmk-config-prospector
-          
+          # すべてフルパスで実行
           DTC_INCLUDE_PATH="${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module/dts" 
           
-          # overlayファイルは絶対パスを使用
           OVERLAY_FILES="${{ github.workspace }}/zmk-config-prospector/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/zmk-config-prospector/config/prospector_scanner.overlay"
 
-          # -s は ZMK の app フォルダへの相対パス
-          west build -s zmk/app -d build/scanner -b ${{ env.BOARD }} -- \
+          west build -s ${{ github.workspace }}/zmk-config-prospector/zmk/app -d ${{ github.workspace }}/zmk-config-prospector/build/scanner -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_scanner" \
             -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
             -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
@@ -78,14 +71,11 @@ jobs:
         id: west_build_adapter
         shell: bash
         run: |
-          # 🚨 修正: cd を復活
-          cd zmk-config-prospector
-          
           DTC_INCLUDE_PATH="${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module/dts" 
 
           OVERLAY_FILES="${{ github.workspace }}/zmk-config-prospector/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/zmk-config-prospector/config/prospector_adapter.overlay"
 
-          west build -s zmk/app -d build/adapter -b ${{ env.BOARD }} -- \
+          west build -s ${{ github.workspace }}/zmk-config-prospector/zmk/app -d ${{ github.workspace }}/zmk-config-prospector/build/adapter -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_adapter" \
             -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
             -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
@@ -94,13 +84,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: prospector_scanner-firmware
-          # 🚨 修正: cd した後の相対パス
+          # ビルドディレクトリのフルパス
           path: zmk-config-prospector/build/scanner/zephyr/zmk_prospector_scanner.uf2
 
       - name: Archive Adapter Firmware
         uses: actions/upload-artifact@v4
         with:
           name: prospector_adapter-firmware
-          # 🚨 修正: cd した後の相対パス
+          # ビルドディレクトリのフルパス
           path: zmk-config-prospector/build/adapter/zephyr/zmk_prospector_adapter.uf2
-
