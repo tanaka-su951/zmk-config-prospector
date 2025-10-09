@@ -17,7 +17,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}
-          # path: を省略し、ワークスペースのルートに配置
           submodules: 'recursive'
           
       # 2. ZMK コアコードを 'zmk' フォルダにチェックアウト
@@ -26,10 +25,9 @@ jobs:
         with:
           repository: zmkfirmware/zmk
           ref: ${{ env.ZMK_VERSION }}
-          path: zmk # ワークスペース直下の zmk/
+          path: zmk
           submodules: 'recursive'
           
-      # 3. pipをインストール
       - name: Install pip
         shell: bash
         run: |
@@ -40,21 +38,23 @@ jobs:
       - name: Install ZMK Dependencies
         shell: bash
         run: |
-          # 🚨 最終修正: カレントディレクトリをzmkフォルダに移動し、シンプルなパスを使用
-          cd ${{ github.workspace }}/zmk
+          # 🚨 最終修正: 実行パスの二重参照を避けるための環境変数を定義し、cdで強制
+          WORKSPACE_ROOT=${{ github.workspace }}
+          # /home/runner/work/zmk-config-prospector/zmk-config-prospector を /home/runner/work/zmk-config-prospector に短縮
+          ZMK_DIR=${WORKSPACE_ROOT%/*}/zmk
+          
+          cd ${ZMK_DIR}
           python3 -m pip install -r requirements.txt --break-system-packages
           
       # 5. カスタムモジュールのシンボリックリンク作成
       - name: Create Custom Module Symlink
         shell: bash
         run: |
-          # config/modules/ を zmk/app/modules/ にリンク
           ln -s ${{ github.workspace }}/modules/prospector-zmk-module ${{ github.workspace }}/zmk/app/modules/prospector-zmk-module
         
       - name: Export Environment Variables
         shell: bash
         run: |
-          # configとmodulesがルートにある前提でパスを定義
           echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
           echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
           
@@ -66,7 +66,6 @@ jobs:
           DTC_INCLUDE_PATH="${{ github.workspace }}/modules/prospector-zmk-module/dts" 
           OVERLAY_FILES="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/config/prospector_scanner.overlay"
 
-          # -s は zmk/app を使用
           west build -s ${{ github.workspace }}/zmk/app -d ${{ github.workspace }}/build/scanner -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_scanner" \
             -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
