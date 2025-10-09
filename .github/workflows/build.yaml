@@ -27,7 +27,6 @@ jobs:
           path: zmk-config-prospector/zmk
           submodules: 'recursive'
           
-      # ZMKビルドコンテナがrootで実行されているため、sudoは不要
       - name: Install pip
         shell: bash
         run: |
@@ -37,20 +36,19 @@ jobs:
       - name: Install ZMK Dependencies
         shell: bash
         run: |
-          cd zmk-config-prospector
-          # 🚨 最終修正: PEP 668のエラー回避のため、--break-system-packagesを追加
-          python3 -m pip install -r zmk/requirements.txt --break-system-packages
+          # 🚨 最終修正: cd を削除し、requirements.txt へのフルパスを指定
+          python3 -m pip install -r zmk-config-prospector/zmk/requirements.txt --break-system-packages
           
       - name: Create Custom Module Symlink
         shell: bash
         run: |
-          cd zmk-config-prospector/zmk/app/modules
-          ln -s ../../../modules/prospector-zmk-module prospector-zmk-module
+          # 🚨 最終修正: cd を削除し、フルパスを指定
+          ln -s ../../../modules/prospector-zmk-module zmk-config-prospector/zmk/app/modules/prospector-zmk-module
         
       - name: Export Environment Variables
         shell: bash
         run: |
-          cd zmk-config-prospector
+          # 🚨 最終修正: cd を削除
           echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module" >> $GITHUB_ENV
           echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
           
@@ -58,12 +56,11 @@ jobs:
         id: west_build_scanner
         shell: bash
         run: |
-          # Devicetreeファイルの検索パスをカスタムモジュールのdtsフォルダに強制
           DTC_INCLUDE_PATH="${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module/dts" 
           
           OVERLAY_FILES="${{ github.workspace }}/zmk-config-prospector/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/zmk-config-prospector/config/prospector_scanner.overlay"
 
-          west build -s zmk-config-prospector/zmk/app -d build/scanner -b ${{ env.BOARD }} -- \
+          west build -s zmk-config-prospector/zmk/app -d zmk-config-prospector/build/scanner -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_scanner" \
             -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
             -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
@@ -72,12 +69,11 @@ jobs:
         id: west_build_adapter
         shell: bash
         run: |
-          # Devicetreeファイルの検索パスをカスタムモジュールのdtsフォルダに強制
           DTC_INCLUDE_PATH="${{ github.workspace }}/zmk-config-prospector/modules/prospector-zmk-module/dts" 
 
           OVERLAY_FILES="${{ github.workspace }}/zmk-config-prospector/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/zmk-config-prospector/config/prospector_adapter.overlay"
 
-          west build -s zmk-config-prospector/zmk/app -d build/adapter -b ${{ env.BOARD }} -- \
+          west build -s zmk-config-prospector/zmk/app -d zmk-config-prospector/build/adapter -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_adapter" \
             -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
             -DDTC_INCLUDE_DIRS="${DTC_INCLUDE_PATH}"
