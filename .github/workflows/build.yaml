@@ -12,21 +12,21 @@ jobs:
       BOARD: seeeduino_xiao_ble
 
     steps:
-      # 1. ZMK コアコードを 'zmk' フォルダにチェックアウト
+      # 1. あなたの設定ファイル（config、modules）をワークスペースのルートにチェックアウト
+      - name: Checkout Config Files
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          # path: を省略し、ワークスペースのルートに配置
+          submodules: 'recursive'
+          
+      # 2. ZMK コアコードを 'zmk' フォルダにチェックアウト
       - name: Mount ZMK Firmware
         uses: actions/checkout@v4
         with:
           repository: zmkfirmware/zmk
           ref: ${{ env.ZMK_VERSION }}
-          path: zmk
-          submodules: 'recursive'
-          
-      # 2. あなたの設定ファイル（config、modules）を 'config' フォルダにチェックアウト
-      - name: Checkout Config
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository }}
-          path: config
+          path: zmk # ワークスペース直下の zmk/
           submodules: 'recursive'
           
       # 3. pipをインストール
@@ -40,21 +40,22 @@ jobs:
       - name: Install ZMK Dependencies
         shell: bash
         run: |
-          # 🚨 最終修正: カレントディレクトリをzmkフォルダに移動してから実行
+          # 🚨 最終修正: カレントディレクトリをzmkフォルダに移動し、シンプルなパスを使用
           cd ${{ github.workspace }}/zmk
-          # requirements.txt はこのディレクトリ直下にある
           python3 -m pip install -r requirements.txt --break-system-packages
           
       # 5. カスタムモジュールのシンボリックリンク作成
       - name: Create Custom Module Symlink
         shell: bash
         run: |
-          ln -s ${{ github.workspace }}/config/modules/prospector-zmk-module ${{ github.workspace }}/zmk/app/modules/prospector-zmk-module
+          # config/modules/ を zmk/app/modules/ にリンク
+          ln -s ${{ github.workspace }}/modules/prospector-zmk-module ${{ github.workspace }}/zmk/app/modules/prospector-zmk-module
         
       - name: Export Environment Variables
         shell: bash
         run: |
-          echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/config/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
+          # configとmodulesがルートにある前提でパスを定義
+          echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
           echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
           
       # 6. ビルドの実行
@@ -62,9 +63,10 @@ jobs:
         id: west_build_scanner
         shell: bash
         run: |
-          DTC_INCLUDE_PATH="${{ github.workspace }}/config/modules/prospector-zmk-module/dts" 
+          DTC_INCLUDE_PATH="${{ github.workspace }}/modules/prospector-zmk-module/dts" 
           OVERLAY_FILES="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/config/prospector_scanner.overlay"
 
+          # -s は zmk/app を使用
           west build -s ${{ github.workspace }}/zmk/app -d ${{ github.workspace }}/build/scanner -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_scanner" \
             -DDTC_OVERLAY_FILE="${OVERLAY_FILES}" \
@@ -74,7 +76,7 @@ jobs:
         id: west_build_adapter
         shell: bash
         run: |
-          DTC_INCLUDE_PATH="${{ github.workspace }}/config/modules/prospector-zmk-module/dts" 
+          DTC_INCLUDE_PATH="${{ github.workspace }}/modules/prospector-zmk-module/dts" 
           OVERLAY_FILES="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay ${{ github.workspace }}/config/prospector_adapter.overlay"
 
           west build -s ${{ github.workspace }}/zmk/app -d ${{ github.workspace }}/build/adapter -b ${{ env.BOARD }} -- \
