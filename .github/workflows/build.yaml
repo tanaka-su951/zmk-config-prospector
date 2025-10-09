@@ -44,19 +44,28 @@ jobs:
           mkdir -p app/modules
           ln -s ../../modules/prospector-zmk-module app/modules/prospector-zmk-module
         
-      # 5. 環境変数のエクスポート (west buildで直接パスを使うため、このステップは本質的ではないが維持)
+      # 4.5. モジュール Kconfig パスを West に追加 (新しいステップ)
+      - name: Set Module Kconfig Path
+        shell: bash
+        working-directory: zmk
+        run: |
+          # ワークスペースのルートにあるカスタムモジュールの Kconfig ディレクトリを ZMK に設定
+          echo "EXTRA_KCONFIG_DIRS=${{ github.workspace }}/modules/prospector-zmk-module/config" >> $GITHUB_ENV
+          
+      # 5. 環境変数のエクスポート (DTC_INCLUDE_DIRSはwest buildに直接渡すため、これは古い設定)
       - name: Export Environment Variables
         shell: bash
         run: |
           echo "DTC_INCLUDE_DIRS=${{ github.workspace }}/modules/prospector-zmk-module/dts" >> $GITHUB_ENV
-          echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV
+          echo "CONFIG_DIR=${{ github.workspace }}/config" >> $GITHUB_ENV # これはKconfigの自動検索に使われる可能性があるため維持
           
-      # 6. ビルドの実行 (DTC_OVERLAY_FILE パスを修正)
+      # 6. ビルドの実行
       - name: Run West Build (prospector_scanner)
         id: west_build_scanner
         shell: bash
         working-directory: zmk
         run: |
+          # DTC_OVERLAY_FILEとDTC_INCLUDE_DIRSはセミコロン区切りで渡す
           west build -s app -d ../build/scanner -b ${{ env.BOARD }} -- \
             -DAPP_LABEL="prospector_scanner" \
             -DDTC_OVERLAY_FILE="${{ github.workspace }}/config/boards/${{ env.BOARD }}.overlay;${{ github.workspace }}/config/prospector_scanner.overlay" \
