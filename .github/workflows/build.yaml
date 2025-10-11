@@ -1,7 +1,48 @@
-name: Build Prospector Firmware
+name: Build Prospector Firmware (Local)
 
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+    runs-on: ubuntu-latest
+    container:
+      # ZMKの標準ビルド環境コンテナを使用します
+      image: zmkfirmware/zmk-build-arm:stable
+      options: --user root
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        # すべての履歴とタグを取得
+        fetch-depth: 0
+        
+    - name: Set up Environment
+      run: |
+        # Python環境のセットアップと依存関係のインストール
+        /usr/bin/python3 -m venv zmk-env
+        source zmk-env/bin/activate
+        pip install -r zmk/app/scripts/requirements.txt
+        
+    - name: Initialize and Update west workspace
+      # west init の前に zmk/app/west.yml を参照する必要があるため、少し調整
+      run: |
+        west init -l zmk/app
+        west update
+
+    # ZMKのビルド処理 (west zephyr-export はスキップ)
+    # prospector_scanner シールドと seeeduino_xiao_ble ボードを指定
+    - name: Build Shield: prospector_scanner (seeeduino_xiao_ble)
+      run: |
+        source zmk-env/bin/activate
+        # -s zmk/app は ZMK アプリケーションソースコードの場所
+        # -d build/<ボード名> はビルド出力ディレクトリ
+        # -b <ボード名> は対象ボード
+        # -DSHIELD="..." はシールド名
+        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- -DSHIELD="prospector_scanner"
+
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: prospector_scanner-seeeduino_xiao_ble-zmk
+        path: build/prospector_scanner/zephyr/zmk.uf2
