@@ -1,4 +1,4 @@
-# .github/workflows/build-zmk.yml の修正済み全文（パス確定版）
+# .github/workflows/build-zmk.yml の修正済み全文（findコマンドによるパス強制特定）
 
 name: Build Prospector Firmware (Local)
 
@@ -34,8 +34,17 @@ jobs:
       run: |
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
+        
         # ZMKの依存関係をインストール
-        pip install -r zmk/app/requirements.txt # ★★★ 最終確定パス ★★★
+        # findコマンドでzmkディレクトリ内を再帰的に検索し、requirements.txtのパスを強制的に特定する
+        REQUIREMENTS_FILE=$(find zmk -name "requirements.txt" -print -quit)
+        if [ -n "$REQUIREMENTS_FILE" ]; then
+            echo "Found requirements file at: $REQUIREMENTS_FILE"
+            pip install -r "$REQUIREMENTS_FILE"
+        else
+            echo "FATAL ERROR: requirements.txt not found anywhere in the zmk/ directory."
+            exit 1
+        fi
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
