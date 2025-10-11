@@ -6,8 +6,8 @@ name: Build Prospector Firmware (Local)
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+　　build:
+  runs-on: ubuntu-latest
     container:
       # ZMKの標準ビルド環境コンテナを使用
       image: zmkfirmware/zmk-build-arm:stable
