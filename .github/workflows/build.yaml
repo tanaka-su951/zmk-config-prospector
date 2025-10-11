@@ -1,10 +1,9 @@
-# .github/workflows/build.yml の修正案
-
 name: Build Prospector Firmware
 
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    # uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main  <-- 古い形式
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+    # 外部ワークフローを安定版タグ v3.2.0 に固定します。
+    # これにより、west zephyr-export のような廃止されたコマンドが実行されなくなります。
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@v3.2.0
