@@ -1,4 +1,4 @@
-# .github/workflows/build-zmk.yml の修正済み全文（--verboseの位置修正）
+# .github/workflows/build-zmk.yml の修正済み全文（詳細ログ出力の追加）
 
 name: Build Prospector Firmware (Local)
 
@@ -58,8 +58,8 @@ jobs:
       run: |
         source zmk-env/bin/activate
         west zephyr-export
-        # ★★★ 最終修正箇所: --verbose を最初に追加し、その他のオプションを後に続ける ★★★
-        west build --verbose -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- -DSHIELD="prospector_scanner"
+        # ★★★ 最終修正箇所: --verbose を削除し、詳細ログのための CMake フラグを追加 ★★★
+        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- -DSHIELD="prospector_scanner" -DCMAKE_VERBOSE_MAKEFILE=ON
       shell: bash
 
     - name: Archive production artifacts (Artifact Upload)
