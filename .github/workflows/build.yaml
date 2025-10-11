@@ -1,4 +1,4 @@
-# .github/workflows/build-zmk.yml の修正済み全文（デバッグステップ追加）
+# .github/workflows/build-zmk.yml の修正済み全文（ステップ順序の修正）
 
 name: Build Prospector Firmware (Local)
 
@@ -24,25 +24,23 @@ jobs:
         apt install -y python3.12-venv || apt install -y python3-venv
       shell: bash
 
-    # ★★★ 新規追加：デバッグステップ ★★★
-    - name: Debug ZMK Directory Structure
-      run: ls -R zmk
-      shell: bash
-      
-    - name: Set up Python Environment
-      run: |
-        /usr/bin/python3 -m venv zmk-env
-        source zmk-env/bin/activate
-        # ZMKの依存関係をインストール (デバッグ結果に基づき、後で修正)
-        pip install -r zmk/requirements.txt
-      shell: bash
-        
+    # ★★★ ステップ1: west init/update を先に実行してZMKソースをダウンロード ★★★
     - name: Initialize and Update west workspace
       run: |
         west init -l zmk/app
         west update
       shell: bash
 
+    # ★★★ ステップ2: ZMKソースがダウンロードされた後にPython環境をセットアップ ★★★
+    - name: Set up Python Environment
+      run: |
+        /usr/bin/python3 -m venv zmk-env
+        source zmk-env/bin/activate
+        # ZMKの依存関係をインストール
+        pip install -r zmk/requirements.txt 
+      shell: bash
+
+    # ★★★ ステップ3: ビルド実行 ★★★
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
         source zmk-env/bin/activate
