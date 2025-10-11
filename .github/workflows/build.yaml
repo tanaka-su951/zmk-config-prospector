@@ -35,7 +35,7 @@ jobs:
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
         # ZMKの依存関係をインストール
-        pip install -r zmk/app/requirements.txt # ★★★ 最終修正箇所: zmk/app/requirements.txt に修正 ★★★
+        pip install -r zmk/scripts/requirements.txt # ★★★ 最終修正箇所: zmk/scripts/requirements.txt に修正 ★★★
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
