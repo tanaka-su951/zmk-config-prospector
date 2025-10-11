@@ -1,28 +1,72 @@
-manifest:
-  remotes:
-    - name: zmkfirmware
-      url-base: https://github.com/zmkfirmware
-    - name: prospector
-      url-base: https://github.com/t-ogura
-    - name: englmaxi
-      url-base: https://github.com/englmaxi
+name: Build Prospector Firmware (Local)
 
-  projects:
-    - name: zmk
-      remote: zmkfirmware
-      revision: main
+on: [push, pull_request, workflow_dispatch]
 
-    # ⚠️ 一時的にカスタムモジュールをコメントアウト ⚠️
-    # ビルドが成功することを確認した後、これらを戻します。
-    # - name: prospector-zmk-module
-    #   remote: prospector
-    #   revision: v1.1.1
-    #   path: modules/prospector-zmk-module
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      # ZMKの標準ビルド環境コンテナを使用
+      image: zmkfirmware/zmk-build-arm:stable
+      options: --user root
 
-    # - name: zmk-dongle-display
-    #   remote: englmaxi
-    #   revision: main
-    #   path: modules/zmk-dongle-display
+    steps:
+    - name: Checkout ZMK Config and Module
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-  self:
-    path: config
+    - name: Install Python Venv
+      run: |
+        apt update
+        apt install -y python3.12-venv || apt install -y python3-venv
+      shell: bash
+
+    - name: Initialize and Update west workspace
+      run: |
+        # ZMKのmanifest URLとファイルを明示的に指定
+        west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
+        west update
+      shell: bash
+
+    - name: Debug ZMK Source Location
+      run: |
+        echo "Listing contents of workspace root:"
+        ls -F
+        echo "Listing contents of zmk/ (if exists):"
+        ls -F zmk || echo "ZMK directory not found, check west.yml configuration."
+        echo "Listing contents of modules/ (if exists):"
+        ls -F modules || echo "Modules directory not found, check west.yml configuration."
+      shell: bash
+      
+    - name: Set up Python Environment
+      run: |
+        /usr/bin/python3 -m venv zmk-env
+        source zmk-env/bin/activate
+        
+        # ZMKの依存関係をインストール
+        REQUIREMENTS_FILE=$(find . -name "requirements.txt" -path "*zmk*" -print -quit || find . -name "requirements.txt" -print -quit)
+        if [ -n "$REQUIREMENTS_FILE" ]; then
+            echo "Found requirements file at: $REQUIREMENTS_FILE"
+            pip install -r "$REQUIREMENTS_FILE"
+        else
+            echo "Warning: requirements.txt not found. Continuing build in case dependencies are pre-installed."
+        fi
+      shell: bash
+
+    - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
+      run: |
+        source zmk-env/bin/activate
+        west zephyr-export
+        # ★★★ 最終修正箇所: ソースディレクトリを zmk/app に戻し、モジュールを明示的に追加 ★★★
+        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
+          -DSHIELD="prospector_scanner" \
+          -DZEPHYR_EXTRA_MODULES="modules/prospector-zmk-module;modules/zmk-dongle-display" \
+          -DCMAKE_VERBOSE_MAKEFILE=ON
+      shell: bash
+
+    - name: Archive production artifacts (Artifact Upload)
+      uses: actions/upload-artifact@v4
+      with:
+        name: prospector_scanner-seeeduino_xiao_ble-zmk
+        path: build/prospector_scanner/zephyr/zmk.uf2
