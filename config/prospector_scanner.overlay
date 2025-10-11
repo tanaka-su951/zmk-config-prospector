@@ -1,59 +1,15 @@
-/* config/prospector_scanner.overlay (デバッグ用) */
+/* config/prospector_scanner.overlay (最小構成 - ハードウェア設定なし) */
 
 / {
     chosen {
-        zephyr,display = &st7789v;
-        // zmk,kscan = &kscan0; // 👈 デバッグのために一時的に無効化
+        // zmk,kscan = &kscan0; // キーマトリックスも無効化
     };
+
+    // // すべてのカスタムノード定義を削除
+    // kscan0: kscan { ... }; 
+    // &spi0 { ... };
+    // &pwm0 { ... }; 
 };
-
-// =================================================================
-// ディスプレイの定義 (ST7789V - SPI)
-// =================================================================
-
-// Xiao BLE の spi0 ノードを有効化
-&spi0 {
-    compatible = "nordic,nrf-spi";
-    status = "okay";
-    
-    // LCD_CLK (D8) -> SCK (Pin 29)
-    sck-pin = <29>;
-    // LCD_DIN (D10) -> MOSI (Pin 30)
-    mosi-pin = <30>;
-    // MISO は使わないが定義は必要
-    miso-pin = <0>;
-
-    st7789v: st7789v@0 {
-        compatible = "sitronix,st7789v";
-        label = "ST7789V";
-        reg = <0>; 
-
-        spi-max-frequency = <10000000>;
-        
-        // LCD_DC (D7) -> Data/Command (Pin 11)
-        cmd-data-gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>;
-        
-        // LCD_RST (D3) -> Reset (Pin 6)
-        reset-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
-        
-        // LCD_CS (D9) -> Chip Select (Pin 31)
-        cs-gpios = <&gpio0 31 GPIO_ACTIVE_LOW>;
-        
-        // LCD_BL (D6) -> Backlight (Pin 10)
-        backlight = <&pwm0 0>; // PWM Backlight
-        
-        width = <240>;
-        height = <240>;
-        x-offset = <0>;
-        y-offset = <0>;
-        rotation = <0>;
-        status = "okay";
-    };
-};
-
-// =================================================================
-// Backlight PWM (D6 -> P0.10) の有効化
-// =================================================================
 
 &pwm0 {
     status = "okay";
