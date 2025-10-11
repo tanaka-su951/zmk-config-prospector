@@ -1,4 +1,4 @@
-# .github/workflows/build-zmk.yml の修正済み全文（ワイルドカードによるパス特定）
+# .github/workflows/build-zmk.yml の修正済み全文（findコマンドの検索範囲修正）
 
 name: Build Prospector Firmware (Local)
 
@@ -29,20 +29,20 @@ jobs:
         west init
         west update
       shell: bash
-
+      
     - name: Set up Python Environment
       run: |
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
         
         # ZMKの依存関係をインストール
-        # findコマンドでrequirements.txtを検索し、その結果を使ってpip installを実行する
-        REQUIREMENTS_FILE=$(find zmk -name "requirements.txt" -print -quit)
+        # findコマンドの検索範囲をカレントディレクトリ全体に拡張し、パスにzmkを含むrequirements.txtを探す
+        REQUIREMENTS_FILE=$(find . -name "requirements.txt" -path "*zmk*" -print -quit)
         if [ -n "$REQUIREMENTS_FILE" ]; then
             echo "Found requirements file at: $REQUIREMENTS_FILE"
             pip install -r "$REQUIREMENTS_FILE"
         else
-            echo "FATAL ERROR: requirements.txt not found anywhere in zmk/ directory."
+            echo "FATAL ERROR: requirements.txt in ZMK not found anywhere in the workspace."
             exit 1
         fi
       shell: bash
