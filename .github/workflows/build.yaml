@@ -29,6 +29,14 @@ jobs:
         west update
       shell: bash
 
+    # ★★★ 新規追加ステップ：ZMK App CMakeLists.txt にカスタム設定をフック ★★★
+    - name: Hook Custom Config into ZMK App
+      run: |
+        # zmk/app/CMakeLists.txt の最上部に 'add_subdirectory(../../config)' を追記
+        # これにより、ZMKのビルドプロセスの早い段階でカスタム設定を強制的に認識させる
+        echo 'add_subdirectory(../../config)' | cat - zmk/app/CMakeLists.txt > temp && mv temp zmk/app/CMakeLists.txt
+      shell: bash
+
     - name: Debug ZMK Source Location
       run: |
         echo "Listing contents of workspace root:"
@@ -58,7 +66,7 @@ jobs:
       run: |
         source zmk-env/bin/activate
         west zephyr-export
-        # ZEPHYR_EXTRA_MODULESを削除し、クリーンなビルドに戻す
+        # カスタムモジュールが隔離された、クリーンなビルドコマンド
         west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
