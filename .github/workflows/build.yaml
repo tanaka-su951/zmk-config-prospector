@@ -1,9 +1,11 @@
+# .github/workflows/build.yml
+
 name: Build Prospector Firmware
 
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    # 外部ワークフローを、ZMKの安定版タグ（例：zmk-v3.5.0）に固定します。
-    # これにより、GitHub Actionsが参照を正しく解決できるようになります。
+    # 外部ワークフローを安定版タグ zmk-v3.5.0 に固定します。
+    # これが、west zephyr-export エラーを回避する最も確実な方法です。
     uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@zmk-v3.5.0
