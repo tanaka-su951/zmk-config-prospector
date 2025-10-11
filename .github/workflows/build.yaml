@@ -1,4 +1,4 @@
-  - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
-    run: | 
-        source zmk-env/bin/activate
+- name: Build Shield:prospector_scanner (seeeduino_xiao_ble) run: |
+ 
+        source zmk-env/bin/activatenot
         west zephyr-export
