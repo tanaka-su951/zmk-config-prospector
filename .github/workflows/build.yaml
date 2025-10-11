@@ -58,17 +58,10 @@ jobs:
       run: |
         source zmk-env/bin/activate
         west zephyr-export
-        # ★★★ ZEPHYR_EXTRA_MODULESを削除し、クリーンなビルドに戻す ★★★
+        # ZEPHYR_EXTRA_MODULESを削除し、クリーンなビルドに戻す
         west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
-      shell: bash
-
-    - name: Archive production artifacts (Artifact Upload)
-      uses: actions/upload-artifact@v4
-      with:
-        name: prospector_scanner-seeeduino_xiao_ble-zmk
-        path: build/prospector_scanner/zephyr/zmk.uf2
       shell: bash
 
     - name: Archive production artifacts (Artifact Upload)
