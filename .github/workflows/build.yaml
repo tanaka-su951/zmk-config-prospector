@@ -1,4 +1,4 @@
-ame: Build Prospector Firmware
+name: Build Prospector Firmware
 
 on: [push, pull_request, workflow_dispatch]
 
