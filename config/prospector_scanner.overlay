@@ -1,17 +1,9 @@
-/* config/prospector_scanner.overlay */
+/* config/prospector_scanner.overlay (デバッグ用) */
 
 / {
-    // 必須：キーボードスキャンの定義 (仮)
     chosen {
         zephyr,display = &st7789v;
-        zmk,kscan = &kscan0;
-    };
-
-    kscan0: kscan {
-        compatible = "zmk,kscan-gpio-matrix";
-        diode-direction = "col2row"; // 実際の配線に合わせて変更
-
-        // ... (KSCANのピン定義: 実際のキーマトリックスに合わせてください) ...
+        // zmk,kscan = &kscan0; // 👈 デバッグのために一時的に無効化
     };
 };
 
@@ -34,9 +26,9 @@
     st7789v: st7789v@0 {
         compatible = "sitronix,st7789v";
         label = "ST7789V";
-        reg = <0>; // CSピンを使用しない場合は0
+        reg = <0>; 
 
-        spi-max-frequency = <10000000>; // 通信速度
+        spi-max-frequency = <10000000>;
         
         // LCD_DC (D7) -> Data/Command (Pin 11)
         cmd-data-gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>;
@@ -60,7 +52,7 @@
 };
 
 // =================================================================
-// Backlight PWM (D6) の有効化
+// Backlight PWM (D6 -> P0.10) の有効化
 // =================================================================
 
 &pwm0 {
