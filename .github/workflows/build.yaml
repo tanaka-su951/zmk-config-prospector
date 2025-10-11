@@ -6,7 +6,6 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    # ZMK v3.5.0リリース時のコミットSHAに固定します。
-    # これにより、ビルドスクリプトがwest zephyr-exportを実行しなくなります。
-    # コミットSHA: 67104d49811f372173b22b1029279a0989f5370d
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@67104d49811f372173b22b1029279a0989f5370d
+    # ZMKが推奨する、外部config用の安定版エイリアス（config-v3）に固定します。
+    # これにより、参照エラーとwest zephyr-exportエラーの両方を回避できます。
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@config-v3
