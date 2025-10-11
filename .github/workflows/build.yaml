@@ -26,8 +26,8 @@ jobs:
 
     - name: Initialize and Update west workspace
       run: |
-        # ★★★ 最終修正箇所: manifest-path を -mf app/west.yml に修正 ★★★
-        west init -m https://github.com/zmkfirmware/zmk -mf app/west.yml
+        # ★★★ 最終修正箇所: manifest-file オプションを --mf に修正し、引数を分離 ★★★
+        west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
         west update
       shell: bash
 
