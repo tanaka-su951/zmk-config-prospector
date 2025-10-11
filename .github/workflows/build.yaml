@@ -1,4 +1,4 @@
-# .github/workflows/build-zmk.yml の修正済み全文（west initの修正）
+# .github/workflows/build-zmk.yml の修正済み全文（requirements.txtの最終パス修正）
 
 name: Build Prospector Firmware (Local)
 
@@ -24,7 +24,6 @@ jobs:
         apt install -y python3.12-venv || apt install -y python3-venv
       shell: bash
 
-    # ★★★ 修正箇所: west init -l zmk/app を west init に修正 ★★★
     - name: Initialize and Update west workspace
       run: |
         west init
@@ -36,7 +35,7 @@ jobs:
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
         # ZMKの依存関係をインストール
-        pip install -r zmk/requirements.txt 
+        pip install -r zmk/app/requirements.txt # ★★★ 最終修正箇所: zmk/app/requirements.txt に修正 ★★★
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
