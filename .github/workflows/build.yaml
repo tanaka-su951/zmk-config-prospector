@@ -1,4 +1,4 @@
-# .github/workflows/build-zmk.yml の修正済み全文（requirements.txtの最終パス修正）
+# .github/workflows/build-zmk.yml の修正済み全文（pip installのフォールバック追加）
 
 name: Build Prospector Firmware (Local)
 
@@ -35,7 +35,10 @@ jobs:
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
         # ZMKの依存関係をインストール
-        pip install -r zmk/app/scripts/requirements.txt # ★★★ 最終修正箇所: zmk/app/scripts/requirements.txt に修正 ★★★
+        # ファイルが見つからない場合に備え、可能性のあるパスをフォールバックで試す (|| は論理ORでエラー時に次のコマンドを実行)
+        pip install -r zmk/app/requirements.txt || \
+        pip install -r zmk/requirements.txt || \
+        pip install -r zmk/app/scripts/requirements.txt
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
