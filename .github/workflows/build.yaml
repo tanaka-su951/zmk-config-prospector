@@ -1,4 +1,4 @@
-# .github/workflows/build-zmk.yml の修正済み全文（findコマンドによるパス強制特定）
+# .github/workflows/build-zmk.yml の修正済み全文（findコマンドの最終修正）
 
 name: Build Prospector Firmware (Local)
 
@@ -30,19 +30,28 @@ jobs:
         west update
       shell: bash
 
+    # ★★★ 新規デバッグステップ：ZMKのソースがどこにあるかを確認 ★★★
+    - name: Debug ZMK Source Location
+      run: |
+        echo "Listing contents of workspace root:"
+        ls -F
+        echo "Listing contents of zmk/ (if exists):"
+        ls -F zmk || echo "ZMK directory still not found."
+      shell: bash
+      
     - name: Set up Python Environment
       run: |
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
         
         # ZMKの依存関係をインストール
-        # findコマンドでzmkディレクトリ内を再帰的に検索し、requirements.txtのパスを強制的に特定する
-        REQUIREMENTS_FILE=$(find zmk -name "requirements.txt" -print -quit)
+        # 検索範囲をカレントディレクトリ全体に拡張し、パスにzmkを含むrequirements.txtを探す
+        REQUIREMENTS_FILE=$(find . -name "requirements.txt" -path "*zmk*" -print -quit)
         if [ -n "$REQUIREMENTS_FILE" ]; then
             echo "Found requirements file at: $REQUIREMENTS_FILE"
             pip install -r "$REQUIREMENTS_FILE"
         else
-            echo "FATAL ERROR: requirements.txt not found anywhere in the zmk/ directory."
+            echo "FATAL ERROR: requirements.txt in ZMK not found anywhere in the workspace."
             exit 1
         fi
       shell: bash
