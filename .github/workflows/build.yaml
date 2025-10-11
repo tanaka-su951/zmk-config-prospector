@@ -26,8 +26,8 @@ jobs:
 
     - name: Initialize and Update west workspace
       run: |
-        # ★★★ 最終修正箇所: ZMKのmanifest URLを明示的に指定 ★★★
-        west init -m https://github.com/zmkfirmware/zmk/west.yml
+        # ★★★ 最終修正箇所: ZMKのmanifest URLをリポジトリルートに修正 ★★★
+        west init -m https://github.com/zmkfirmware/zmk 
         west update
       shell: bash
 
