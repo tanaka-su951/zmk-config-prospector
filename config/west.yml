@@ -12,14 +12,17 @@ manifest:
       remote: zmkfirmware
       revision: main
 
-    - name: prospector-zmk-module
-      remote: prospector
-      revision: v1.1.1
-      path: modules/prospector-zmk-module
+    # ⚠️ 一時的にカスタムモジュールをコメントアウト ⚠️
+    # ビルドが成功することを確認した後、これらを戻します。
+    # - name: prospector-zmk-module
+    #   remote: prospector
+    #   revision: v1.1.1
+    #   path: modules/prospector-zmk-module
 
-    - name: zmk-dongle-display
-      remote: englmaxi
-      revision: main
+    # - name: zmk-dongle-display
+    #   remote: englmaxi
+    #   revision: main
+    #   path: modules/zmk-dongle-display
 
   self:
     path: config
