@@ -1,4 +1,4 @@
-# .github/workflows/build-zmk.yml の修正済み全文（詳細ログ出力の追加）
+# .github/workflows/build-zmk.yml の修正済み全文
 
 name: Build Prospector Firmware (Local)
 
@@ -37,6 +37,9 @@ jobs:
         ls -F
         echo "Listing contents of zmk/ (if exists):"
         ls -F zmk || echo "ZMK directory not found, check west.yml configuration."
+        # モジュールディレクトリの存在と内容も確認
+        echo "Listing contents of modules/ (if exists):"
+        ls -F modules || echo "Modules directory not found, check west.yml configuration."
       shell: bash
       
     - name: Set up Python Environment
@@ -58,8 +61,9 @@ jobs:
       run: |
         source zmk-env/bin/activate
         west zephyr-export
-        # ★★★ 最終修正箇所: --verbose を削除し、詳細ログのための CMake フラグを追加 ★★★
-        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- -DSHIELD="prospector_scanner" -DCMAKE_VERBOSE_MAKEFILE=ON
+        # ★★★ 最終修正箇所: カスタムモジュールパスを明示的に追加 ★★★
+        # モジュールディレクトリ（/modules）をZephyrの追加モジュールパスとして指定
+        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- -DSHIELD="prospector_scanner" -DZEPHYR_EXTRA_MODULES=modules -DCMAKE_VERBOSE_MAKEFILE=ON
       shell: bash
 
     - name: Archive production artifacts (Artifact Upload)
