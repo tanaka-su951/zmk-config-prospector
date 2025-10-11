@@ -29,7 +29,7 @@ jobs:
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
         # ZMKの依存関係をインストール
-        pip install -r zmk/app/requirements.txt # ★★★ 最終修正箇所 ★★★
+        pip install -r zmk/requirements.txt # ★★★ 最終修正箇所: app/を完全に削除 ★★★
       shell: bash
         
     - name: Initialize and Update west workspace
