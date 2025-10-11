@@ -1,3 +1,5 @@
+# west.yml の修正後の projects セクション
+
 manifest:
   remotes:
     - name: zmkfirmware
@@ -20,6 +22,7 @@ manifest:
     - name: zmk-dongle-display
       remote: englmaxi
       revision: main
+      path: modules/zmk-dongle-display // 👈 この行を追加してください！
 
   self:
     path: config
