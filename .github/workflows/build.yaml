@@ -4,8 +4,7 @@
 name: Build Prospector Firmware (Local)
 
 on: [push, pull_request, workflow_dispatch]
-
-  jobs:
+jobs:
   build:
     runs-on: ubuntu-latest
       container:
