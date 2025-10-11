@@ -38,7 +38,7 @@ jobs:
         west init -l zmk/app
         west update
 
-    - name: Build Shield: prospector_scanner (seeeduino_xiao_ble)
+    - name: Build Shield: prospector_scanner(seeeduino_xiao_ble)
       run: |
         source zmk-env/bin/activate
         west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- -DSHIELD="prospector_scanner"
