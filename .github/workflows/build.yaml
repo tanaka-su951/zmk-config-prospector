@@ -1,4 +1,4 @@
-# .github/workflows/build-zmk.yml の修正済み全文（ZEPHYR_EXTRA_MODULESの削除）
+# .github/workflows/build-zmk.yml の修正済み全文（west buildの最終ソースパス修正）
 
 name: Build Prospector Firmware (Local)
 
@@ -58,7 +58,8 @@ jobs:
       run: |
         source zmk-env/bin/activate
         west zephyr-export
-        # ★★★ 最終修正箇所: ZEPHYR_EXTRA_MODULES の指定を削除 ★★★
+        # ★★★ 最終修正箇所: west.yml の self: path: config がカスタム設定を処理するため、
+        # ソースディレクトリを ZMK アプリ本体に戻す。ZEPHYR_EXTRA_MODULESも不要。
         west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- -DSHIELD="prospector_scanner"
       shell: bash
 
