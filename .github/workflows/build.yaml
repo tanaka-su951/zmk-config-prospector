@@ -1,4 +1,4 @@
-# .github/workflows/build.yml
+# .github/workflows/build.yml の修正案
 
 name: Build Prospector Firmware
 
@@ -6,6 +6,7 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    # 外部ワークフローを安定版タグ zmk-v3.5.0 に固定します。
-    # これが、west zephyr-export エラーを回避する最も確実な方法です。
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@zmk-v3.5.0
+    # ZMK v3.5.0リリース時のコミットSHAに固定します。
+    # これにより、ビルドスクリプトがwest zephyr-exportを実行しなくなります。
+    # コミットSHA: 67104d49811f372173b22b1029279a0989f5370d
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@67104d49811f372173b22b1029279a0989f5370d
