@@ -31,7 +31,7 @@ jobs:
         west init -l zmk/app
         west update
 
-    - name: Build Shield: prospector_scanner (seeeduino_xiao_ble)
+    - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
         source zmk-env/bin/activate
         # west zephyr-export の実行を回避し、直接 west build を実行
