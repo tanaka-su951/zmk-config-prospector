@@ -1,4 +1,4 @@
-# .github/workflows/build-zmk.yml の修正済み全文（ZEPHYR_EXTRA_MODULES=config に修正）
+# .github/workflows/build-zmk.yml の修正済み全文（ZEPHYR_EXTRA_MODULESの削除）
 
 name: Build Prospector Firmware (Local)
 
@@ -58,8 +58,8 @@ jobs:
       run: |
         source zmk-env/bin/activate
         west zephyr-export
-        # west build の引数に ZEPHYR_EXTRA_MODULES を追加し、カスタムシールドの場所を教える
-        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- -DSHIELD="prospector_scanner" -DZEPHYR_EXTRA_MODULES=config
+        # ★★★ 最終修正箇所: ZEPHYR_EXTRA_MODULES の指定を削除 ★★★
+        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- -DSHIELD="prospector_scanner"
       shell: bash
 
     - name: Archive production artifacts (Artifact Upload)
