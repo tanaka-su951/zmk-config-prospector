@@ -24,25 +24,13 @@ jobs:
 
     - name: Initialize and Update west workspace
       run: |
-        # ★★★ 最終修正箇所: ZMKリポジトリ内のマニフェストファイル (app/west.yml) を明示的に指定し直す ★★★
+        # ZMKリポジトリ内のマニフェストファイル (app/west.yml) を明示的に指定
         west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
         west update
       shell: bash
 
-    # キャッシュ衝突を防ぐための強制クリーンアップ
-    - name: Force Clean Build Cache
-      run: |
-        # 古いビルドキャッシュとモジュールを完全に削除し、クリーンな環境を確保
-        rm -rf build modules
-      shell: bash
-
-    # ZMK App CMakeLists.txt にカスタム設定をフック
-    - name: Hook Custom Config into ZMK App
-      run: |
-        # zmk/app/CMakeLists.txt の最上部に 'add_subdirectory(../../config)' を追記
-        # これにより、ZMKのビルドプロセスの早い段階でカスタム設定を強制的に認識させる
-        echo 'add_subdirectory(../../config)' | cat - zmk/app/CMakeLists.txt > temp && mv temp zmk/app/CMakeLists.txt
-      shell: bash
+    # ⚠️ 以前の "Force Clean" および "Hook Custom Config" ステップは削除しました ⚠️
+    # ZMKの標準的な自動検出機能に頼ります。
 
     - name: Debug ZMK Source Location
       run: |
