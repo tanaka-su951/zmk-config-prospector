@@ -29,7 +29,14 @@ jobs:
         west update
       shell: bash
 
-    # ★★★ 新規追加ステップ：ZMK App CMakeLists.txt にカスタム設定をフック ★★★
+    # ★★★ 新規追加ステップ：強制クリーンアップ (キャッシュ削除) ★★★
+    - name: Force Clean Build Cache
+      run: |
+        # 古いビルドキャッシュとモジュールを完全に削除し、クリーンな環境を確保
+        rm -rf build modules
+      shell: bash
+
+    # ★★★ ZMK App CMakeLists.txt にカスタム設定をフック ★★★
     - name: Hook Custom Config into ZMK App
       run: |
         # zmk/app/CMakeLists.txt の最上部に 'add_subdirectory(../../config)' を追記
