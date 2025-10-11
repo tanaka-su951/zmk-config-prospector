@@ -1,12 +1,5 @@
-# 誤り：
-# - name: # 正しい構文：
-    - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
-      run: |
+- name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
+    run: |
         source zmk-env/bin/activate
         west zephyr-export
-        # ★★★ 最終修正箇所: ソースディレクトリを zmk/app から zmk に変更 ★★★
-        west build -s zmk -d build/prospector_scanner -b seeeduino_xiao_ble -- \
-          -DSHIELD="prospector_scanner" \
-          -DZEPHYR_EXTRA_MODULES="modules/prospector-zmk-module;modules/zmk-dongle-display" \
-          -DCMAKE_VERBOSE_MAKEFILE=ON
-      shell: bash
+        # ★★★ 最終
