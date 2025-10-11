@@ -1,4 +1,4 @@
-# .github/workflows/build-zmk.yml の修正済み全文（requirements.txtのパス修正）
+# .github/workflows/build-zmk.yml の修正済み全文（requirements.txtの最終パス修正）
 
 name: Build Prospector Firmware (Local)
 
@@ -29,7 +29,7 @@ jobs:
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
         # ZMKの依存関係をインストール
-        pip install -r zmk/app/scripts/requirements.txt # ★★★ 修正箇所: scripts/を追加 ★★★
+        pip install -r zmk/app/requirements.txt # ★★★ 最終修正箇所 ★★★
       shell: bash
         
     - name: Initialize and Update west workspace
