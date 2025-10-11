@@ -1,4 +1,4 @@
-# .github/workflows/build-zmk.yml の修正済み全文（pip installのフォールバック追加）
+# .github/workflows/build-zmk.yml の修正済み全文（デバッグステップの最終導入）
 
 name: Build Prospector Firmware (Local)
 
@@ -30,21 +30,23 @@ jobs:
         west update
       shell: bash
 
+    # ★★★ 新規追加：デバッグステップ（west updateの後に実行）★★★
+    - name: Debug ZMK Directory Structure
+      run: ls -R zmk || echo "ZMK directory not found, skipping debug."
+      shell: bash
+      
     - name: Set up Python Environment
       run: |
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
-        # ZMKの依存関係をインストール
-        # ファイルが見つからない場合に備え、可能性のあるパスをフォールバックで試す (|| は論理ORでエラー時に次のコマンドを実行)
-        pip install -r zmk/app/requirements.txt || \
-        pip install -r zmk/requirements.txt || \
-        pip install -r zmk/app/scripts/requirements.txt
+        # ZMKの依存関係をインストール (デバッグ結果に基づき、後で修正します)
+        # 今回はフォールバックを削除し、デバッグ結果を待つ
+        pip install -r zmk/app/requirements.txt
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
         source zmk-env/bin/activate
-        # west zephyr-export の実行を回避し、直接 west build を実行
         west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- -DSHIELD="prospector_scanner"
       shell: bash
 
