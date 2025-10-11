@@ -1,18 +1,17 @@
-/* config/prospector_scanner.overlay (最小構成 - ハードウェア設定なし) */
+/* config/prospector_scanner.overlay (最終デバッグ用 - ディスプレイ定義をすべて削除) */
 
 / {
     chosen {
-        // zmk,kscan = &kscan0; // キーマトリックスも無効化
+        zmk,kscan = &kscan_0; 
     };
-
-    // // すべてのカスタムノード定義を削除
-    // kscan0: kscan { ... }; 
-    // &spi0 { ... };
-    // &pwm0 { ... }; 
-};
-
-&pwm0 {
-    status = "okay";
-    // Pin 10 を PWM チャンネルとして使用
-    ch0-pin = <10>; 
+    
+    // 最小限のダミーkscan定義（存在しないとエラーになるため）
+    kscan_0: kscan_0 {
+        compatible = "zmk,kscan-gpio-matrix";
+        // 実際のピン定義をダミーとして残します
+        row-gpios = <&gpio0 26 GPIO_PULL_DOWN>;
+        col-gpios = <&gpio0 27 (GPIO_PULL_UP | GPIO_ACTIVE_HIGH)>;
+    };
+    
+    // ⚠️ &spi0, st7789v, &pwm0 ノード定義はすべて削除されていることを確認 ⚠️
 };
