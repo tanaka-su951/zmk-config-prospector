@@ -24,12 +24,12 @@ jobs:
 
     - name: Initialize and Update west workspace
       run: |
-        # ZMKのmanifest URLとファイルを明示的に指定
-        west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
+        # ★★★ 最終修正箇所: --mf app/west.yml を削除し、カスタムリポジトリのwest.ymlを使用 ★★★
+        west init -m https://github.com/zmkfirmware/zmk
         west update
       shell: bash
 
-    # ★★★ 新規追加ステップ：強制クリーンアップ (キャッシュ削除) ★★★
+    # ★★★ キャッシュ衝突を防ぐための強制クリーンアップ ★★★
     - name: Force Clean Build Cache
       run: |
         # 古いビルドキャッシュとモジュールを完全に削除し、クリーンな環境を確保
