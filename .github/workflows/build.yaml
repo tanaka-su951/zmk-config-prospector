@@ -1,5 +1,4 @@
-# .github/workflows/build-zmk.yml
-# ZMKビルドのシェル互換性の問題を解決済み。
+# .github/workflows/build-zmk.yml の修正済み全文（requirements.txtのパス修正）
 
 name: Build Prospector Firmware (Local)
 
@@ -30,7 +29,7 @@ jobs:
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
         # ZMKの依存関係をインストール
-        pip install -r zmk/app/scripts/requirements.txt
+        pip install -r zmk/requirements.txt # ★★★ 修正箇所: app/scripts/を削除 ★★★
       shell: bash
         
     - name: Initialize and Update west workspace
