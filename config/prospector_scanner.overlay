@@ -1,11 +1,70 @@
-// config/prospector_scanner.overlay
+/* config/prospector_scanner.overlay */
 
-// 🚨 最終修正: ファイルがモジュールルートの下の "dts/" フォルダにあると仮定
-#include <dts/st7789v.dtsi> 
- 
 / {
-   chosen {
-      // プライマリディスプレイとして st7789v を参照
-      zephyr,display = &st7789v;
-  };
+    // 必須：キーボードスキャンの定義 (仮)
+    chosen {
+        zephyr,display = &st7789v;
+        zmk,kscan = &kscan0;
+    };
+
+    kscan0: kscan {
+        compatible = "zmk,kscan-gpio-matrix";
+        diode-direction = "col2row"; // 実際の配線に合わせて変更
+
+        // ... (KSCANのピン定義: 実際のキーマトリックスに合わせてください) ...
+    };
+};
+
+// =================================================================
+// ディスプレイの定義 (ST7789V - SPI)
+// =================================================================
+
+// Xiao BLE の spi0 ノードを有効化
+&spi0 {
+    compatible = "nordic,nrf-spi";
+    status = "okay";
+    
+    // LCD_CLK (D8) -> SCK (Pin 29)
+    sck-pin = <29>;
+    // LCD_DIN (D10) -> MOSI (Pin 30)
+    mosi-pin = <30>;
+    // MISO は使わないが定義は必要
+    miso-pin = <0>;
+
+    st7789v: st7789v@0 {
+        compatible = "sitronix,st7789v";
+        label = "ST7789V";
+        reg = <0>; // CSピンを使用しない場合は0
+
+        spi-max-frequency = <10000000>; // 通信速度
+        
+        // LCD_DC (D7) -> Data/Command (Pin 11)
+        cmd-data-gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>;
+        
+        // LCD_RST (D3) -> Reset (Pin 6)
+        reset-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
+        
+        // LCD_CS (D9) -> Chip Select (Pin 31)
+        cs-gpios = <&gpio0 31 GPIO_ACTIVE_LOW>;
+        
+        // LCD_BL (D6) -> Backlight (Pin 10)
+        backlight = <&pwm0 0>; // PWM Backlight
+        
+        width = <240>;
+        height = <240>;
+        x-offset = <0>;
+        y-offset = <0>;
+        rotation = <0>;
+        status = "okay";
+    };
+};
+
+// =================================================================
+// Backlight PWM (D6) の有効化
+// =================================================================
+
+&pwm0 {
+    status = "okay";
+    // Pin 10 を PWM チャンネルとして使用
+    ch0-pin = <10>; 
 };
