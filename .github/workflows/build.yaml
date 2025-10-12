@@ -90,16 +90,17 @@ jobs:
         rm -rf "$BUILD_DIR"
         
         # 2. west build で設定ファイルを生成 (コンパイルはしない)
+        # -S . を追加し、ソースディレクトリを明示的に指定
         west build -s . -d "$BUILD_DIR" -b "$BOARD_NAME" -- \
           -DSHIELD="$SHIELD_NAME" \
-          -DCMAKE_VERBOSE_MAKEFILE=ON
+          -DCMAKE_VERBOSE_MAKEFILE=ON \
+          -S . 
         
         # 3. 生成されたビルドファイルを ninja で強制的にコンパイル
-        # ★★★ 最終修正: ninja を直接実行し、「no work to do」を回避 ★★★
-        ninja -v all -C "$BUILD_DIR"
+        # ★★★ 最終修正: 'rebuild' ターゲットを呼び出し、強制ビルド ★★★
+        ninja -v rebuild -C "$BUILD_DIR"
         
         # 4. 生成された .bin ファイルを最も可能性の高い場所から直接指定し、UF2変換
-        # ビルドディレクトリの直下にある zephyr.bin を指定
         BIN_FILE="$BUILD_DIR/zephyr.bin"
         UF2_PATH="$BUILD_DIR/zmk.uf2"
         
@@ -113,7 +114,7 @@ jobs:
           # クローンした uf2conv.py スクリプトを直接実行する
           python3 tools/uf2-tools/uf2conv.py "$BIN_FILE" -c -o "$UF2_PATH"
         else
-          echo "FATAL ERROR: FINAL BIN file not found in the build root ($BUILD_DIR/). Check the ninja output above."
+          echo "FATAL ERROR: FINAL BIN file not found in the build root ($BUILD_DIR/). The firmware build skipped or failed."
           echo "Listing ALL contents of build directory for final, definitive debugging:"
           ls -R build/
           exit 1
