@@ -26,7 +26,9 @@ jobs:
       run: |
         # ZMKリポジトリ内のマニフェストファイル (app/west.yml) を明示的に指定
         west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
+        # ★★★ 修正: west updateを2回実行し、サブモジュールを確実にクローン ★★★
         west update
+        west update 
       shell: bash
 
     # ワークスペースに残るキャッシュや一時ファイルを完全に削除
@@ -59,7 +61,7 @@ jobs:
             echo "Warning: requirements.txt not found. Continuing build in case dependencies are pre-installed."
         fi
         
-        # UF2ツールを West 経由で安定してワークスペースに取り込む
+        # UF2ツールを West 経由で安定してワークスペースに取り込む (このステップで tools/uf2-tools.yml を作成)
         mkdir -p tools
         cat <<EOF > tools/uf2-tools.yml
         manifest:
@@ -73,7 +75,7 @@ jobs:
               path: tools/uf2-tools
         EOF
         
-        # tools/uf2-tools.yml に基づいてワークスペースを更新
+        # tools/uf2-tools.yml に基づいてワークスペースを更新 (これにより uf2-tools がダウンロードされる)
         west update
       shell: bash
 
@@ -83,30 +85,26 @@ jobs:
         west zephyr-export
         
         BUILD_DIR="build/prospector_scanner"
-        BOARD_NAME="seeeduino_xiao_ble"
-        SHIELD_NAME="prospector_scanner"
         
-        # 1. 環境変数を設定し、west build の引数に渡されることを強制する
-        export BOARD="$BOARD_NAME"
-        export SHIELD="$SHIELD_NAME"
-
-        # 2. クリーンビルドを強制し、アプリケーションのルートを明示的に指定してビルドを実行
-        # ★★★ 最終修正: -s app を -s . (カレントディレクトリ) に戻す ★★★
-        west build -s . -d "$BUILD_DIR" -p -- \
-          -DSHIELD="$SHIELD_NAME" \
+        # 1. 最も標準的な単一コマンドでクリーンビルドを強制
+        # ★★★ 修正: BOARDとSHIELDを引数で明示的に渡す (BOARDの警告対策) ★★★
+        west build -s . -d "$BUILD_DIR" -b seeeduino_xiao_ble -p -- \
+          -DSHIELD=prospector_scanner \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
-        # 3. 生成された .bin ファイルを最も可能性の高い場所から順に検索し、UF2変換
+        # 2. 生成された .bin ファイルを検索し、UF2変換
         BIN_FILE="$BUILD_DIR/zephyr/zephyr.bin" 
         UF2_PATH="$BUILD_DIR/zmk.uf2"
         
-        # 代替パス（念のため）
+        # 最終手段として、ビルドディレクトリのzephyr/内部のみを再帰的に検索
         if [ ! -f "$BIN_FILE" ]; then
-            BIN_FILE=$(find "$BUILD_DIR" -name "*.bin" -print -quit)
+            # ★★★ 修正: CMakeのテストファイルを避けるため、zephyr/内部のみを探す ★★★
+            BIN_FILE=$(find "$BUILD_DIR"/zephyr -name "*.bin" -print -quit 2>/dev/null)
         fi
         
         if [ -f "$BIN_FILE" ]; then
           echo "Found final binary file: $BIN_FILE. Starting UF2 conversion..."
+          # UF2ツールを実行
           python3 tools/uf2-tools/uf2conv.py "$BIN_FILE" -c -o "$UF2_PATH"
         else
           echo "FATAL ERROR: FINAL BIN file not found in the build directory ($BUILD_DIR/). The firmware build skipped or failed."
