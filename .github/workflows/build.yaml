@@ -18,8 +18,3 @@ uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
 with:
   # 入力変数名を 'targets' から ZMKが要求する 'config' に修正しました
   config: '[{"board": "seeeduino_xiao_ble", "shield": "prospector_scanner"}]'
-
-
-
-
-
