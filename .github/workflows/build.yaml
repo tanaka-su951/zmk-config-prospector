@@ -86,7 +86,7 @@ jobs:
         
         BUILD_DIR="build/prospector_scanner"
         
-        # 1. 環境変数を設定し、設定を強制 (CMakeの警告とビルドスキップ対策)
+        # 1. 環境変数を設定し、設定を強制
         export BOARD=seeeduino_xiao_ble
         export SHIELD=prospector_scanner
         
@@ -94,9 +94,11 @@ jobs:
         rm -rf "$BUILD_DIR"
         
         # 3. west build で設定ファイルを生成 (コンパイルはしない)
-        # ★★★ 最終修正: -s . に戻し、-DZMK_APP_DIR を追加して ZMK コアを指定 ★★★
+        # ★★★ 最終の最終の修正: 引数と環境変数を再導入し、DTS_ROOT で強制的にアプリパスを注入 ★★★
         west build -s . -d "$BUILD_DIR" -- \
-          -DZMK_APP_DIR=zmk/app \
+          -DSHIELD=prospector_scanner \
+          -DBOARD=seeeduino_xiao_ble \
+          -DDTS_ROOT="zmk/app" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
         # 4. 生成されたビルドファイルを ninja で強制的にコンパイル
