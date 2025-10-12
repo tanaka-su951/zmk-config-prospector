@@ -86,24 +86,24 @@ jobs:
         BOARD_NAME="seeeduino_xiao_ble"
         SHIELD_NAME="prospector_scanner"
         
-        # 1. ビルドディレクトリを完全にクリーンアップするために west pristine を使用
-        # ★★★ 最終修正: west pristine を実行してキャッシュを強制的に削除 ★★★
-        west build -s . -d "$BUILD_DIR" -b "$BOARD_NAME" -p
-        
-        # 2. west build で設定を生成し、コンパイルターゲット 'all' を実行
-        # -p を先に実行したため、ここでは -p は不要
-        west build -s . -d "$BUILD_DIR" -b "$BOARD_NAME" -t all -- \
+        # 1. 最も標準的な単一コマンドでクリーンビルドを強制
+        # ★★★ 最終修正: すべての引数を単一の west build コマンドに集約し、-p を使用 ★★★
+        west build -s . -d "$BUILD_DIR" -b "$BOARD_NAME" -p -- \
           -DSHIELD="$SHIELD_NAME" \
-          -DCMAKE_VERBOSE_MAKEFILE=ON \
-          -S . 
+          -DCMAKE_VERBOSE_MAKEFILE=ON
         
-        # 3. 生成された .bin ファイルを最も可能性の高い場所から直接指定し、UF2変換
-        BIN_FILE="$BUILD_DIR/zephyr.bin"
+        # 2. 生成された .bin ファイルを最も可能性の高い場所から順に検索し、UF2変換
+        BIN_FILE="$BUILD_DIR/zephyr/zephyr.bin" # 標準ZMKパス
         UF2_PATH="$BUILD_DIR/zmk.uf2"
         
-        # 代替パス: ボード名を含んだバイナリ名を試す
+        # 代替パス1: ボード名を含んだバイナリ名
         if [ ! -f "$BIN_FILE" ]; then
-          BIN_FILE="$BUILD_DIR/zephyr-$BOARD_NAME.bin"
+          BIN_FILE="$BUILD_DIR/zephyr/zephyr-$BOARD_NAME.bin"
+        fi
+        
+        # ★★★ 代替パス2 (最終手段): ビルドディレクトリ全体を再帰的に検索 ★★★
+        if [ ! -f "$BIN_FILE" ]; then
+            BIN_FILE=$(find "$BUILD_DIR" -name "*.bin" -print -quit)
         fi
         
         if [ -f "$BIN_FILE" ]; then
@@ -111,7 +111,7 @@ jobs:
           # クローンした uf2conv.py スクリプトを直接実行する
           python3 tools/uf2-tools/uf2conv.py "$BIN_FILE" -c -o "$UF2_PATH"
         else
-          echo "FATAL ERROR: FINAL BIN file not found in the build root ($BUILD_DIR/). The firmware build skipped or failed."
+          echo "FATAL ERROR: FINAL BIN file not found in the build directory ($BUILD_DIR/). The firmware build skipped or failed."
           echo "Listing ALL contents of build directory for final, definitive debugging:"
           ls -R build/
           exit 1
