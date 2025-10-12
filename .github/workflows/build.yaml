@@ -72,7 +72,8 @@ jobs:
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
         # 2. UF2 ファイルを生成するターゲットをwestで実行し、.uf2ファイルを生成
-        west build -d build/prospector_scanner -t uf2
+        #    ターゲット名を flash に修正
+        west build -d build/prospector_scanner -t flash
       shell: bash
 
     - name: Archive production artifacts (Artifact Upload)
