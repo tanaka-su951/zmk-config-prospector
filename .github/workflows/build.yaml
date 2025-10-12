@@ -68,18 +68,14 @@ jobs:
         west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
-      shell: bash
-
-    # ★★★ 新規追加: ビルド後のディレクトリ内容確認 ★★★
-    - name: Debug Output Directory
-      run: |
-        echo "Listing contents of the build/ directory:"
-        ls -R build/
+          
+        # ★★★ 新規追加: UF2 ファイルを生成するターゲットを実行 ★★★
+        ninja -C build/prospector_scanner uf2
       shell: bash
 
     - name: Archive production artifacts (Artifact Upload)
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
-        # ★★★ 修正箇所: build/ ディレクトリ全体を対象とする ★★★
-        path: build/*
+        # ★★★ 最終パス: zmk.uf2 へ戻す ★★★
+        path: build/prospector_scanner/zephyr/zmk.uf2
