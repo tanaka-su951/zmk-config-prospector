@@ -86,25 +86,29 @@ jobs:
         
         BUILD_DIR="build/prospector_scanner"
         
-        # 1. 環境変数を設定し、設定を強制 (ビルドスキップ対策)
-        export BOARD=seeeduino_xiao_ble
-        export SHIELD=prospector_scanner
+        # 環境変数と引数が競合するため、ここでは export を削除
         
-        # 2. ビルドディレクトリを完全に削除してクリーンアップを強制
+        # 1. ビルドディレクトリを完全に削除してクリーンアップを強制
         rm -rf "$BUILD_DIR"
         
-        # 3. west build で設定ファイルを生成 (コンパイルはしない)
-        # ★★★ 最終修正: -s . に戻し、ZMK_APP_DIR を追加して ZMK コアを指定 ★★★
+        # 2. west build で設定ファイルを生成 (コンパイルはしない)
+        # ★★★ 最終の修正: 引数のみを使用し、-s . と ZMK_APP_DIR を使用 ★★★
         west build -s . -d "$BUILD_DIR" -- \
           -DBOARD=seeeduino_xiao_ble \
           -DSHIELD=prospector_scanner \
           -DZMK_APP_DIR=zmk/app \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
-        # 4. 生成されたビルドファイルを ninja で強制的にコンパイル
+        # 3. 生成されたビルドファイルを ninja で強制的にコンパイル
         echo "Forcing compilation using ninja directly..."
-        # ターゲットを zephyr_final に変更し、ビルドスキップを強制的にバイパス
-        ninja -v zephyr_final -C "$BUILD_DIR"
+        # ninja: no work to do. で失敗しても処理を続行させる ('|| true')
+        ninja -v all -C "$BUILD_DIR" || true
+        
+        # 4. ninja がスキップした場合に備え、west build (非クリーン) で再コンパイルを試みる
+        if [ ! -f "$BUILD_DIR/zephyr/zephyr.bin" ]; then
+            echo "Ninja skipped, trying again with west build (non-pristine) to force compilation..."
+            west build -s . -d "$BUILD_DIR" -b seeeduino_xiao_ble
+        fi
         
         # 5. 生成された .bin ファイルを検索し、UF2変換
         BIN_FILE="$BUILD_DIR/zephyr/zephyr.bin" 
@@ -112,7 +116,6 @@ jobs:
         
         # 最終手段として、ビルドディレクトリのzephyr/内部のみを再帰的に検索
         if [ ! -f "$BIN_FILE" ]; then
-            # CMakeのテストファイルを避けるため、zephyr/内部のみを探す
             BIN_FILE=$(find "$BUILD_DIR"/zephyr -name "*.bin" -print -quit 2>/dev/null)
         fi
         
