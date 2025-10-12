@@ -11,10 +11,12 @@ jobs:
       options: --user root
 
     steps:
-    - name: Checkout ZMK Config and Module
+    - name: Checkout ZMK Config (as config)
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        # ★★★ 修正: 構成ファイルを 'config' ディレクトリにチェックアウト ★★★
+        path: config
 
     - name: Install Python Venv
       run: |
@@ -66,20 +68,19 @@ jobs:
         west zephyr-export
         
         # 0. ビルドを強制するために、まずビルドディレクトリを完全にクリーンアップ
-        # ★★★ 最終修正: west pristine の代わりに rm -rf を使用 ★★★
         rm -rf build/prospector_scanner
         
         # 1. west build で設定を完了
-        west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -- \
+        # ★★★ 究極の最終修正: -s config (設定ファイルパス) に変更 ★★★
+        west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
           
         # 2. ビルドがスキップされないように、明示的に all ターゲットを実行
-        # (ディレクトリを削除したため、このコマンドで必ずコンパイルが走るはずです)
+        # (ディレクトリ構造が正しくなったため、これでコンパイルが走るはずです)
         west build -d build/prospector_scanner -t all
         
         # 3. 生成された .elf ファイルを見つけ出し、uf2conv.py を使用して変換
-        # ★★★ 最終修正: .bin ではなく、.elf ファイルを探す (コンパイルが成功していれば必ず生成されるファイル) ★★★
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
         
