@@ -15,7 +15,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        # ★★★ 修正: 構成ファイルを 'config' ディレクトリにチェックアウト ★★★
+        # 構成ファイルを 'config' ディレクトリにチェックアウト
         path: config
 
     - name: Install Python Venv
@@ -71,14 +71,13 @@ jobs:
         rm -rf build/prospector_scanner
         
         # 1. west build で設定を完了
-        # ★★★ 究極の最終修正: -s config (設定ファイルパス) に変更 ★★★
         west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
           
         # 2. ビルドがスキップされないように、明示的に all ターゲットを実行
-        # (ディレクトリ構造が正しくなったため、これでコンパイルが走るはずです)
-        west build -d build/prospector_scanner -t all
+        # ★★★ 最終修正: -s config を追加し、ソースディレクトリを明示する ★★★
+        west build -s config -d build/prospector_scanner -t all
         
         # 3. 生成された .elf ファイルを見つけ出し、uf2conv.py を使用して変換
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
