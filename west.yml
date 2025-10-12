@@ -1,4 +1,4 @@
-manifest:
+Manifest:
   remotes:
     - name: zmkfirmware
       url-base: https://github.com/zmkfirmware
@@ -21,5 +21,4 @@ manifest:
       remote: englmaxi
       revision: main
 
-  self:
-    path: config
+# self: セクションは完全に削除し、ZMKの自動検出に任せます。
