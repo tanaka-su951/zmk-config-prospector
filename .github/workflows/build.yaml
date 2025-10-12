@@ -66,7 +66,7 @@ jobs:
         west zephyr-export
         
         # 0. ビルドを強制するために、まずビルドディレクトリを完全にクリーンアップ
-        # ★★★ 究極の最終修正: west pristine の代わりに rm -rf を使用 ★★★
+        # ★★★ 最終修正: west pristine の代わりに rm -rf を使用 ★★★
         rm -rf build/prospector_scanner
         
         # 1. west build で設定を完了
@@ -78,17 +78,17 @@ jobs:
         # (ディレクトリを削除したため、このコマンドで必ずコンパイルが走るはずです)
         west build -d build/prospector_scanner -t all
         
-        # 3. 生成された .bin ファイルを見つけ出し、uf2conv.py を使用して変換
-        # 標準パスを直接指定 (zephyr/zephyr.binが生成されることを期待)
-        BIN_PATH="build/prospector_scanner/zephyr/zephyr.bin"
+        # 3. 生成された .elf ファイルを見つけ出し、uf2conv.py を使用して変換
+        # ★★★ 最終修正: .bin ではなく、.elf ファイルを探す (コンパイルが成功していれば必ず生成されるファイル) ★★★
+        BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
         
         if [ -f "$BIN_PATH" ]; then
-          echo "Found binary file: $BIN_PATH. Starting UF2 conversion..."
+          echo "Found ELF file: $BIN_PATH. Starting UF2 conversion..."
           # ZMKに含まれる uf2conv.py スクリプトを実行し、zmk.uf2 を生成
           python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
         else
-          echo "FATAL ERROR: FINAL BIN file not found. The firmware build failed."
+          echo "FATAL ERROR: FINAL ELF file not found. The firmware build failed."
           echo "Listing contents of build directory for final debugging:"
           # デバッグ情報として、ディレクトリ構造全体を出力
           ls -R build/prospector_scanner/
