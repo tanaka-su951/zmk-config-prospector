@@ -64,7 +64,7 @@ jobs:
       run: |
         source zmk-env/bin/activate
         west zephyr-export
-        # ★★★ 修正箇所: -s . (カスタムリポジトリのルート) をアプリケーションソースとして指定 ★★★
+        # カスタムリポジトリのルート (-s .) をアプリケーションソースとして指定
         west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
@@ -74,4 +74,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
-        path: build/prospector_scanner/zephyr/zmk.uf2
+        # ★★★ 最終修正箇所: zmk.uf2 の代わりに zmk.bin を試す ★★★
+        path: build/prospector_scanner/zephyr/zmk.bin
