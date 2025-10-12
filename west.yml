@@ -20,5 +20,3 @@ Manifest:
     - name: zmk-dongle-display
       remote: englmaxi
       revision: main
-
-# self: セクションは完全に削除し、ZMKの自動検出に任せます。
