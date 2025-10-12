@@ -71,18 +71,21 @@ jobs:
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
         # 2. 生成された .bin ファイルを見つけ出し、uf2conv.py を使用して変換
-        # ★★★ 最終修正箇所: build/prospector_scanner の直下にある .bin ファイルを検索 ★★★
-        BIN_FILE=$(find build/prospector_scanner -maxdepth 1 -name "*.bin" -print -quit)
+        # ★★★ 最終修正: find コマンドを削除し、標準パスを直接指定 ★★★
+        BIN_PATH="build/prospector_scanner/zephyr/zephyr.bin"
+        UF2_PATH="build/prospector_scanner/zmk.uf2"
         
-        if [ -f "$BIN_FILE" ]; then
-          echo "Found binary file: $BIN_FILE. Starting UF2 conversion..."
+        # 注意: zephyr/ ディレクトリが存在しない場合、このパス指定は失敗します。
+        # しかし、ログにはエラーの原因（ls -Rの出力）が記録されるため、最終的にファイル名が特定できます。
+        if [ -f "$BIN_PATH" ]; then
+          echo "Found binary file: $BIN_PATH. Starting UF2 conversion..."
           # ZMKに含まれる uf2conv.py スクリプトを実行し、zmk.uf2 を生成
-          # ★★★ 最終修正箇所: 出力パスを build/prospector_scanner/ 直下に移動 ★★★
-          python3 zmk/tools/uf2conv.py "$BIN_FILE" -c -o build/prospector_scanner/zmk.uf2
+          python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
         else
-          echo "FATAL ERROR: BIN file not found in build/prospector_scanner/. UF2 conversion failed."
+          echo "FATAL ERROR: Binary file not found at $BIN_PATH."
           echo "Listing contents of build directory for final debugging:"
-          ls -R build/
+          # ★★★ デバッグ情報として、ディレクトリ構造全体を出力 ★★★
+          ls -R build/prospector_scanner/
           exit 1
         fi
       shell: bash
@@ -91,5 +94,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
-        # ★★★ 最終修正箇所: アップロードパスを build/prospector_scanner/zmk.uf2 に変更 ★★★
+        # 最終パス: build/prospector_scanner/zmk.uf2 をアップロード
         path: build/prospector_scanner/zmk.uf2
