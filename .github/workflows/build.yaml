@@ -86,31 +86,32 @@ jobs:
         
         BUILD_DIR="build/prospector_scanner"
         
-        # 環境変数と引数が競合するため、ここでは export を削除
+        # 1. 環境変数を設定 (引数との競合を避けるため、これが唯一の設定方法となる)
+        export BOARD=seeeduino_xiao_ble
+        export SHIELD=prospector_scanner
+        export ZMK_APP_DIR=zmk/app
         
-        # 1. ビルドディレクトリを完全に削除してクリーンアップを強制
+        # 2. ビルドディレクトリを完全に削除してクリーンアップを強制
         rm -rf "$BUILD_DIR"
         
-        # 2. west build で設定ファイルを生成 (コンパイルはしない)
-        # ★★★ 最終の修正: 引数のみを使用し、-s . と ZMK_APP_DIR を使用 ★★★
+        # 3. west build で設定ファイルを生成 (コンパイルはしない)
+        # ★★★ 最終の修正: BOARD/SHIELD/ZMK_APP_DIR 引数をすべて削除し、環境変数に頼る ★★★
         west build -s . -d "$BUILD_DIR" -- \
-          -DBOARD=seeeduino_xiao_ble \
-          -DSHIELD=prospector_scanner \
-          -DZMK_APP_DIR=zmk/app \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
-        # 3. 生成されたビルドファイルを ninja で強制的にコンパイル
+        # 4. 生成されたビルドファイルを ninja で強制的にコンパイル
         echo "Forcing compilation using ninja directly..."
         # ninja: no work to do. で失敗しても処理を続行させる ('|| true')
         ninja -v all -C "$BUILD_DIR" || true
         
-        # 4. ninja がスキップした場合に備え、west build (非クリーン) で再コンパイルを試みる
+        # 5. ninja がスキップした場合に備え、west build (非クリーン) で再コンパイルを試みる
         if [ ! -f "$BUILD_DIR/zephyr/zephyr.bin" ]; then
             echo "Ninja skipped, trying again with west build (non-pristine) to force compilation..."
-            west build -s . -d "$BUILD_DIR" -b seeeduino_xiao_ble
+            # 環境変数を保持したまま、west build を実行
+            west build -s . -d "$BUILD_DIR"
         fi
         
-        # 5. 生成された .bin ファイルを検索し、UF2変換
+        # 6. 生成された .bin ファイルを検索し、UF2変換
         BIN_FILE="$BUILD_DIR/zephyr/zephyr.bin" 
         UF2_PATH="$BUILD_DIR/zmk.uf2"
         
