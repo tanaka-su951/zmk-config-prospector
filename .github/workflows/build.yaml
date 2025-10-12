@@ -45,7 +45,7 @@ jobs:
         ls -F modules || echo "Modules directory not found, check west.yml configuration."
       shell: bash
       
-    - name: Set up Python Environment
+    - name: Set up Python Environment and UF2 Tools
       run: |
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
@@ -58,8 +58,10 @@ jobs:
         else
             echo "Warning: requirements.txt not found. Continuing build in case dependencies are pre-installed."
         fi
-        # ★★★ 最終修正: 外部UF2変換ツールを正しい名前 (uf2tools) でインストール ★★★
-        pip install uf2tools
+        
+        # ★★★ 最終修正: AdafruitのUF2ツールを直接クローンする ★★★
+        # Pythonパッケージのエラーを回避
+        git clone https://github.com/microsoft/uf2-tools tools/uf2-tools
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
@@ -73,14 +75,14 @@ jobs:
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
         # 2. 生成された .bin ファイルを最も確実な場所から検索し、UF2変換
-        # ★★★ 修正: 検索パスを build/prospector_scanner/zephyr/ に厳密に限定 (CMakeテストファイルを無視するため) ★★★
+        # 検索パスを build/prospector_scanner/zephyr/ に厳密に限定
         BIN_FILE=$(find build/prospector_scanner/zephyr -name "*.bin" -print -quit)
         UF2_PATH="build/prospector_scanner/zmk.uf2"
         
         if [ -f "$BIN_FILE" ]; then
           echo "Found final binary file: $BIN_FILE. Starting UF2 conversion..."
-          # ★★★ 修正: uf2tools モジュールに含まれるスクリプトを使用 ★★★
-          python3 -m uf2tools convert "$BIN_FILE" -c -o "$UF2_PATH"
+          # ★★★ 最終修正: クローンした uf2conv.py スクリプトを直接実行する ★★★
+          python3 tools/uf2-tools/uf2conv.py "$BIN_FILE" -c -o "$UF2_PATH"
         else
           echo "FATAL ERROR: FINAL BIN file not found in build/prospector_scanner/zephyr/."
           echo "Listing ALL contents of build directory for final, definitive debugging:"
