@@ -86,19 +86,27 @@ jobs:
         
         BUILD_DIR="build/prospector_scanner"
         
-        # 1. 最も標準的な単一コマンドでクリーンビルドを強制
-        # ★★★ 修正: BOARDとSHIELDを引数で明示的に渡す (BOARDの警告対策) ★★★
-        west build -s . -d "$BUILD_DIR" -b seeeduino_xiao_ble -p -- \
+        # 1. ビルドディレクトリを完全に削除してクリーンアップを強制 (念のため)
+        rm -rf "$BUILD_DIR"
+        
+        # 2. west build で設定ファイルを生成 (コンパイルはしない)
+        # -p は使わず、設定を生成するだけに限定
+        west build -s . -d "$BUILD_DIR" -b seeeduino_xiao_ble -- \
           -DSHIELD=prospector_scanner \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
-        # 2. 生成された .bin ファイルを検索し、UF2変換
+        # 3. 生成されたビルドファイルを ninja で強制的にコンパイル
+        # ★★★ 最終の最終修正: ninja を直接実行し、ビルドスキップを回避 ★★★
+        echo "Forcing compilation using ninja directly..."
+        ninja -v all -C "$BUILD_DIR"
+        
+        # 4. 生成された .bin ファイルを検索し、UF2変換
         BIN_FILE="$BUILD_DIR/zephyr/zephyr.bin" 
         UF2_PATH="$BUILD_DIR/zmk.uf2"
         
         # 最終手段として、ビルドディレクトリのzephyr/内部のみを再帰的に検索
         if [ ! -f "$BIN_FILE" ]; then
-            # ★★★ 修正: CMakeのテストファイルを避けるため、zephyr/内部のみを探す ★★★
+            # CMakeのテストファイルを避けるため、zephyr/内部のみを探す
             BIN_FILE=$(find "$BUILD_DIR"/zephyr -name "*.bin" -print -quit 2>/dev/null)
         fi
         
