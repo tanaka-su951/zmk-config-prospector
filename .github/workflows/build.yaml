@@ -26,7 +26,7 @@ jobs:
       run: |
         # ZMKリポジトリ内のマニフェストファイル (app/west.yml) を明示的に指定
         west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
-        # ★★★ 修正: west updateを2回実行し、サブモジュールを確実にクローン (UF2ツール対策) ★★★
+        # west updateを2回実行し、サブモジュールを確実にクローン (UF2ツール対策)
         west update
         west update 
       shell: bash
@@ -87,7 +87,6 @@ jobs:
         BUILD_DIR="build/prospector_scanner"
         
         # 1. 環境変数を設定し、設定が無視される警告を回避 (最も信頼性の高い方法)
-        # ★★★ 最終修正: 環境変数を設定し、west buildからはBOARD/SHIELD引数を削除 ★★★
         export BOARD=seeeduino_xiao_ble
         export SHIELD=prospector_scanner
         
@@ -95,12 +94,13 @@ jobs:
         rm -rf "$BUILD_DIR"
         
         # 3. west build で設定ファイルを生成 (コンパイルはしない)
-        # -b 引数と -DSHIELD を削除し、環境変数に頼る
-        west build -s . -d "$BUILD_DIR" -- \
+        # ★★★ 最終修正: -s zmk/app に変更し、ZMKアプリケーションを明示的にソースとして指定 ★★★
+        west build -s zmk/app -d "$BUILD_DIR" -- \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
         # 4. 生成されたビルドファイルを ninja で強制的にコンパイル
         echo "Forcing compilation using ninja directly..."
+        # ninja: no work to do. を回避するため、直接 ninja を実行
         ninja -v all -C "$BUILD_DIR"
         
         # 5. 生成された .bin ファイルを検索し、UF2変換
