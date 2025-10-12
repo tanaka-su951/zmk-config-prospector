@@ -86,21 +86,18 @@ jobs:
         BOARD_NAME="seeeduino_xiao_ble"
         SHIELD_NAME="prospector_scanner"
         
-        # 1. ビルドディレクトリを完全に削除してクリーンアップを強制
-        rm -rf "$BUILD_DIR"
+        # 1. ビルドディレクトリを完全にクリーンアップするために west pristine を使用
+        # ★★★ 最終修正: west pristine を実行してキャッシュを強制的に削除 ★★★
+        west build -s . -d "$BUILD_DIR" -b "$BOARD_NAME" -p
         
-        # 2. west build で設定ファイルを生成 (コンパイルはしない)
-        # -S . を追加し、ソースディレクトリを明示的に指定
-        west build -s . -d "$BUILD_DIR" -b "$BOARD_NAME" -- \
+        # 2. west build で設定を生成し、コンパイルターゲット 'all' を実行
+        # -p を先に実行したため、ここでは -p は不要
+        west build -s . -d "$BUILD_DIR" -b "$BOARD_NAME" -t all -- \
           -DSHIELD="$SHIELD_NAME" \
           -DCMAKE_VERBOSE_MAKEFILE=ON \
           -S . 
         
-        # 3. 生成されたビルドファイルを ninja で強制的にコンパイル
-        # ★★★ 最終修正: 'rebuild' ターゲットを呼び出し、強制ビルド ★★★
-        ninja -v rebuild -C "$BUILD_DIR"
-        
-        # 4. 生成された .bin ファイルを最も可能性の高い場所から直接指定し、UF2変換
+        # 3. 生成された .bin ファイルを最も可能性の高い場所から直接指定し、UF2変換
         BIN_FILE="$BUILD_DIR/zephyr.bin"
         UF2_PATH="$BUILD_DIR/zmk.uf2"
         
