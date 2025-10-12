@@ -1,5 +1,10 @@
 # リポジトリルート (zmk-config-prospector/) の CMakeLists.txt
 
-# ZMKのカスタムアプリケーション設定をインクルードします。
-# これがビルド設定プロセスを config/ ディレクトリに渡すエントリポイントです。
-add_subdirectory(config)
+# Zephyrアプリケーションとして必要な最小バージョン
+cmake_minimum_required(VERSION 3.20.0)
+
+# プロジェクト名を設定（ファームウェア名）
+project(Prospector_ZMK_Config)
+
+# カスタム設定をZephyrにインクルード
+add_subdirectory(config) 
