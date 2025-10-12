@@ -1,20 +1,20 @@
 name: Build ZMK Firmware using External Workflow
 
 on:
-  push:
-    branches: [main]
-    
-  pull_request:
-    branches: [main]
-    
-  workflow_dispatch:
+push:
+branches: [main]
+
+pull_request:
+branches: [main]
+
+workflow_dispatch:
 
 jobs:
-  build:
-    # 外部ワークフローの呼び出し
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
-    
-    # 外部ワークフローに渡す入力 (Inputs) を定義
-    with:
-      # ZMK公式ワークフローが期待する変数名 'config' を使用
-      config: '[{"board": "seeeduino_xiao_ble", "shield": "prospector_scanner"}]'
+build:
+# 外部ワークフローの呼び出し
+uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+
+# 外部ワークフローに渡す入力 (Inputs) を定義
+with:
+  # 標準的な入力変数名 'targets' を使用
+  targets: '[{"board": "seeeduino_xiao_ble", "shield": "prospector_scanner"}]'
