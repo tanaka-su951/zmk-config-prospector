@@ -1,9 +1,4 @@
-# ZMKの標準的な外部ビルドワークフローを使用
-# ZMKリポジトリのワークフローパスを最新版 (build-config.yml) に修正しました。
-# このファイルは、リポジトリのルートに ZMK の依存関係を設定するための
-# west.yml, app/, CMakeLists.txt などが存在することを前提とします。
-
-name: Build ZMK Firmware
+name: Build ZMK Firmware using External Workflow
 
 on:
   push:
@@ -12,10 +7,19 @@ on:
   pull_request:
     branches: [ main ]
     
+  # 手動実行を可能にする
   workflow_dispatch:
 
 jobs:
   build:
-    # ZMKの外部ワークフローを呼び出す
-    # パスを 'build-user-config.yml' から 'build-config.yml' に修正
+    # 外部ワークフローの呼び出し
     uses: zmkfirmware/zmk/.github/workflows/build-config.yml@main
+    
+    # 外部ワークフローに渡す入力 (Inputs) を定義
+    with:
+      # ビルド対象のボードとシールドをJSON形式の配列で定義します
+      # この設定により、外部ワークフローは 'prospector_scanner' シールドと
+      # 'seeeduino_xiao_ble' ボードの組み合わせでビルドを行います。
+      build_targets: '[
+        {"board": "seeeduino_xiao_ble", "shield": "prospector_scanner"}
+      ]'
