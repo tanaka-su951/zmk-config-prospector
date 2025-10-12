@@ -86,7 +86,7 @@ jobs:
         
         BUILD_DIR="build/prospector_scanner"
         
-        # 1. 環境変数を設定し、設定を強制
+        # 1. 環境変数を設定し、設定を強制 (ビルドスキップ対策)
         export BOARD=seeeduino_xiao_ble
         export SHIELD=prospector_scanner
         
@@ -94,15 +94,16 @@ jobs:
         rm -rf "$BUILD_DIR"
         
         # 3. west build で設定ファイルを生成 (コンパイルはしない)
-        # ★★★ 最終修正: -s zmk/app を使用し、ボードとシールドを引数で渡す ★★★
-        west build -s zmk/app -d "$BUILD_DIR" -- \
+        # ★★★ 最終修正: -s . に戻し、ZMK_APP_DIR を追加して ZMK コアを指定 ★★★
+        west build -s . -d "$BUILD_DIR" -- \
           -DBOARD=seeeduino_xiao_ble \
           -DSHIELD=prospector_scanner \
+          -DZMK_APP_DIR=zmk/app \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
         # 4. 生成されたビルドファイルを ninja で強制的にコンパイル
         echo "Forcing compilation using ninja directly..."
-        # ★★★ 最も重要な修正: ターゲットを zephyr_final に変更し、ビルドスキップを強制的にバイパス ★★★
+        # ターゲットを zephyr_final に変更し、ビルドスキップを強制的にバイパス
         ninja -v zephyr_final -C "$BUILD_DIR"
         
         # 5. 生成された .bin ファイルを検索し、UF2変換
