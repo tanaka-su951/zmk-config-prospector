@@ -58,6 +58,8 @@ jobs:
         else
             echo "Warning: requirements.txt not found. Continuing build in case dependencies are pre-installed."
         fi
+        # ★★★ 修正: 外部UF2変換ツールをインストール ★★★
+        pip install uf2conv
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
@@ -66,24 +68,22 @@ jobs:
         west zephyr-export
         
         # 1. west build に、設定とコンパイル（allターゲット）を強制実行
-        # -p (pristine) フラグでクリーンビルドを強制し、バイナリファイルを確実に生成
         west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -t all -p -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
-        # 2. 生成された .bin ファイルをビルドディレクトリ全体から検索し、変換
-        # ★★★ 最終修正: 検索パスの階層制限を外し、*.bin ファイルを全て検索 ★★★
-        BIN_FILE=$(find build/prospector_scanner -name "*.bin" -print -quit)
+        # 2. 生成された .bin ファイルを最も確実な場所から検索し、UF2変換
+        # ★★★ 修正1: 検索パスを build/prospector_scanner/zephyr/ に厳密に限定 ★★★
+        BIN_FILE=$(find build/prospector_scanner/zephyr -name "*.bin" -print -quit)
         UF2_PATH="build/prospector_scanner/zmk.uf2"
         
         if [ -f "$BIN_FILE" ]; then
-          echo "Found binary file: $BIN_FILE. Starting UF2 conversion..."
-          # ZMKに含まれる uf2conv.py スクリプトを実行し、zmk.uf2 を生成
-          python3 zmk/tools/uf2conv.py "$BIN_FILE" -c -o "$UF2_PATH"
+          echo "Found final binary file: $BIN_FILE. Starting UF2 conversion..."
+          # ★★★ 修正2: pipでインストールした uf2conv モジュールを使用 ★★★
+          python3 -m uf2conv "$BIN_FILE" -c -o "$UF2_PATH"
         else
-          echo "FATAL ERROR: BIN file not found anywhere in build/prospector_scanner/."
+          echo "FATAL ERROR: FINAL BIN file not found in build/prospector_scanner/zephyr/."
           echo "Listing ALL contents of build directory for final, definitive debugging:"
-          # ★★★ デバッグ情報として、ディレクトリ構造全体を出力 ★★★
           ls -R build/
           exit 1
         fi
