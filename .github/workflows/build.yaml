@@ -72,7 +72,8 @@ jobs:
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
         # 2. 生成された .bin ファイルを見つけ出し、uf2conv.py を使用して変換
-        BIN_FILE=$(find build/prospector_scanner/zephyr -name "zephyr.bin" -print -quit)
+        # ★★★ 最終修正箇所: 検索パスを build/prospector_scanner 全体に拡大 ★★★
+        BIN_FILE=$(find build/prospector_scanner -name "zephyr.bin" -print -quit)
         
         if [ -f "$BIN_FILE" ]; then
           # ZMKに含まれる uf2conv.py スクリプトを実行し、zmk.uf2 を生成
