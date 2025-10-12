@@ -82,19 +82,30 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
-        # 1. west build に、設定とコンパイル（allターゲット）を強制実行
-        west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -t all -p -- \
-          -DSHIELD="prospector_scanner" \
+        BUILD_DIR="build/prospector_scanner"
+        BOARD_NAME="seeeduino_xiao_ble"
+        SHIELD_NAME="prospector_scanner"
+        
+        # 1. ビルドディレクトリを完全に削除してクリーンアップを強制
+        rm -rf "$BUILD_DIR"
+        
+        # 2. west build で設定ファイルを生成 (コンパイルはしない)
+        west build -s . -d "$BUILD_DIR" -b "$BOARD_NAME" -- \
+          -DSHIELD="$SHIELD_NAME" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
-        # 2. 生成された .bin ファイルを最も可能性の高い場所から直接指定し、UF2変換
-        # ★★★ 最終修正: find コマンドを排除し、ビルドディレクトリのルート直下にあるファイルを直接指定 ★★★
-        BIN_FILE="build/prospector_scanner/zephyr.bin"
-        UF2_PATH="build/prospector_scanner/zmk.uf2"
+        # 3. 生成されたビルドファイルを ninja で強制的にコンパイル
+        # ★★★ 最終修正: ninja を直接実行し、「no work to do」を回避 ★★★
+        ninja -v all -C "$BUILD_DIR"
+        
+        # 4. 生成された .bin ファイルを最も可能性の高い場所から直接指定し、UF2変換
+        # ビルドディレクトリの直下にある zephyr.bin を指定
+        BIN_FILE="$BUILD_DIR/zephyr.bin"
+        UF2_PATH="$BUILD_DIR/zmk.uf2"
         
         # 代替パス: ボード名を含んだバイナリ名を試す
         if [ ! -f "$BIN_FILE" ]; then
-          BIN_FILE="build/prospector_scanner/zephyr-seeeduino_xiao_ble.bin"
+          BIN_FILE="$BUILD_DIR/zephyr-$BOARD_NAME.bin"
         fi
         
         if [ -f "$BIN_FILE" ]; then
@@ -102,7 +113,7 @@ jobs:
           # クローンした uf2conv.py スクリプトを直接実行する
           python3 tools/uf2-tools/uf2conv.py "$BIN_FILE" -c -o "$UF2_PATH"
         else
-          echo "FATAL ERROR: FINAL BIN file not found in the build root (build/prospector_scanner/)."
+          echo "FATAL ERROR: FINAL BIN file not found in the build root ($BUILD_DIR/). Check the ninja output above."
           echo "Listing ALL contents of build directory for final, definitive debugging:"
           ls -R build/
           exit 1
