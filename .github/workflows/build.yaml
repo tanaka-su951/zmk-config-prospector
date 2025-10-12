@@ -29,13 +29,11 @@ jobs:
         west update
       shell: bash
 
-    # ★★★ 再追加ステップ：環境をクリーンアップ ★★★
+    # ★★★ 最終クリーンアップステップ（z-resetを削除） ★★★
     - name: Force Workspace Cleanup
       run: |
         # ワークスペース内の全てのビルド生成物とキャッシュを完全に削除
         rm -rf build zmk/.west modules *~
-        # westの状態をリセット
-        west z-reset
       shell: bash
 
     - name: Debug ZMK Source Location
