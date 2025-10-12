@@ -74,5 +74,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
-        # ★★★ 最終修正箇所: zmk.uf2 の代わりに zmk.bin を試す ★★★
-        path: build/prospector_scanner/zephyr/zmk.bin
+        # ★★★ 最終修正箇所: ディレクトリ内の全てをアップロード ★★★
+        path: build/prospector_scanner/zephyr/*
