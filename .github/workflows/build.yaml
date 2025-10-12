@@ -17,4 +17,4 @@ jobs:
     # 外部ワークフローに渡す入力 (Inputs) を定義
     with:
       # ZMK公式ワークフローが期待する入力変数名 'build_targets' を使用
-      build_target: '[{"board": "seeeduino_xiao_ble", "shield": "prospector_scanner"}]'
+      matrix: '[{"board": "seeeduino_xiao_ble", "shield": "prospector_scanner"}]'
