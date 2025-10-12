@@ -65,14 +65,19 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
-        # 1. west build に、設定とコンパイル（allターゲット）の両方を実行させる
-        # ★★★ 最終修正: -p (pristine) フラグを追加し、クリーンビルドを強制 ★★★
-        west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -t all -p -- \
+        # 0. ビルドを強制するために、まずビルドディレクトリを完全にクリーンアップ
+        west build -d build/prospector_scanner -t pristine
+        
+        # 1. west build で設定を完了
+        west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
+          
+        # 2. ビルドがスキップされないように、明示的に all ターゲットを実行
+        west build -d build/prospector_scanner -t all
         
-        # 2. 生成された .bin ファイルを見つけ出し、uf2conv.py を使用して変換
-        # 標準パスを直接指定 (クリーンビルドで zephyr/ ディレクトリが生成されることを期待)
+        # 3. 生成された .bin ファイルを見つけ出し、uf2conv.py を使用して変換
+        # 標準パスを直接指定 (クリーンビルドとビルド実行により zephyr/ ディレクトリが生成されることを期待)
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.bin"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
         
@@ -81,7 +86,7 @@ jobs:
           # ZMKに含まれる uf2conv.py スクリプトを実行し、zmk.uf2 を生成
           python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
         else
-          echo "FATAL ERROR: Binary file not found at $BIN_PATH."
+          echo "FATAL ERROR: FINAL BIN file not found. The firmware build failed."
           echo "Listing contents of build directory for final debugging:"
           # デバッグ情報として、ディレクトリ構造全体を出力
           ls -R build/prospector_scanner/
