@@ -59,8 +59,10 @@ jobs:
             echo "Warning: requirements.txt not found. Continuing build in case dependencies are pre-installed."
         fi
         
-        # ★★★ 最終修正: git clone を west submodule に置き換え、安定した取り込みを保証 ★★★
-        west manifest -n -o tools/uf2-tools.yml <<EOF
+        # ★★★ 最終修正: west manifest のコマンド構文エラーを修正するため、cat を使用 ★★★
+        # UF2ツールを West 経由で安定してワークスペースに取り込む
+        mkdir -p tools
+        cat <<EOF > tools/uf2-tools.yml
         manifest:
           remotes:
             - name: uf2
@@ -71,6 +73,8 @@ jobs:
               revision: main
               path: tools/uf2-tools
         EOF
+        
+        # tools/uf2-tools.yml に基づいてワークスペースを更新
         west update
       shell: bash
 
@@ -85,6 +89,7 @@ jobs:
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
         # 2. 生成された .bin ファイルを最も確実な場所から検索し、UF2変換
+        # 検索パスを build/prospector_scanner/zephyr/ に厳密に限定 (CMakeテストファイルを無視するため)
         BIN_FILE=$(find build/prospector_scanner/zephyr -name "*.bin" -print -quit)
         UF2_PATH="build/prospector_scanner/zmk.uf2"
         
