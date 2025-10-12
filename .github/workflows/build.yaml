@@ -64,11 +64,12 @@ jobs:
       run: |
         source zmk-env/bin/activate
         west zephyr-export
-        # 1. west build に、設定とビルド（allターゲット）の両方を実行させる
-        west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -- \
+        
+        # 1. west build に、設定とコンパイル（allターゲット）の両方を実行させる
+        #    -t all で、ビルド後のコンパイルまで実行されます
+        west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -t all -- \
           -DSHIELD="prospector_scanner" \
-          -DCMAKE_VERBOSE_MAKEFILE=ON \
-          --build-target all
+          -DCMAKE_VERBOSE_MAKEFILE=ON
         
         # 2. UF2 ファイルを生成するターゲットをwestで実行し、.uf2ファイルを生成
         west build -d build/prospector_scanner -t uf2
