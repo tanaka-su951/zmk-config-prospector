@@ -65,26 +65,26 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
-        # 1. west build に、設定とコンパイル（allターゲット）の両方を実行させる
-        # ★★★ 最終修正: -p (pristine) フラグを追加し、クリーンビルドを強制 ★★★
+        # 1. west build に、設定とコンパイル（allターゲット）を強制実行
+        # -p (pristine) フラグでクリーンビルドを強制し、バイナリファイルを確実に生成
         west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -t all -p -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
-        # 2. 生成された .bin ファイルを見つけ出し、uf2conv.py を使用して変換
-        # 標準パスを直接指定 (クリーンビルドで zephyr/ ディレクトリが生成されることを期待)
-        BIN_PATH="build/prospector_scanner/zephyr/zephyr.bin"
+        # 2. 生成された .bin ファイルをビルドディレクトリ全体から検索し、変換
+        # ★★★ 最終修正: 検索パスの階層制限を外し、*.bin ファイルを全て検索 ★★★
+        BIN_FILE=$(find build/prospector_scanner -name "*.bin" -print -quit)
         UF2_PATH="build/prospector_scanner/zmk.uf2"
         
-        if [ -f "$BIN_PATH" ]; then
-          echo "Found binary file: $BIN_PATH. Starting UF2 conversion..."
+        if [ -f "$BIN_FILE" ]; then
+          echo "Found binary file: $BIN_FILE. Starting UF2 conversion..."
           # ZMKに含まれる uf2conv.py スクリプトを実行し、zmk.uf2 を生成
-          python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
+          python3 zmk/tools/uf2conv.py "$BIN_FILE" -c -o "$UF2_PATH"
         else
-          echo "FATAL ERROR: Binary file not found at $BIN_PATH."
-          echo "Listing contents of build directory for final debugging:"
-          # デバッグ情報として、ディレクトリ構造全体を出力
-          ls -R build/prospector_scanner/
+          echo "FATAL ERROR: BIN file not found anywhere in build/prospector_scanner/."
+          echo "Listing ALL contents of build directory for final, definitive debugging:"
+          # ★★★ デバッグ情報として、ディレクトリ構造全体を出力 ★★★
+          ls -R build/
           exit 1
         fi
       shell: bash
