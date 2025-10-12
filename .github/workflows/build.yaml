@@ -87,18 +87,16 @@ jobs:
         SHIELD_NAME="prospector_scanner"
         
         # 1. 環境変数を設定し、west build の引数に渡されることを強制する
-        # ★★★ 最終修正: 環境変数をエクスポートし、設定が無視されるのを防ぐ ★★★
         export BOARD="$BOARD_NAME"
         export SHIELD="$SHIELD_NAME"
 
         # 2. クリーンビルドを強制し、アプリケーションのルートを明示的に指定してビルドを実行
-        # west build -b を使わず、BOARDを環境変数に頼り、-s app でビルドを強制
-        west build -s app -d "$BUILD_DIR" -p -- \
+        # ★★★ 最終修正: -s app を -s . (カレントディレクトリ) に戻す ★★★
+        west build -s . -d "$BUILD_DIR" -p -- \
           -DSHIELD="$SHIELD_NAME" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
         # 3. 生成された .bin ファイルを最も可能性の高い場所から順に検索し、UF2変換
-        # -s app を使用した場合の標準ZMKパス
         BIN_FILE="$BUILD_DIR/zephyr/zephyr.bin" 
         UF2_PATH="$BUILD_DIR/zmk.uf2"
         
@@ -109,7 +107,6 @@ jobs:
         
         if [ -f "$BIN_FILE" ]; then
           echo "Found final binary file: $BIN_FILE. Starting UF2 conversion..."
-          # クローンした uf2conv.py スクリプトを直接実行する
           python3 tools/uf2-tools/uf2conv.py "$BIN_FILE" -c -o "$UF2_PATH"
         else
           echo "FATAL ERROR: FINAL BIN file not found in the build directory ($BUILD_DIR/). The firmware build skipped or failed."
