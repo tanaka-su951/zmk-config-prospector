@@ -29,8 +29,14 @@ jobs:
         west update
       shell: bash
 
-    # ⚠️ 以前の "Force Clean" および "Hook Custom Config" ステップは削除しました ⚠️
-    # ZMKの標準的な自動検出機能に頼ります。
+    # ★★★ 再追加ステップ：環境をクリーンアップ ★★★
+    - name: Force Workspace Cleanup
+      run: |
+        # ワークスペース内の全てのビルド生成物とキャッシュを完全に削除
+        rm -rf build zmk/.west modules *~
+        # westの状態をリセット
+        west z-reset
+      shell: bash
 
     - name: Debug ZMK Source Location
       run: |
