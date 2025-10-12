@@ -66,14 +66,21 @@ jobs:
         west zephyr-export
         
         # 1. west build に、設定とコンパイル（allターゲット）の両方を実行させる
-        #    -t all で、ビルド後のコンパイルまで実行されます
+        #    これで zephyr.bin が生成される
         west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -t all -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
-        # 2. UF2 ファイルを生成するターゲットをwestで実行し、.uf2ファイルを生成
-        #    ターゲット名を flash に修正
-        west build -d build/prospector_scanner -t flash
+        # 2. 生成された .bin ファイルを見つけ出し、uf2conv.py を使用して変換
+        BIN_FILE=$(find build/prospector_scanner/zephyr -name "zephyr.bin" -print -quit)
+        
+        if [ -f "$BIN_FILE" ]; then
+          # ZMKに含まれる uf2conv.py スクリプトを実行し、zmk.uf2 を生成
+          python3 zmk/tools/uf2conv.py "$BIN_FILE" -c -o build/prospector_scanner/zephyr/zmk.uf2
+        else
+          echo "FATAL ERROR: zephyr.bin file not found. UF2 conversion failed."
+          exit 1
+        fi
       shell: bash
 
     - name: Archive production artifacts (Artifact Upload)
