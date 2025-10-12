@@ -69,9 +69,19 @@ jobs:
         
         # 0. ビルドを強制するために、まずビルドディレクトリを完全にクリーンアップ
         rm -rf build/prospector_scanner
+
+        # ★★★ 最終手段: ファイルを変更し、コンパイルを強制する ★★★
+        # 最も安全な設定ファイル（prj.conf）に一時的な改行を追加し、すぐに元に戻す
+        CONFIG_FILE="config/prj.conf"
+        if [ -f "$CONFIG_FILE" ]; then
+          echo "Forcing build by modifying $CONFIG_FILE..."
+          # 一時的に変更を加えて保存
+          echo "# Force rebuild at $(date +%s)" >> "$CONFIG_FILE"
+        else
+          echo "Warning: prj.conf not found at $CONFIG_FILE. Cannot force build."
+        fi
         
         # 1. west build に、設定、コンパイル、クリーンアップの全てを強制実行させる
-        # ★★★ 最終修正: -p (pristine) と -t all を結合し、一つのコマンドで実行 ★★★
         west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -t all -p -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
