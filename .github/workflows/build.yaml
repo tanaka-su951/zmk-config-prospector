@@ -86,20 +86,19 @@ jobs:
         
         BUILD_DIR="build/prospector_scanner"
         
-        # 1. 環境変数を設定 (バックアップ)
+        # 1. 環境変数を設定 (引数との競合は気にせず、必須としてエクスポート)
         export BOARD=seeeduino_xiao_ble
         export SHIELD=prospector_scanner
         
         # 2. ビルドディレクトリを完全に削除してクリーンアップを強制
         rm -rf "$BUILD_DIR"
         
-        # 3. west build で設定ファイルを生成 (CONF_FILE でZMKアプリパスを強制注入)
-        # ★★★ 最終修正: CONF_FILE でZMKアプリのKconfigファイルを強制的に読み込ませる ★★★
+        # 3. west build で設定ファイルを生成 (シールド検出のための -s . を使用)
+        # ★★★ 最終設定: -s . と ZMK_APP_DIR を使用し、シールド検出を最優先 ★★★
         west build -s . -d "$BUILD_DIR" -- \
           -DBOARD=seeeduino_xiao_ble \
           -DSHIELD=prospector_scanner \
           -DZMK_APP_DIR=zmk/app \
-          -DCONF_FILE="zmk/app/Kconfig" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
         # 4. 生成されたビルドファイルを ninja で強制的にコンパイル
