@@ -26,7 +26,7 @@ jobs:
       run: |
         # ZMKリポジトリ内のマニフェストファイル (app/west.yml) を明示的に指定
         west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
-        # ★★★ 修正: west updateを2回実行し、サブモジュールを確実にクローン ★★★
+        # ★★★ 修正: west updateを2回実行し、サブモジュールを確実にクローン (UF2ツール対策) ★★★
         west update
         west update 
       shell: bash
@@ -86,21 +86,24 @@ jobs:
         
         BUILD_DIR="build/prospector_scanner"
         
-        # 1. ビルドディレクトリを完全に削除してクリーンアップを強制 (念のため)
+        # 1. 環境変数を設定し、設定が無視される警告を回避 (最も信頼性の高い方法)
+        # ★★★ 最終修正: 環境変数を設定し、west buildからはBOARD/SHIELD引数を削除 ★★★
+        export BOARD=seeeduino_xiao_ble
+        export SHIELD=prospector_scanner
+        
+        # 2. ビルドディレクトリを完全に削除してクリーンアップを強制
         rm -rf "$BUILD_DIR"
         
-        # 2. west build で設定ファイルを生成 (コンパイルはしない)
-        # -p は使わず、設定を生成するだけに限定
-        west build -s . -d "$BUILD_DIR" -b seeeduino_xiao_ble -- \
-          -DSHIELD=prospector_scanner \
+        # 3. west build で設定ファイルを生成 (コンパイルはしない)
+        # -b 引数と -DSHIELD を削除し、環境変数に頼る
+        west build -s . -d "$BUILD_DIR" -- \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
-        # 3. 生成されたビルドファイルを ninja で強制的にコンパイル
-        # ★★★ 最終の最終修正: ninja を直接実行し、ビルドスキップを回避 ★★★
+        # 4. 生成されたビルドファイルを ninja で強制的にコンパイル
         echo "Forcing compilation using ninja directly..."
         ninja -v all -C "$BUILD_DIR"
         
-        # 4. 生成された .bin ファイルを検索し、UF2変換
+        # 5. 生成された .bin ファイルを検索し、UF2変換
         BIN_FILE="$BUILD_DIR/zephyr/zephyr.bin" 
         UF2_PATH="$BUILD_DIR/zmk.uf2"
         
