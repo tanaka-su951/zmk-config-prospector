@@ -66,20 +66,24 @@ jobs:
         west zephyr-export
         
         # 1. west build に、設定とコンパイル（allターゲット）の両方を実行させる
-        #    これで zephyr.bin が生成される
+        #    これでコンパイル済みの .bin ファイルが生成される
         west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -t all -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
         # 2. 生成された .bin ファイルを見つけ出し、uf2conv.py を使用して変換
-        # ★★★ 最終修正箇所: 検索パスを build/prospector_scanner 全体に拡大 ★★★
-        BIN_FILE=$(find build/prospector_scanner -name "zephyr.bin" -print -quit)
+        # ★★★ 最終修正箇所: build/prospector_scanner/zephyr/ 内の任意の .bin ファイルを検索 ★★★
+        BIN_FILE=$(find build/prospector_scanner/zephyr -name "*.bin" -print -quit)
         
         if [ -f "$BIN_FILE" ]; then
+          echo "Found binary file: $BIN_FILE. Starting UF2 conversion..."
           # ZMKに含まれる uf2conv.py スクリプトを実行し、zmk.uf2 を生成
           python3 zmk/tools/uf2conv.py "$BIN_FILE" -c -o build/prospector_scanner/zephyr/zmk.uf2
         else
-          echo "FATAL ERROR: zephyr.bin file not found. UF2 conversion failed."
+          echo "FATAL ERROR: BIN file not found in build/prospector_scanner/zephyr/. UF2 conversion failed."
+          # 最終手段として、ビルドディレクトリ全体を再検索し、結果を表示
+          echo "Listing contents of build directory for final debugging:"
+          ls -R build/
           exit 1
         fi
       shell: bash
