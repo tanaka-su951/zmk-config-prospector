@@ -94,17 +94,16 @@ jobs:
         rm -rf "$BUILD_DIR"
         
         # 3. west build で設定ファイルを生成 (コンパイルはしない)
-        # ★★★ 最終の最終の修正: 引数と環境変数を再導入し、DTS_ROOT で強制的にアプリパスを注入 ★★★
-        west build -s . -d "$BUILD_DIR" -- \
-          -DSHIELD=prospector_scanner \
+        # ★★★ 最終修正: -s zmk/app を使用し、ボードとシールドを引数で渡す ★★★
+        west build -s zmk/app -d "$BUILD_DIR" -- \
           -DBOARD=seeeduino_xiao_ble \
-          -DDTS_ROOT="zmk/app" \
+          -DSHIELD=prospector_scanner \
           -DCMAKE_VERBOSE_MAKEFILE=ON
         
         # 4. 生成されたビルドファイルを ninja で強制的にコンパイル
         echo "Forcing compilation using ninja directly..."
-        # ninja: no work to do. を回避するため、直接 ninja を実行
-        ninja -v all -C "$BUILD_DIR"
+        # ★★★ 最も重要な修正: ターゲットを zephyr_final に変更し、ビルドスキップを強制的にバイパス ★★★
+        ninja -v zephyr_final -C "$BUILD_DIR"
         
         # 5. 生成された .bin ファイルを検索し、UF2変換
         BIN_FILE="$BUILD_DIR/zephyr/zephyr.bin" 
