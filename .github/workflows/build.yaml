@@ -66,7 +66,8 @@ jobs:
         west zephyr-export
         
         # 0. ビルドを強制するために、まずビルドディレクトリを完全にクリーンアップ
-        west build -d build/prospector_scanner -t pristine
+        # ★★★ 最終修正: 環境に依存しない west pristine コマンドを使用 ★★★
+        west pristine -d build/prospector_scanner
         
         # 1. west build で設定を完了
         west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -- \
@@ -77,7 +78,7 @@ jobs:
         west build -d build/prospector_scanner -t all
         
         # 3. 生成された .bin ファイルを見つけ出し、uf2conv.py を使用して変換
-        # 標準パスを直接指定 (クリーンビルドとビルド実行により zephyr/ ディレクトリが生成されることを期待)
+        # 標準パスを直接指定 (強制クリーンビルドとビルド実行により zephyr/ ディレクトリが生成されることを期待)
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.bin"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
         
