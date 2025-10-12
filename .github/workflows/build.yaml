@@ -1,142 +1,21 @@
-name: Build Prospector Firmware (Local)
+# ZMKの標準的な外部ビルドワークフローを使用
+# ZMKリポジトリのワークフローパスを最新版 (build-config.yml) に修正しました。
+# このファイルは、リポジトリのルートに ZMK の依存関係を設定するための
+# west.yml, app/, CMakeLists.txt などが存在することを前提とします。
 
-on: [push, pull_request, workflow_dispatch]
+name: Build ZMK Firmware
+
+on:
+  push:
+    branches: [ main ]
+    
+  pull_request:
+    branches: [ main ]
+    
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    container:
-      # ZMKの標準ビルド環境コンテナを使用
-      image: zmkfirmware/zmk-build-arm:stable
-      options: --user root
-
-    steps:
-    - name: Checkout ZMK Config and Module
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Install Python Venv
-      run: |
-        apt update
-        apt install -y python3.12-venv || apt install -y python3-venv
-      shell: bash
-
-    - name: Initialize and Update west workspace
-      run: |
-        # ZMKリポジトリ内のマニフェストファイル (app/west.yml) を明示的に指定
-        west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
-        # west updateを2回実行し、サブモジュールを確実にクローン (UF2ツール対策)
-        west update
-        west update 
-      shell: bash
-
-    # ワークスペースに残るキャッシュや一時ファイルを完全に削除
-    - name: Force Workspace Cleanup
-      run: |
-        rm -rf build zmk/.west modules *~
-      shell: bash
-
-    - name: Debug ZMK Source Location
-      run: |
-        echo "Listing contents of workspace root:"
-        ls -F
-        echo "Listing contents of zmk/ (if exists):"
-        ls -F zmk || echo "ZMK directory not found, check west.yml configuration."
-        echo "Listing contents of modules/ (if exists):"
-        ls -F modules || echo "Modules directory not found, check west.yml configuration."
-      shell: bash
-      
-    - name: Set up Python Environment and UF2 Tools
-      run: |
-        /usr/bin/python3 -m venv zmk-env
-        source zmk-env/bin/activate
-        
-        # ZMKの依存関係をインストール
-        REQUIREMENTS_FILE=$(find . -name "requirements.txt" -path "*zmk*" -print -quit || find . -name "requirements.txt" -print -quit)
-        if [ -n "$REQUIREMENTS_FILE" ]; then
-            echo "Found requirements file at: $REQUIREMENTS_FILE"
-            pip install -r "$REQUIREMENTS_FILE"
-        else
-            echo "Warning: requirements.txt not found. Continuing build in case dependencies are pre-installed."
-        fi
-        
-        # UF2ツールを West 経由で安定してワークスペースに取り込む (このステップで tools/uf2-tools.yml を作成)
-        mkdir -p tools
-        cat <<EOF > tools/uf2-tools.yml
-        manifest:
-          remotes:
-            - name: uf2
-              url-base: https://github.com/microsoft
-          projects:
-            - name: uf2-tools
-              remote: uf2
-              revision: main
-              path: tools/uf2-tools
-        EOF
-        
-        # tools/uf2-tools.yml に基づいてワークスペースを更新 (これにより uf2-tools がダウンロードされる)
-        west update
-      shell: bash
-
-    - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
-      run: |
-        source zmk-env/bin/activate
-        west zephyr-export
-        
-        BUILD_DIR="build/prospector_scanner"
-        
-        # 1. 環境変数を設定 (引数との競合は気にせず、必須としてエクスポート)
-        export BOARD=seeeduino_xiao_ble
-        export SHIELD=prospector_scanner
-        
-        # 2. ビルドディレクトリを完全に削除してクリーンアップを強制
-        rm -rf "$BUILD_DIR"
-        
-        # 3. west build で設定ファイルを生成 (シールド検出のための -s . を使用)
-        # ★★★ 最終設定: -s . と ZMK_APP_DIR を使用し、シールド検出を最優先 ★★★
-        west build -s . -d "$BUILD_DIR" -- \
-          -DBOARD=seeeduino_xiao_ble \
-          -DSHIELD=prospector_scanner \
-          -DZMK_APP_DIR=zmk/app \
-          -DCMAKE_VERBOSE_MAKEFILE=ON
-        
-        # 4. 生成されたビルドファイルを ninja で強制的にコンパイル
-        echo "Forcing compilation using ninja directly..."
-        # ninja: no work to do. で失敗しても処理を続行させる ('|| true')
-        ninja -v all -C "$BUILD_DIR" || true
-        
-        # 5. ninja がスキップした場合に備え、west build (非クリーン) で再コンパイルを試みる
-        if [ ! -f "$BUILD_DIR/zephyr/zephyr.bin" ]; then
-            echo "Ninja skipped, trying again with west build (non-pristine) to force compilation..."
-            # -s . と -b BOARD で再試行
-            west build -s . -d "$BUILD_DIR" -b seeeduino_xiao_ble
-        fi
-        
-        # 6. 生成された .bin ファイルを検索し、UF2変換
-        BIN_FILE="$BUILD_DIR/zephyr/zephyr.bin" 
-        UF2_PATH="$BUILD_DIR/zmk.uf2"
-        
-        # 最終手段として、ビルドディレクトリのzephyr/内部のみを再帰的に検索
-        if [ ! -f "$BIN_FILE" ]; then
-            BIN_FILE=$(find "$BUILD_DIR"/zephyr -name "*.bin" -print -quit 2>/dev/null)
-        fi
-        
-        if [ -f "$BIN_FILE" ]; then
-          echo "Found final binary file: $BIN_FILE. Starting UF2 conversion..."
-          # UF2ツールを実行
-          python3 tools/uf2-tools/uf2conv.py "$BIN_FILE" -c -o "$UF2_PATH"
-        else
-          echo "FATAL ERROR: FINAL BIN file not found in the build directory ($BUILD_DIR/). The firmware build skipped or failed."
-          echo "Listing ALL contents of build directory for final, definitive debugging:"
-          ls -R build/
-          exit 1
-        fi
-      shell: bash
-
-    - name: Archive production artifacts (Artifact Upload)
-      uses: actions/upload-artifact@v4
-      with:
-        name: prospector_scanner-seeeduino_xiao_ble-zmk
-        # 最終パス: build/prospector_scanner/zmk.uf2 をアップロード
-        path: build/prospector_scanner/zmk.uf2
+    # ZMKの外部ワークフローを呼び出す
+    # パスを 'build-user-config.yml' から 'build-config.yml' に修正
+    uses: zmkfirmware/zmk/.github/workflows/build-config.yml@main
