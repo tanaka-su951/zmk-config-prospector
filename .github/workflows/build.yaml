@@ -29,10 +29,9 @@ jobs:
         west update
       shell: bash
 
-    # ★★★ 最終クリーンアップステップ（z-resetを削除） ★★★
+    # ワークスペースに残るキャッシュや一時ファイルを完全に削除
     - name: Force Workspace Cleanup
       run: |
-        # ワークスペース内の全てのビルド生成物とキャッシュを完全に削除
         rm -rf build zmk/.west modules *~
       shell: bash
 
@@ -65,8 +64,8 @@ jobs:
       run: |
         source zmk-env/bin/activate
         west zephyr-export
-        # カスタムモジュールが隔離された、クリーンなビルドコマンド
-        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
+        # ★★★ 修正箇所: -s . (カスタムリポジトリのルート) をアプリケーションソースとして指定 ★★★
+        west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
       shell: bash
