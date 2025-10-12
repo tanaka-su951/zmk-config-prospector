@@ -45,7 +45,7 @@ jobs:
         ls -F modules || echo "Modules directory not found, check west.yml configuration."
       shell: bash
       
-    - name: Set up Python Environment and UF2 Tools
+    - name: Set up Python Environment
       run: |
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
@@ -58,23 +58,6 @@ jobs:
         else
             echo "Warning: requirements.txt not found. Continuing build in case dependencies are pre-installed."
         fi
-        
-        # UF2ツールを West 経由で安定してワークスペースに取り込む
-        mkdir -p tools
-        cat <<EOF > tools/uf2-tools.yml
-        manifest:
-          remotes:
-            - name: uf2
-              url-base: https://github.com/microsoft
-          projects:
-            - name: uf2-tools
-              remote: uf2
-              revision: main
-              path: tools/uf2-tools
-        EOF
-        
-        # tools/uf2-tools.yml に基づいてワークスペースを更新
-        west update
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
@@ -82,38 +65,28 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
-        BUILD_DIR="build/prospector_scanner"
-        BOARD_NAME="seeeduino_xiao_ble"
-        SHIELD_NAME="prospector_scanner"
-        
-        # 1. 最も標準的な単一コマンドでクリーンビルドを強制
-        # ★★★ 最終修正: すべての引数を単一の west build コマンドに集約し、-p を使用 ★★★
-        west build -s . -d "$BUILD_DIR" -b "$BOARD_NAME" -p -- \
-          -DSHIELD="$SHIELD_NAME" \
+        # 1. west build で設定とコンパイルを実行 (ビルドを確実に行うため -t all は別コマンドに分離)
+        west build -s . -d build/prospector_scanner -b seeeduino_xiao_ble -- \
+          -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
+          
+        # 2. ビルドがスキップされないように、明示的に all ターゲットを実行
+        west build -d build/prospector_scanner -t all
         
-        # 2. 生成された .bin ファイルを最も可能性の高い場所から順に検索し、UF2変換
-        BIN_FILE="$BUILD_DIR/zephyr/zephyr.bin" # 標準ZMKパス
-        UF2_PATH="$BUILD_DIR/zmk.uf2"
+        # 3. 生成された .bin ファイルを見つけ出し、uf2conv.py を使用して変換
+        # ★★★ 最終修正: uf2conv.py のパスを正しい ZMK 内部のパス (zmk/tools/) に修正 ★★★
+        BIN_PATH="build/prospector_scanner/zephyr/zephyr.bin"
+        UF2_PATH="build/prospector_scanner/zmk.uf2"
         
-        # 代替パス1: ボード名を含んだバイナリ名
-        if [ ! -f "$BIN_FILE" ]; then
-          BIN_FILE="$BUILD_DIR/zephyr/zephyr-$BOARD_NAME.bin"
-        fi
-        
-        # ★★★ 代替パス2 (最終手段): ビルドディレクトリ全体を再帰的に検索 ★★★
-        if [ ! -f "$BIN_FILE" ]; then
-            BIN_FILE=$(find "$BUILD_DIR" -name "*.bin" -print -quit)
-        fi
-        
-        if [ -f "$BIN_FILE" ]; then
-          echo "Found final binary file: $BIN_FILE. Starting UF2 conversion..."
-          # クローンした uf2conv.py スクリプトを直接実行する
-          python3 tools/uf2-tools/uf2conv.py "$BIN_FILE" -c -o "$UF2_PATH"
+        if [ -f "$BIN_PATH" ]; then
+          echo "Found binary file: $BIN_PATH. Starting UF2 conversion..."
+          # ZMKに含まれる uf2conv.py スクリプトを実行し、zmk.uf2 を生成
+          python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
         else
-          echo "FATAL ERROR: FINAL BIN file not found in the build directory ($BUILD_DIR/). The firmware build skipped or failed."
-          echo "Listing ALL contents of build directory for final, definitive debugging:"
-          ls -R build/
+          echo "FATAL ERROR: Binary file not found at $BIN_PATH."
+          echo "Listing contents of build directory for final debugging:"
+          # デバッグ情報として、ディレクトリ構造全体を出力
+          ls -R build/prospector_scanner/
           exit 1
         fi
       shell: bash
