@@ -65,12 +65,10 @@ jobs:
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
         source zmk-env/bin/activate
+        # west zephyr-export はここで実行される
         west zephyr-export
         
-        # ★★★ 最終修正: ZEPHYR_BASEを環境変数としてエクスポートします ★★★
-        ZEPHYR_BASE_PATH="$PWD/zephyr"
-        export ZEPHYR_BASE="$ZEPHYR_BASE_PATH"
-        ZEPHYR_PREFIX_PATH="$PWD/zephyr/share" 
+        # 以前のカスタムパス設定を削除
         
         # 0. クリーンアップ
         rm -rf build/prospector_scanner
@@ -103,11 +101,9 @@ jobs:
         rm -f "$CMAKELIST"
         
         # 3. Configuration/Setup phase (設定のみ)
-        # ★★★ 最終修正: ZEPHYR_BASEとCMAKE_PREFIX_PATHを強制的に渡します ★★★
+        # ★★★ 最終修正: すべてのカスタムZEPHYRパス引数を削除し、標準に戻す ★★★
         west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD=prospector_scanner \
-          -DZEPHYR_BASE="$ZEPHYR_BASE_PATH" \
-          -DCMAKE_PREFIX_PATH="$ZEPHYR_PREFIX_PATH" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
         # 4. CMakeキャッシュを直接削除し、再コンパイルを強制
