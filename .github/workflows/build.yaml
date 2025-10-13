@@ -119,6 +119,7 @@ jobs:
         
         # 3. Kconfig を作成してシールドを有効化
         echo "Creating missing Kconfig file: $SHIELD_KCONFIG"
+        # ★★★ 修正箇所: この EOF の行が次の行に影響を与えています ★★★
         cat <<EOF > "$SHIELD_KCONFIG"
 # Kconfig: Defines the shield and its options
 config SHIELD_PROSPECTOR_SCANNER
