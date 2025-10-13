@@ -87,7 +87,6 @@ jobs:
         echo "# Force rebuild at $(date +%s)" >> "$PRJ_CONF"
 
         # 2. CMakeLists.txt の正しい内容で上書き/作成
-        # ★★★ 最終的な修正: ZMKに必要な最小限のプロジェクト設定に変更 ★★★
         echo "Overwriting $CMAKELIST with correct ZMK config content."
         cat <<EOF > "$CMAKELIST"
 cmake_minimum_required(VERSION 3.20.0)
@@ -102,12 +101,10 @@ EOF
         # 4. CMakeキャッシュを直接削除し、再コンパイルを強制
         echo "Forcing recompilation by deleting CMake cache files..."
         BUILD_DIR="build/prospector_scanner"
-        # CMakeのキャッシュと中間ファイルを削除
         rm -f $BUILD_DIR/CMakeCache.txt
         rm -rf $BUILD_DIR/CMakeFiles
         
         # 5. Separate Compilation phase (コンパイル実行)
-        # キャッシュが消されたため、このコマンドが設定とコンパイルを強制的に再実行するはず
         west build -s config -d build/prospector_scanner -t all
           
         # 6. UF2 conversion
