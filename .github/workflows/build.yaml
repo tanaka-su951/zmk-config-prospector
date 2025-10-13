@@ -67,6 +67,10 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
+        # ワークスペースのルートパスを取得し、絶対パスを構築
+        # $PWDは /__w/zmk-config-prospector/zmk-config-prospector を指す
+        ZEPHYR_BASE_PATH="$PWD/zephyr"
+        
         # 0. クリーンアップ
         rm -rf build/prospector_scanner
 
@@ -94,16 +98,16 @@ jobs:
         fi
         
         # 2. CMakeLists.txt の正しい内容で上書き/作成
-        # ★★★ 最終修正: C++コンパイラ回避と project の最小構成を統合します ★★★
         echo "Overwriting $CMAKELIST with correct ZMK config content."
         echo "cmake_minimum_required(VERSION 3.20.0)" > "$CMAKELIST"
         echo "project(zmk-config-prospector LANGUAGES C)" >> "$CMAKELIST"
         echo 'set(BOARD seeeduino_xiao_ble)' >> "$CMAKELIST" 
         echo 'set(SHIELD prospector_scanner)' >> "$CMAKELIST"
-        echo 'include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake)' >> "$CMAKELIST"
+        # ★★★ 最終修正: ZEPHYR_BASEを絶対パスに置き換えます ★★★
+        echo "include($ZEPHYR_BASE_PATH/cmake/app/boilerplate.cmake)" >> "$CMAKELIST"
         
         # 3. Configuration/Setup phase (設定のみ)
-        # ★★★ 最終修正: ソースを config に戻し、ボード/シールドの引数を削除 ★★★
+        # ボード/シールドは CMakeLists.txt で設定済みのため、コマンドラインからは削除
         west build -s config -d build/prospector_scanner -- \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
