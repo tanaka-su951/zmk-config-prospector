@@ -88,25 +88,25 @@ jobs:
         echo "# Force rebuild at $(date +%s)" >> "$PRJ_CONF"
 
         # シールド設定ファイルが既に存在する場合、ワークフローは処理をスキップします。
-        # (手動で作成済みのため、以下のifブロックはスキップされますが、安全のため残します)
         if [ ! -f "$SHIELD_CONF" ]; then
           echo "Creating missing shield configuration file: $SHIELD_CONF"
           echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF"
         fi
         
         # 2. CMakeLists.txt の正しい内容で上書き/作成
-        # ★★★ 既存の内容（不十分）を、必須のロジックで強制的に上書きします ★★★
         echo "Overwriting $CMAKELIST with correct ZMK config content."
         echo "cmake_minimum_required(VERSION 3.20.0)" > "$CMAKELIST"
         echo "project(zmk-config-prospector LANGUAGES C)" >> "$CMAKELIST"
-        # BOARD/SHIELD を強制設定
+        # BOARD を強制設定
         echo 'set(BOARD seeeduino_xiao_ble)' >> "$CMAKELIST" 
-        echo 'set(SHIELD prospector_scanner)' >> "$CMAKELIST"
+        # SHIELD の設定は削除し、west build でパスとして渡す
         # Zephyrのビルドロジックを強制インクルード
         echo 'include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake)' >> "$CMAKELIST"
         
         # 3. Configuration/Setup phase (設定のみ)
+        # -DSHIELD にファイルパスを指定することで、ZMKの検索ロジックを回避
         west build -s config -d build/prospector_scanner -- \
+          -DSHIELD=config/prospector_scanner \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
         # 4. CMakeキャッシュを直接削除し、再コンパイルを強制
@@ -129,6 +129,7 @@ jobs:
         else
           echo "FATAL ERROR: FINAL ELF file not found. The firmware build failed."
           echo "Listing contents of build directory for final debugging:"
+          # デバッグ情報として、ディレクトリ構造全体を出力
           ls -R build/prospector_scanner/
           exit 1
         fi
@@ -138,4 +139,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
+        # 最終パス: build/prospector_scanner/zmk.uf2 をアップロード
         path: build/prospector_scanner/zmk.uf2
