@@ -71,7 +71,7 @@ jobs:
         rm -rf build/prospector_scanner
 
         # ★★★ 最終手段: ファイルを変更し、コンパイルを強制する ★★★
-        # 最も安全な設定ファイル（prj.conf）に一時的な改行を追加し、すぐに元に戻す
+        # prj.conf に一時的な改行を追加し、コンパイルを強制
         CONFIG_FILE="config/prj.conf"
         if [ -f "$CONFIG_FILE" ]; then
           echo "Forcing build by modifying $CONFIG_FILE..."
@@ -81,8 +81,9 @@ jobs:
           echo "Warning: prj.conf not found at $CONFIG_FILE. Cannot force build."
         fi
         
-        # 1. west build に、設定、コンパイル、クリーンアップの全てを強制実行させる
-        west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -t all -p -- \
+        # 1. west build に、設定とクリーンアップを強制実行させる（単一コマンド）
+        # ★★★ 最終修正: -t all を削除し、-p (pristine) のみで設定とビルドを強制 ★★★
+        west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -p -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
           
@@ -109,3 +110,4 @@ jobs:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
         # 最終パス: build/prospector_scanner/zmk.uf2 をアップロード
         path: build/prospector_scanner/zmk.uf2
+
