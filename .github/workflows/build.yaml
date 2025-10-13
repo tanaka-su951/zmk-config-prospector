@@ -67,7 +67,7 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
-        # 0. ビルドを強制するために、まずビルドディレクトリを完全にクリーンアップ
+        # 0. クリーンアップ
         rm -rf build/prospector_scanner
 
         # ★★★ 最終修正: prj.conf がない場合に強制的に作成し、ビルドを強制する ★★★
@@ -85,12 +85,16 @@ jobs:
         # 確実に変更があったと認識させるために、一時的な行を追加
         echo "# Force rebuild at $(date +%s)" >> "$CONFIG_FILE"
         
-        # 1. west build に、設定とクリーンアップを強制実行させる（単一コマンド）
-        west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -p -- \
+        # 1. Configuration/Setup phase (設定のみ)
+        west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
           
-        # 2. 生成された .elf ファイルを見つけ出し、uf2conv.py を使用して変換
+        # 2. Separate Compilation phase (コンパイル実行)
+        # ★★★ 最終修正: -t all を使用し、ビルドを強制的に実行 ★★★
+        west build -s config -d build/prospector_scanner -t all
+          
+        # 3. UF2 conversion
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
         
