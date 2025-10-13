@@ -119,13 +119,12 @@ jobs:
         
         # 3. Kconfig を作成してシールドを有効化
         echo "Creating missing Kconfig file: $SHIELD_KCONFIG"
-        # ★★★ 修正箇所: この EOF の行が次の行に影響を与えています ★★★
         cat <<EOF > "$SHIELD_KCONFIG"
 # Kconfig: Defines the shield and its options
 config SHIELD_PROSPECTOR_SCANNER
-    bool "Prospector Scanner"
+bool "Prospector Scanner"
     default y
-EOF
+    EOF
         
         # 4. CMakeLists.txt の正しい内容で上書き/作成
         echo "Overwriting $CMAKELIST with minimal ZMK app include."
