@@ -53,7 +53,7 @@ jobs:
         source zmk-env/bin/activate
         
         # ZMKの依存関係をインストール
-        REQUIREMENTS_FILE=$(find . -name "requirements.txt" -path "*zmk*" -print -quit || find . -name "requirements.txt" -print -quit)
+        REQUIREMENTS_FILE=$(find . -name "requirements.txt" -path "*zmk*" -print -quit || find . -name "requirements.txt" -path "*zmk-config-prospector*" -print -quit || find . -name "requirements.txt" -print -quit)
         if [ -n "$REQUIREMENTS_FILE" ]; then
             echo "Found requirements file at: $REQUIREMENTS_FILE"
             pip install -r "$REQUIREMENTS_FILE"
@@ -87,23 +87,19 @@ jobs:
         # 確実に変更があったと認識させるために、一時的な行を追加
         echo "# Force rebuild at $(date +%s)" >> "$PRJ_CONF"
 
-        # シールド設定ファイルが既に存在する場合、ワークフローは処理をスキップします。
+        # シールド設定ファイルを強制作成 (すでに存在する場合はスキップ)
         if [ ! -f "$SHIELD_CONF" ]; then
           echo "Creating missing shield configuration file: $SHIELD_CONF"
           echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF"
         fi
         
-        # 2. CMakeLists.txt の正しい内容で上書き/作成
-        # ★★★ BOARD/SHIELD設定を削除し、west buildに任せます ★★★
-        echo "Overwriting $CMAKELIST with correct ZMK config content."
-        echo "cmake_minimum_required(VERSION 3.20.0)" > "$CMAKELIST"
-        echo "project(zmk-config-prospector LANGUAGES C)" >> "$CMAKELIST"
-        # Zephyrのビルドロジックを強制インクルード
-        echo 'include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake)' >> "$CMAKELIST"
+        # 2. CMakeLists.txt を削除
+        echo "Deleting custom CMakeLists.txt to revert to standard ZMK build process."
+        rm -f "$CMAKELIST"
         
         # 3. Configuration/Setup phase (設定のみ)
-        # ★★★ -b と -DSHIELD を west build コマンドラインに戻す ★★★
-        west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -- \
+        # ★★★ 最終修正: ソースディレクトリを ZMK/app に変更 ★★★
+        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD=prospector_scanner \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
@@ -114,7 +110,8 @@ jobs:
         rm -rf $BUILD_DIR/CMakeFiles
         
         # 5. Separate Compilation phase (コンパイル実行)
-        west build -s config -d build/prospector_scanner -t all
+        # ソースを ZMK/app に変更したため、再設定は不要。
+        west build -s zmk/app -d build/prospector_scanner -t all
           
         # 6. UF2 conversion
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
