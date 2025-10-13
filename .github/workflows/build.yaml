@@ -24,47 +24,40 @@ jobs:
 
     - name: Initialize and Update west workspace
       run: |
-        # 作業ディレクトリ構成:
-        # /__w/zmk-config-prospector/zmk-config-prospector/
-        # ├── config/
-        # └── zmk/ (クローンされるZMK本体)
         echo "Initializing west workspace..."
-        rm -rf zmk zephyr modules .west
-        west init -l config  # ローカル config をメイン設定として初期化
-        cd zmk
-        echo "Switching to ZMK directory and updating west modules..."
+        rm -rf .west zephyr modules zmk build
+
+        # westワークスペースをZMK本体から初期化
+        west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
         west update
         west zephyr-export
-        cd ..
+
+        echo "Verifying west environment..."
+        west list
+        west -vv status
       shell: bash
 
-    - name: Debug ZMK Source Location
+    - name: Debug workspace structure
       run: |
-        echo "Listing workspace contents:"
+        echo "=== Workspace root ==="
         ls -F
-        echo "--- ZMK structure ---"
-        ls -F zmk || echo "ZMK directory missing"
-        echo "--- Zephyr ---"
-        ls -F zephyr || echo "Zephyr directory missing"
+        echo "--- zmk ---"
+        ls -F zmk || echo "ZMK missing"
+        echo "--- zephyr ---"
+        ls -F zephyr || echo "Zephyr missing"
       shell: bash
 
     - name: Set up Python Environment
       run: |
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
-
-        REQUIREMENTS_FILE=$(find zmk -name "requirements.txt" -print -quit)
-        if [ -n "$REQUIREMENTS_FILE" ]; then
-          echo "Installing dependencies from: $REQUIREMENTS_FILE"
-          pip install -r "$REQUIREMENTS_FILE"
-        else
-          echo "Warning: requirements.txt not found!"
-        fi
+        pip install -r zmk/app/requirements.txt
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
         source zmk-env/bin/activate
+
         export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
         export ZEPHYR_BASE="$PWD/zephyr"
         export CMAKE_PREFIX_PATH="$PWD/zephyr/share"
@@ -73,15 +66,15 @@ jobs:
 
         CONFIG_DIR="config"
         SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
-        mkdir -p $SHIELD_DIR
+        mkdir -p "$SHIELD_DIR"
 
         echo "# Minimal ZMK config" > "$CONFIG_DIR/prj.conf"
         echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_DIR/prj.conf"
 
-        echo "CONFIG_ZMK_KEYBOARD_NAME=\"Prospector Scanner\"" > "$SHIELD_DIR/prospector_scanner.conf"
+        echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_DIR/prospector_scanner.conf"
         echo '# Shield configs here' >> "$SHIELD_DIR/prospector_scanner.conf"
 
-        echo '# Kconfig' > "$SHIELD_DIR/Kconfig"
+        echo '# Kconfig for Prospector Scanner' > "$SHIELD_DIR/Kconfig"
         echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$SHIELD_DIR/Kconfig"
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
         echo '  default y' >> "$SHIELD_DIR/Kconfig"
@@ -92,6 +85,7 @@ jobs:
 
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
+
         if [ -f "$BIN_PATH" ]; then
           echo "Converting ELF → UF2"
           python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
@@ -107,3 +101,4 @@ jobs:
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
         path: build/prospector_scanner/zmk.uf2
+
