@@ -6,6 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
+      # ZMKの標準ビルド環境コンテナを使用
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
@@ -14,13 +15,8 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        # 構成ファイルを 'config' ディレクトリにチェックアウト
         path: config
-
-    - name: Force Workspace Cleanup
-      run: |
-        echo "Cleaning workspace..."
-        rm -rf build zmk modules zephyr *~
-      shell: bash
 
     - name: Install Python Venv
       run: |
@@ -28,105 +24,41 @@ jobs:
         apt install -y python3.12-venv || apt install -y python3-venv
       shell: bash
 
-    # ✅ 修正版：ZMKを公式リポジトリから取得する形
     - name: Initialize and Update west workspace
       run: |
+        # ZMKリポジトリ内のマニフェストファイル (app/west.yml) を明示的に指定
         west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
         west update
-        west zephyr-export
+      shell: bash
+
+    # ワークスペースに残るキャッシュや一時ファイルを完全に削除
+    - name: Force Workspace Cleanup
+      run: |
+        rm -rf build zmk/.west modules *~
       shell: bash
 
     - name: Debug ZMK Source Location
       run: |
-        echo "Listing workspace structure..."
+        echo "Listing contents of workspace root:"
         ls -F
-        echo "--- zmk ---"
-        ls -F zmk
-        echo "--- zephyr ---"
-        ls -F zephyr
-        echo "--- modules ---"
-        ls -F modules
-      shell: bash
-
-    - name: Set up Python Environment
-      run: |
-        /usr/bin/python3 -m venv zmk-env
-        source zmk-env/bin/activate
-        pip install -r zmk/app/requirements.txt
-      shell: bash
-
-    - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
-      run: |
-        source zmk-env/bin/activate
-        west zephyr-export
-        
-        export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
-
-        # クリーンビルド
-        rm -rf build/prospector_scanner
-        mkdir -p build/prospector_scanner
-
-        CONFIG_DIR="config"
-        PRJ_CONF="$CONFIG_DIR/prj.conf"
-        SHIELD_CONF="$CONFIG_DIR/prospector_scanner.conf"
-        CMAKELIST="$CONFIG_DIR/CMakeLists.txt"
-
-        echo "Ensuring ZMK config files exist..."
-        if [ ! -f "$PRJ_CONF" ]; then
-          echo "Creating missing prj.conf"
-          echo "# Minimal ZMK config" > "$PRJ_CONF"
-          echo 'CONFIG_ZMK_KSCAN_MATRIX=y' >> "$PRJ_CONF"
-        fi
-        echo "# Force rebuild at $(date +%s)" >> "$PRJ_CONF"
-
-        if [ ! -f "$SHIELD_CONF" ]; then
-          echo "Creating missing shield configuration file"
-          echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF"
-        fi
-
-        echo "Removing custom CMakeLists.txt to use ZMK defaults..."
-        rm -f "$CMAKELIST"
-
-        echo "=== Starting ZMK Build ==="
-        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
-          -DSHIELD=prospector_scanner \
-          -DCMAKE_VERBOSE_MAKEFILE=ON
-
-        BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
-        UF2_PATH="build/prospector_scanner/zmk.uf2"
-
-        if [ -f "$BIN_PATH" ]; then
-          echo "Converting ELF to UF2..."
-          python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
-        else
-          echo "FATAL: Build failed, zephyr.elf not found."
-          ls -R build/prospector_scanner/
-          exit 1
-        fi
-      shell: bash
-
-    - name: Archive production artifacts (Artifact Upload)
-      uses: actions/upload-artifact@v4
-      with:
-        name: prospector_scanner-seeeduino_xiao_ble-zmk
-        path: build/prospector_scanner/zmk.uf2
- -F modules || echo "Modules directory not found, check west.yml configuration."
-        echo "Listing contents of zephyr/ (if exists):"
-        ls -F zephyr || echo "Zephyr directory not found. Check west update results."
+        echo "Listing contents of zmk/ (if exists):"
+        ls -F zmk || echo "ZMK directory not found, check west.yml configuration."
+        echo "Listing contents of modules/ (if exists):"
+        ls -F modules || echo "Modules directory not found, check west.yml configuration."
       shell: bash
       
     - name: Set up Python Environment
       run: |
         /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
-
-        # ZMK依存パッケージを自動インストール
+        
+        # ZMKの依存関係をインストール
         REQUIREMENTS_FILE=$(find . -name "requirements.txt" -path "*zmk*" -print -quit || find . -name "requirements.txt" -path "*zmk-config-prospector*" -print -quit || find . -name "requirements.txt" -print -quit)
         if [ -n "$REQUIREMENTS_FILE" ]; then
             echo "Found requirements file at: $REQUIREMENTS_FILE"
             pip install -r "$REQUIREMENTS_FILE"
         else
-            echo "Warning: requirements.txt not found. Continuing build."
+            echo "Warning: requirements.txt not found. Continuing build in case dependencies are pre-installed."
         fi
       shell: bash
 
@@ -135,61 +67,78 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
-        # 環境パス設定
+        # ★★★ 最終修正: WEST のキャッシュ設定にツールチェーンバリアントを強制的に書き込みます ★★★
+        mkdir -p .west
+        echo "[zephyr]" > .west/config
+        echo "toolchain-variant = gnuarmemb" >> .west/config
+        
+        # ZEPHYRのパスを設定
         ZEPHYR_BASE_PATH="$PWD/zephyr"
-        ZEPHYR_PREFIX_PATH="$PWD/zephyr/share"
+        ZEPHYR_PREFIX_PATH="$PWD/zephyr/share" 
+        
+        # 1. 環境変数としてエクスポート (内部スクリプト用)
         export ZEPHYR_BASE="$ZEPHYR_BASE_PATH"
         export CMAKE_PREFIX_PATH="$ZEPHYR_PREFIX_PATH"
-        export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
         
-        # クリーンビルド
+        # 0. クリーンアップ
         rm -rf build/prospector_scanner
-        mkdir -p build/prospector_scanner
 
         CONFIG_DIR="config"
         PRJ_CONF="$CONFIG_DIR/prj.conf"
-        SHIELD_CONF="$CONFIG_DIR/prospector_scanner.conf"
         CMAKELIST="$CONFIG_DIR/CMakeLists.txt"
+        SHIELD_CONF="$CONFIG_DIR/prospector_scanner.conf"
 
-        echo "Ensuring ZMK config files exist..."
+        mkdir -p $CONFIG_DIR
+        echo "Forcing build by ensuring correct files exist in $CONFIG_DIR..."
+        
+        # 1. prj.conf の作成/変更
         if [ ! -f "$PRJ_CONF" ]; then
-          echo "Creating missing prj.conf"
-          echo "# Minimal ZMK build config" > "$PRJ_CONF"
+          echo "Creating missing $PRJ_CONF with minimum content."
+          echo "# Minimum ZMK config to enable compilation" > "$PRJ_CONF"
           echo 'CONFIG_ZMK_KSCAN_MATRIX=y' >> "$PRJ_CONF"
         fi
+        # 確実に変更があったと認識させるために、一時的な行を追加
         echo "# Force rebuild at $(date +%s)" >> "$PRJ_CONF"
 
+        # シールド設定ファイルを強制作成 (すでに存在する場合はスキップ)
         if [ ! -f "$SHIELD_CONF" ]; then
-          echo "Creating missing shield configuration file"
+          echo "Creating missing shield configuration file: $SHIELD_CONF"
           echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF"
         fi
-
-        echo "Removing custom CMakeLists.txt to use ZMK defaults..."
+        
+        # 2. CMakeLists.txt を削除します (ZMKの標準ビルド方法を維持)
+        echo "Deleting custom $CMAKELIST to use ZMK's standard app logic."
         rm -f "$CMAKELIST"
-
-        echo "=== Starting ZMK Build ==="
+        
+        # 3. Configuration/Setup phase (設定のみ)
+        # ★★★ 最終修正: -DZEPHYR_TOOLCHAIN_VARIANT を削除します ★★★
         west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD=prospector_scanner \
           -DZEPHYR_BASE="$ZEPHYR_BASE_PATH" \
           -DCMAKE_PREFIX_PATH="$ZEPHYR_PREFIX_PATH" \
-          -DZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
-        echo "=== Rebuilding to ensure cache cleared ==="
+        # 4. CMakeキャッシュを直接削除し、再コンパイルを強制
+        echo "Forcing recompilation by deleting CMake cache files..."
         BUILD_DIR="build/prospector_scanner"
         rm -f $BUILD_DIR/CMakeCache.txt
         rm -rf $BUILD_DIR/CMakeFiles
-
+        
+        # 5. Separate Compilation phase (コンパイル実行)
         west build -s zmk/app -d build/prospector_scanner -t all
-
+          
+        # 6. UF2 conversion
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
         
         if [ -f "$BIN_PATH" ]; then
-          echo "Converting ELF to UF2..."
+          echo "Found ELF file: $BIN_PATH. Starting UF2 conversion..."
+          # ZMKに含まれる uf2conv.py スクリプトを実行し、zmk.uf2 を生成
           python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
         else
-          echo "FATAL: Build failed, zephyr.elf not found."
+          echo "FATAL ERROR: FINAL ELF file not found. The firmware build failed."
+          echo "Listing contents of build directory for final debugging:"
+          # デバッグ情報として、ディレクトリ構造全体を出力
           ls -R build/prospector_scanner/
           exit 1
         fi
@@ -199,4 +148,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
+        # 最終パス: build/prospector_scanner/zmk.uf2 をアップロード
         path: build/prospector_scanner/zmk.uf2
