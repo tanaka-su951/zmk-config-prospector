@@ -85,14 +85,14 @@ jobs:
         fi
         # 確実に変更があったと認識させるために、一時的な行を追加
         echo "# Force rebuild at $(date +%s)" >> "$PRJ_CONF"
-
         # 2. CMakeLists.txt の正しい内容で上書き/作成
         echo "Overwriting $CMAKELIST with correct ZMK config content."
         cat <<EOF > "$CMAKELIST"
+        
 cmake_minimum_required(VERSION 3.20.0)
 project(zmk-config-prospector)
 EOF
-        
+
         # 3. Configuration/Setup phase (設定のみ)
         west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD="prospector_scanner" \
