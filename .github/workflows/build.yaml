@@ -94,17 +94,18 @@ jobs:
         fi
         
         # 2. CMakeLists.txt の正しい内容で上書き/作成
-        # ★★★ 最終修正: ZMKの標準的なアプリ形式に戻します ★★★
         echo "Overwriting $CMAKELIST with correct ZMK config content."
         echo "cmake_minimum_required(VERSION 3.20.0)" > "$CMAKELIST"
+        # HINTSに環境変数を指定することで、find_packageの成功率を最大化
         echo "find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})" >> "$CMAKELIST"
         echo "project(zmk-config-prospector LANGUAGES C)" >> "$CMAKELIST"
         echo "zephyr_library()" >> "$CMAKELIST"
         
         # 3. Configuration/Setup phase (設定のみ)
-        # BOARD/SHIELD は west build コマンドラインで渡します。
+        # ★★★ 最終修正: ZEPHYR_BASE を -DZEPHYR_BASE として渡す ★★★
         west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD=prospector_scanner \
+          -DZEPHYR_BASE=$ZEPHYR_BASE \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
         # 4. CMakeキャッシュを直接削除し、再コンパイルを強制
