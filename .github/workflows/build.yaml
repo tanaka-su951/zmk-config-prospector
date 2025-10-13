@@ -70,37 +70,47 @@ jobs:
         # 0. クリーンアップ
         rm -rf build/prospector_scanner
 
-        # prj.conf の強制作成と変更
-        CONFIG_FILE="config/prj.conf"
-        echo "Forcing build by ensuring $CONFIG_FILE exists and modifying it..."
+        CONFIG_DIR="config"
+        PRJ_CONF="$CONFIG_DIR/prj.conf"
+        CMAKELIST="$CONFIG_DIR/CMakeLists.txt"
+
+        mkdir -p $CONFIG_DIR
+        echo "Forcing build by ensuring correct files exist in $CONFIG_DIR..."
         
-        # 既存のファイルがない場合は作成し、最低限のZMK設定を含める
-        if [ ! -f "$CONFIG_FILE" ]; then
-          echo "Creating missing $CONFIG_FILE with minimum required content."
-          mkdir -p config
-          echo "# Minimum ZMK config to enable compilation" > "$CONFIG_FILE"
-          echo 'CONFIG_ZMK_KSCAN_MATRIX=y' >> "$CONFIG_FILE"
+        # 1. prj.conf の作成/変更
+        if [ ! -f "$PRJ_CONF" ]; then
+          echo "Creating missing $PRJ_CONF with minimum content."
+          echo "# Minimum ZMK config to enable compilation" > "$PRJ_CONF"
+          echo 'CONFIG_ZMK_KSCAN_MATRIX=y' >> "$PRJ_CONF"
         fi
-        
         # 確実に変更があったと認識させるために、一時的な行を追加
-        echo "# Force rebuild at $(date +%s)" >> "$CONFIG_FILE"
+        echo "# Force rebuild at $(date +%s)" >> "$PRJ_CONF"
+
+        # 2. CMakeLists.txt の正しい内容で上書き/作成
+        # ★★★ 最終的な修正: ZMKに必要な最小限のプロジェクト設定に変更 ★★★
+        echo "Overwriting $CMAKELIST with correct ZMK config content."
+        cat <<EOF > "$CMAKELIST"
+cmake_minimum_required(VERSION 3.20.0)
+project(zmk-config-prospector)
+EOF
         
-        # 1. Configuration/Setup phase (設定のみ)
+        # 3. Configuration/Setup phase (設定のみ)
         west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
-        # ★★★ 最終修正: CMakeキャッシュを直接削除し、再コンパイルを強制 ★★★
+        # 4. CMakeキャッシュを直接削除し、再コンパイルを強制
         echo "Forcing recompilation by deleting CMake cache files..."
         BUILD_DIR="build/prospector_scanner"
+        # CMakeのキャッシュと中間ファイルを削除
         rm -f $BUILD_DIR/CMakeCache.txt
         rm -rf $BUILD_DIR/CMakeFiles
         
-        # 2. Separate Compilation phase (コンパイル実行)
+        # 5. Separate Compilation phase (コンパイル実行)
         # キャッシュが消されたため、このコマンドが設定とコンパイルを強制的に再実行するはず
         west build -s config -d build/prospector_scanner -t all
           
-        # 3. UF2 conversion
+        # 6. UF2 conversion
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
         
