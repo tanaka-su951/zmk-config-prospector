@@ -93,14 +93,18 @@ jobs:
           echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF"
         fi
         
-        # 2. CMakeLists.txt を削除
-        echo "Deleting custom CMakeLists.txt to revert to standard ZMK build process."
-        rm -f "$CMAKELIST"
+        # 2. CMakeLists.txt の正しい内容で上書き/作成
+        # ★★★ 最終修正: BOARD/SHIELD設定とboilerplateをすべて含めた状態に戻します ★★★
+        echo "Overwriting $CMAKELIST with correct ZMK config content."
+        echo "cmake_minimum_required(VERSION 3.20.0)" > "$CMAKELIST"
+        echo "project(zmk-config-prospector LANGUAGES C)" >> "$CMAKELIST"
+        echo 'set(BOARD seeeduino_xiao_ble)' >> "$CMAKELIST" 
+        echo 'set(SHIELD prospector_scanner)' >> "$CMAKELIST"
+        echo 'include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake)' >> "$CMAKELIST"
         
         # 3. Configuration/Setup phase (設定のみ)
-        # ★★★ 最終修正: ソースディレクトリを ZMK/app に変更 ★★★
-        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
-          -DSHIELD=prospector_scanner \
+        # ★★★ 最終修正: ソースディレクトリを config に戻します ★★★
+        west build -s config -d build/prospector_scanner -- \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
         # 4. CMakeキャッシュを直接削除し、再コンパイルを強制
@@ -110,8 +114,8 @@ jobs:
         rm -rf $BUILD_DIR/CMakeFiles
         
         # 5. Separate Compilation phase (コンパイル実行)
-        # ソースを ZMK/app に変更したため、再設定は不要。
-        west build -s zmk/app -d build/prospector_scanner -t all
+        # ソースディレクトリを config に戻します
+        west build -s config -d build/prospector_scanner -t all
           
         # 6. UF2 conversion
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
