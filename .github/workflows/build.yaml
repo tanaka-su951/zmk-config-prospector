@@ -29,6 +29,12 @@ jobs:
         # ZMKリポジトリ内のマニフェストファイル (app/west.yml) を明示的に指定
         west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
         west update
+        
+        # ★★★ 最終修正: west のビルドコマンドが利用可能であることを確認 ★★★
+        echo "Verifying west extensions are loaded..."
+        west list
+        west config zephyr.toolchain-variant || true 
+        west -vv status
       shell: bash
 
     # ワークスペースに残るキャッシュや一時ファイルを完全に削除
@@ -67,7 +73,7 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
-        # ★★★ 最終修正: WEST のキャッシュ設定にツールチェーンバリアントを強制的に書き込みます ★★★
+        # WEST のキャッシュ設定にツールチェーンバリアントを強制的に書き込み
         mkdir -p .west
         echo "[zephyr]" > .west/config
         echo "toolchain-variant = gnuarmemb" >> .west/config
@@ -76,7 +82,7 @@ jobs:
         ZEPHYR_BASE_PATH="$PWD/zephyr"
         ZEPHYR_PREFIX_PATH="$PWD/zephyr/share" 
         
-        # 1. 環境変数としてエクスポート (内部スクリプト用)
+        # 1. 環境変数としてエクスポート
         export ZEPHYR_BASE="$ZEPHYR_BASE_PATH"
         export CMAKE_PREFIX_PATH="$ZEPHYR_PREFIX_PATH"
         
@@ -111,7 +117,6 @@ jobs:
         rm -f "$CMAKELIST"
         
         # 3. Configuration/Setup phase (設定のみ)
-        # ★★★ 最終修正: -DZEPHYR_TOOLCHAIN_VARIANT を削除します ★★★
         west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD=prospector_scanner \
           -DZEPHYR_BASE="$ZEPHYR_BASE_PATH" \
