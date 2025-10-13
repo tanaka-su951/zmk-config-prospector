@@ -6,6 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
+      # ZMKの標準ビルド環境コンテナを使用
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
@@ -27,24 +28,40 @@ jobs:
         echo "=== Initializing west workspace ==="
         west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
         west update
-        echo "=== West status ==="
+        echo "Verifying west extensions are loaded..."
         west list
+        west config zephyr.toolchain-variant || true 
         west -vv status
       shell: bash
 
-    - name: Prepare Python Environment
+    - name: Force Workspace Cleanup
       run: |
-        echo "=== Setting up Python virtual environment ==="
-        python3 -m venv zmk-env
+        rm -rf build zmk/.west modules *~
+      shell: bash
+
+    - name: Debug ZMK Source Location
+      run: |
+        echo "Listing contents of workspace root:"
+        ls -F
+        echo "Listing contents of zmk/ (if exists):"
+        ls -F zmk || echo "ZMK directory not found, check west.yml configuration."
+        echo "Listing contents of modules/ (if exists):"
+        ls -F modules || echo "Modules directory not found, check west.yml configuration."
+        echo "Listing contents of zephyr/ (if exists):"
+        ls -F zephyr || echo "Zephyr directory not found. Check west update results."
+      shell: bash
+      
+    - name: Set up Python Environment
+      run: |
+        /usr/bin/python3 -m venv zmk-env
         source zmk-env/bin/activate
 
-        # requirements.txt を安全に探索
         REQUIREMENTS_FILE=$(find . -name "requirements.txt" -path "*zmk/app*" -print -quit)
-        if [ -f "$REQUIREMENTS_FILE" ]; then
-          echo "Installing requirements from: $REQUIREMENTS_FILE"
+        if [ -n "$REQUIREMENTS_FILE" ]; then
+          echo "Found requirements file: $REQUIREMENTS_FILE"
           pip install -r "$REQUIREMENTS_FILE"
         else
-          echo "Warning: requirements.txt not found, skipping dependency install."
+          echo "No requirements.txt found. Continuing..."
         fi
       shell: bash
 
@@ -76,53 +93,46 @@ jobs:
         # Kconfig
         SHIELD_KCONFIG="$SHIELD_DIR/Kconfig"
         echo "Creating $SHIELD_KCONFIG"
-        cat <<'EOF' > "$SHIELD_KCONFIG"
-config SHIELD_PROSPECTOR_SCANNER
-    bool "Prospector Scanner"
-    default y
-EOF
+        echo 'config SHIELD_PROSPECTOR_SCANNER' > "$SHIELD_KCONFIG"
+        echo '    bool "Prospector Scanner"' >> "$SHIELD_KCONFIG"
+        echo '    default y' >> "$SHIELD_KCONFIG"
 
         # CMakeLists.txt
         CMAKELIST="$CONFIG_DIR/CMakeLists.txt"
         echo "Overwriting $CMAKELIST"
-        cat <<'EOF' > "$CMAKELIST"
-cmake_minimum_required(VERSION 3.20.0)
-project(zmk-config-prospector LANGUAGES C)
-find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-target_sources(app PRIVATE src/main.c)
-EOF
+        echo 'cmake_minimum_required(VERSION 3.20.0)' > "$CMAKELIST"
+        echo 'project(zmk-config-prospector LANGUAGES C)' >> "$CMAKELIST"
+        echo 'find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})' >> "$CMAKELIST"
+        echo 'target_sources(app PRIVATE src/main.c)' >> "$CMAKELIST"
       shell: bash
 
-    - name: Debug ZMK Source Structure
+    - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
-        echo "=== Checking workspace structure ==="
-        ls -F
-        echo "=== Listing zmk/ and modules/ directories ==="
-        ls -F zmk || echo "ZMK directory not found."
-        ls -F modules || echo "Modules directory not found."
-      shell: bash
-
-    - name: Build Shield: prospector_scanner (seeeduino_xiao_ble)
-      run: |
-        echo "=== Starting ZMK Build ==="
         source zmk-env/bin/activate
-
-        export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
         export ZEPHYR_BASE="$PWD/zephyr"
+        export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
+        export CMAKE_PREFIX_PATH="$PWD/zephyr/share"
 
-        west build -s zmk/app -b seeeduino_xiao_ble \
-          -- -DSHIELD=prospector_scanner -DZMK_CONFIG="$PWD/config"
+        echo "=== Starting ZMK Build ==="
+        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
+          -DSHIELD=prospector_scanner \
+          -DZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb \
+          -DCMAKE_VERBOSE_MAKEFILE=ON
+
+        BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
+        UF2_PATH="build/prospector_scanner/zmk.uf2"
+
+        if [ -f "$BIN_PATH" ]; then
+          echo "Converting ELF to UF2..."
+          python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
+        else
+          echo "FATAL ERROR: ELF not found."
+          ls -R build/prospector_scanner/
+          exit 1
+        fi
       shell: bash
 
-    - name: Upload Firmware Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: prospector_scanner_firmware
-        path: build/zephyr/zmk.uf2
-
-      shell: bash
-
-    - name: Archive Firmware (Artifact Upload)
+    - name: Archive production artifacts (Artifact Upload)
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
