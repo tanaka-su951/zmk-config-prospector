@@ -67,6 +67,11 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
+        # ★★★ 最終修正: WEST のキャッシュ設定にツールチェーンバリアントを強制的に書き込みます ★★★
+        mkdir -p .west
+        echo "[zephyr]" > .west/config
+        echo "toolchain-variant = gnuarmemb" >> .west/config
+        
         # ZEPHYRのパスを設定
         ZEPHYR_BASE_PATH="$PWD/zephyr"
         ZEPHYR_PREFIX_PATH="$PWD/zephyr/share" 
@@ -106,12 +111,11 @@ jobs:
         rm -f "$CMAKELIST"
         
         # 3. Configuration/Setup phase (設定のみ)
-        # ★★★ 最終修正: ZEPHYR_TOOLCHAIN_VARIANT を強制的に渡します ★★★
+        # ★★★ 最終修正: -DZEPHYR_TOOLCHAIN_VARIANT を削除します ★★★
         west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD=prospector_scanner \
           -DZEPHYR_BASE="$ZEPHYR_BASE_PATH" \
           -DCMAKE_PREFIX_PATH="$ZEPHYR_PREFIX_PATH" \
-          -DZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
         # 4. CMakeキャッシュを直接削除し、再コンパイルを強制
@@ -146,4 +150,3 @@ jobs:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
         # 最終パス: build/prospector_scanner/zmk.uf2 をアップロード
         path: build/prospector_scanner/zmk.uf2
-
