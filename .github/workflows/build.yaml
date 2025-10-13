@@ -87,10 +87,10 @@ jobs:
         echo "# Force rebuild at $(date +%s)" >> "$PRJ_CONF"
 
         # 2. CMakeLists.txt の正しい内容で上書き/作成
-        # ★★★ 最終修正: echo コマンドを使用し、YAMLインデント問題を完全に回避 ★★★
+        # C++のチェックをスキップするために LANGUAGES C を追加
         echo "Overwriting $CMAKELIST with correct ZMK config content."
         echo "cmake_minimum_required(VERSION 3.20.0)" > "$CMAKELIST"
-        echo "project(zmk-config-prospector)" >> "$CMAKELIST"
+        echo "project(zmk-config-prospector LANGUAGES C)" >> "$CMAKELIST"
         
         # 3. Configuration/Setup phase (設定のみ)
         west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -- \
