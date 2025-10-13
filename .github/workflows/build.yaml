@@ -67,13 +67,6 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
-        # /__w/zmk-config-prospector/zmk-config-prospector/zephyr/share を指すように調整
-        ZEPHYR_CMAKE_PREFIX="$(dirname $(find $PWD/zephyr/share -name 'zephyr-package' -type d))"
-        if [ -z "$ZEPHYR_CMAKE_PREFIX" ]; then
-            echo "Error: ZEPHYR_CMAKE_PREFIX path could not be determined. Using fallback."
-            ZEPHYR_CMAKE_PREFIX="/__w/zmk-config-prospector/zmk-config-prospector/zephyr/share" 
-        fi
-        
         # 0. クリーンアップ
         rm -rf build/prospector_scanner
 
@@ -100,18 +93,14 @@ jobs:
           echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF"
         fi
         
-        # 2. CMakeLists.txt の正しい内容で上書き/作成
-        # ★★★ 最終修正: projectコマンドに LANGUAGES C を追加します ★★★
-        echo "Overwriting $CMAKELIST with correct ZMK config content."
-        echo "cmake_minimum_required(VERSION 3.20.0)" > "$CMAKELIST"
-        echo "find_package(Zephyr REQUIRED)" >> "$CMAKELIST"
-        echo "project(zmk-config-prospector LANGUAGES C)" >> "$CMAKELIST" # LANGUAGES C を再追加
+        # 2. CMakeLists.txt を削除します (ZMKの標準ビルド方法に戻す)
+        echo "Deleting custom $CMAKELIST to use ZMK's standard app logic."
+        rm -f "$CMAKELIST"
         
         # 3. Configuration/Setup phase (設定のみ)
-        # CMAKE_PREFIX_PATH を使用して find_package を補助します。
-        west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -- \
+        # ★★★ 最終修正: ソースを zmk/app に変更し、カスタムCMake引数を削除 ★★★
+        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD=prospector_scanner \
-          -DCMAKE_PREFIX_PATH="$ZEPHYR_CMAKE_PREFIX" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
         # 4. CMakeキャッシュを直接削除し、再コンパイルを強制
@@ -121,7 +110,7 @@ jobs:
         rm -rf $BUILD_DIR/CMakeFiles
         
         # 5. Separate Compilation phase (コンパイル実行)
-        west build -s config -d build/prospector_scanner -t all
+        west build -s zmk/app -d build/prospector_scanner -t all
           
         # 6. UF2 conversion
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
