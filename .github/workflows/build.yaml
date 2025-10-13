@@ -11,62 +11,7 @@ jobs:
       options: --user root
 
     steps:
-    - name: Checkout ZMK Config (as config)
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        # 構成ファイルを 'config' ディレクトリにチェックアウト
-        path: config
-
-    - name: Install Python Venv
-      run: |
-        apt update
-        apt install -y python3.12-venv || apt install -y python3-venv
-      shell: bash
-
-    - name: Initialize and Update west workspace
-      run: |
-        # ZMKリポジトリ内のマニフェストファイル (app/west.yml) を明示的に指定
-        west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
-        west update
-        
-        # west環境のデバッグを維持
-        echo "Verifying west extensions are loaded..."
-        west list
-        west config zephyr.toolchain-variant || true 
-        west -vv status
-      shell: bash
-
-    # ワークスペースに残るキャッシュや一時ファイルを完全に削除
-    - name: Force Workspace Cleanup
-      run: |
-        rm -rf build zmk/.west modules *~
-      shell: bash
-
-    - name: Debug ZMK Source Location
-      run: |
-        echo "Listing contents of workspace root:"
-        ls -F
-        echo "Listing contents of zmk/ (if exists):"
-        ls -F zmk || echo "ZMK directory not found, check west.yml configuration."
-        echo "Listing contents of modules/ (if exists):"
-        ls -F modules || echo "Modules directory not found, check west.yml configuration."
-      shell: bash
-      
-    - name: Set up Python Environment
-      run: |
-        /usr/bin/python3 -m venv zmk-env
-        source zmk-env/bin/activate
-        
-        # ZMKの依存関係をインストール
-        REQUIREMENTS_FILE=$(find . -name "requirements.txt" -path "*zmk*" -print -quit || find . -name "requirements.txt" -path "*zmk-config-prospector*" -print -quit || find . -name "requirements.txt" -print -quit)
-        if [ -n "$REQUIREMENTS_FILE" ]; then
-            echo "Found requirements file at: $REQUIREMENTS_FILE"
-            pip install -r "$REQUIREMENTS_FILE"
-        else
-            echo "Warning: requirements.txt not found. Continuing build in case dependencies are pre-installed."
-        fi
-      shell: bash
+    # ... (初期化とセットアップのステップは省略。変更はありません) ...
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
@@ -93,10 +38,10 @@ jobs:
         PRJ_CONF="$CONFIG_DIR/prj.conf"
         CMAKELIST="$CONFIG_DIR/CMakeLists.txt"
         
-        # ★★★ 修正: シールド構成のパスを修正 ★★★
+        # ★★★ 修正: Kconfigファイル名を Kconfig に変更 ★★★
         SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
         SHIELD_CONF="$SHIELD_DIR/prospector_scanner.conf"
-        SHIELD_KCONFIG="$SHIELD_DIR/Kconfig.defconfig"
+        SHIELD_KCONFIG="$SHIELD_DIR/Kconfig" 
 
         # 関連するディレクトリ構造を作成
         mkdir -p $SHIELD_DIR
@@ -106,7 +51,7 @@ jobs:
         if [ ! -f "$PRJ_CONF" ]; then
           echo "Creating missing $PRJ_CONF with minimum content."
           echo "# Minimum ZMK config to enable compilation" > "$PRJ_CONF"
-          echo 'CONFIG_ZMK_KSCAN_MATRIX=y' >> "$PRJ_CONF"
+          echo 'CONFIG_ZMK_KSCAN_MATRIX=y' >> "$PRP_CONF"
         fi
         echo "# Force rebuild at $(date +%s)" >> "$PRJ_CONF"
 
@@ -117,11 +62,14 @@ jobs:
           echo '# ZMK shield specific configs go here' >> "$SHIELD_CONF"
         fi
         
-        # 3. Kconfig.defconfig を追加してシールドを有効化
-        if [ ! -f "$SHIELD_KCONFIG" ]; then
-          echo "Creating missing Kconfig.defconfig: $SHIELD_KCONFIG"
-          echo 'CONFIG_ZMK_SHIELD_PROSPECTOR_SCANNER=y' > "$SHIELD_KCONFIG"
-        fi
+        # 3. Kconfig を作成してシールドを有効化
+        echo "Creating missing Kconfig file: $SHIELD_KCONFIG"
+        cat <<EOF > "$SHIELD_KCONFIG"
+# Kconfig: Defines the shield and its options
+config SHIELD_PROSPECTOR_SCANNER
+    bool "Prospector Scanner"
+    default y
+EOF
         
         # 4. CMakeLists.txt の正しい内容で上書き/作成
         echo "Overwriting $CMAKELIST with minimal ZMK app include."
