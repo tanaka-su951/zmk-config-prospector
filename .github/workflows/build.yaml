@@ -30,7 +30,7 @@ jobs:
         west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
         west update
         
-        # ★★★ 最終修正: west のビルドコマンドが利用可能であることを確認 ★★★
+        # west環境のデバッグを維持
         echo "Verifying west extensions are loaded..."
         west list
         west config zephyr.toolchain-variant || true 
@@ -70,9 +70,10 @@ jobs:
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
+        # west zephyr-export の代わりに、環境変数を手動で設定
+        # source zmk-env/bin/activate は継続
         source zmk-env/bin/activate
-        west zephyr-export
-        
+
         # WEST のキャッシュ設定にツールチェーンバリアントを強制的に書き込み
         mkdir -p .west
         echo "[zephyr]" > .west/config
@@ -85,6 +86,7 @@ jobs:
         # 1. 環境変数としてエクスポート
         export ZEPHYR_BASE="$ZEPHYR_BASE_PATH"
         export CMAKE_PREFIX_PATH="$ZEPHYR_PREFIX_PATH"
+        export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb # 必須ツールの設定
         
         # 0. クリーンアップ
         rm -rf build/prospector_scanner
@@ -103,36 +105,38 @@ jobs:
           echo "# Minimum ZMK config to enable compilation" > "$PRJ_CONF"
           echo 'CONFIG_ZMK_KSCAN_MATRIX=y' >> "$PRJ_CONF"
         fi
-        # 確実に変更があったと認識させるために、一時的な行を追加
         echo "# Force rebuild at $(date +%s)" >> "$PRJ_CONF"
 
-        # シールド設定ファイルを強制作成 (すでに存在する場合はスキップ)
+        # シールド設定ファイルを強制作成
         if [ ! -f "$SHIELD_CONF" ]; then
           echo "Creating missing shield configuration file: $SHIELD_CONF"
           echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF"
         fi
         
-        # 2. CMakeLists.txt を削除します (ZMKの標準ビルド方法を維持)
-        echo "Deleting custom $CMAKELIST to use ZMK's standard app logic."
-        rm -f "$CMAKELIST"
+        # 2. CMakeLists.txt の正しい内容で上書き/作成
+        # これまでの知見を活かし、最小限のインクルードロジックを再導入
+        echo "Overwriting $CMAKELIST with minimal ZMK app include."
+        echo "cmake_minimum_required(VERSION 3.20.0)" > "$CMAKELIST"
+        echo "project(zmk-config-prospector LANGUAGES C)" >> "$CMAKELIST"
+        echo "include($ZEPHYR_BASE_PATH/cmake/app/boilerplate.cmake)" >> "$CMAKELIST" # 以前のZEPHYR_BASEエラーを解決したロジック
         
         # 3. Configuration/Setup phase (設定のみ)
-        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
+        echo "Bypassing 'west build' and executing 'cmake' directly."
+        /usr/local/bin/cmake \
+          -Bbuild/prospector_scanner \
+          -GNinja \
+          -DBOARD=seeeduino_xiao_ble \
           -DSHIELD=prospector_scanner \
           -DZEPHYR_BASE="$ZEPHYR_BASE_PATH" \
           -DCMAKE_PREFIX_PATH="$ZEPHYR_PREFIX_PATH" \
-          -DCMAKE_VERBOSE_MAKEFILE=ON
-
-        # 4. CMakeキャッシュを直接削除し、再コンパイルを強制
-        echo "Forcing recompilation by deleting CMake cache files..."
-        BUILD_DIR="build/prospector_scanner"
-        rm -f $BUILD_DIR/CMakeCache.txt
-        rm -rf $BUILD_DIR/CMakeFiles
-        
-        # 5. Separate Compilation phase (コンパイル実行)
-        west build -s zmk/app -d build/prospector_scanner -t all
+          -DCMAKE_VERBOSE_MAKEFILE=ON \
+          -Sconfig
           
-        # 6. UF2 conversion
+        # 4. Compilation phase (コンパイル実行)
+        echo "Bypassing 'west build -t all' and executing 'ninja' directly."
+        /usr/bin/ninja -C build/prospector_scanner
+          
+        # 5. UF2 conversion
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
         
@@ -143,7 +147,6 @@ jobs:
         else
           echo "FATAL ERROR: FINAL ELF file not found. The firmware build failed."
           echo "Listing contents of build directory for final debugging:"
-          # デバッグ情報として、ディレクトリ構造全体を出力
           ls -R build/prospector_scanner/
           exit 1
         fi
