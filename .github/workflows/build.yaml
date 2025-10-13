@@ -67,7 +67,6 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
-        # ★★★ 修正: CMAKE_PREFIX_PATH のパスを確実に取得する ★★★
         # /__w/zmk-config-prospector/zmk-config-prospector/zephyr/share を指すように調整
         ZEPHYR_CMAKE_PREFIX="$(dirname $(find $PWD/zephyr/share -name 'zephyr-package' -type d))"
         if [ -z "$ZEPHYR_CMAKE_PREFIX" ]; then
@@ -102,10 +101,11 @@ jobs:
         fi
         
         # 2. CMakeLists.txt の正しい内容で上書き/作成
-        # ★★★ 最終修正: ZMKの最もクリーンな標準アプリ形式（2行）に戻します ★★★
+        # ★★★ 最終修正: projectコマンドに LANGUAGES C を追加します ★★★
         echo "Overwriting $CMAKELIST with correct ZMK config content."
         echo "cmake_minimum_required(VERSION 3.20.0)" > "$CMAKELIST"
         echo "find_package(Zephyr REQUIRED)" >> "$CMAKELIST"
+        echo "project(zmk-config-prospector LANGUAGES C)" >> "$CMAKELIST" # LANGUAGES C を再追加
         
         # 3. Configuration/Setup phase (設定のみ)
         # CMAKE_PREFIX_PATH を使用して find_package を補助します。
