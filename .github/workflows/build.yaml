@@ -67,8 +67,9 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
-        # ★★★ 追加: Zephyrの絶対パスをシェルの変数に設定 ★★★
+        # ★★★ 最終修正: ZEPHYR_BASEを環境変数としてエクスポートします ★★★
         ZEPHYR_BASE_PATH="$PWD/zephyr"
+        export ZEPHYR_BASE="$ZEPHYR_BASE_PATH"
         ZEPHYR_PREFIX_PATH="$PWD/zephyr/share" 
         
         # 0. クリーンアップ
