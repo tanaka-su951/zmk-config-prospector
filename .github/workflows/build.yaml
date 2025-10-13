@@ -70,14 +70,14 @@ jobs:
         # 0. クリーンアップ
         rm -rf build/prospector_scanner
 
-        # ★★★ 最終修正: prj.conf がない場合に強制的に作成し、ビルドを強制する ★★★
+        # prj.conf の強制作成と変更
         CONFIG_FILE="config/prj.conf"
         echo "Forcing build by ensuring $CONFIG_FILE exists and modifying it..."
         
         # 既存のファイルがない場合は作成し、最低限のZMK設定を含める
         if [ ! -f "$CONFIG_FILE" ]; then
           echo "Creating missing $CONFIG_FILE with minimum required content."
-          mkdir -p config # configディレクトリがない場合に備えて作成
+          mkdir -p config
           echo "# Minimum ZMK config to enable compilation" > "$CONFIG_FILE"
           echo 'CONFIG_ZMK_KSCAN_MATRIX=y' >> "$CONFIG_FILE"
         fi
@@ -89,9 +89,15 @@ jobs:
         west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
-          
+
+        # ★★★ 最終修正: CMakeキャッシュを直接削除し、再コンパイルを強制 ★★★
+        echo "Forcing recompilation by deleting CMake cache files..."
+        BUILD_DIR="build/prospector_scanner"
+        rm -f $BUILD_DIR/CMakeCache.txt
+        rm -rf $BUILD_DIR/CMakeFiles
+        
         # 2. Separate Compilation phase (コンパイル実行)
-        # ★★★ 最終修正: -t all を使用し、ビルドを強制的に実行 ★★★
+        # キャッシュが消されたため、このコマンドが設定とコンパイルを強制的に再実行するはず
         west build -s config -d build/prospector_scanner -t all
           
         # 3. UF2 conversion
