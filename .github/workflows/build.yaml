@@ -67,6 +67,10 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
+        # ★★★ 追加: Zephyrの絶対パスをシェルの変数に設定 ★★★
+        ZEPHYR_BASE_PATH="$PWD/zephyr"
+        ZEPHYR_PREFIX_PATH="$PWD/zephyr/share" 
+        
         # 0. クリーンアップ
         rm -rf build/prospector_scanner
 
@@ -93,15 +97,16 @@ jobs:
           echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF"
         fi
         
-        # 2. CMakeLists.txt を削除します (ZMKの標準ビルド方法に戻す)
-        # これまでのすべてのカスタムCMakeLogicを破棄し、標準ロジックに任せる
+        # 2. CMakeLists.txt を削除します (ZMKの標準ビルド方法を維持)
         echo "Deleting custom $CMAKELIST to use ZMK's standard app logic."
         rm -f "$CMAKELIST"
         
         # 3. Configuration/Setup phase (設定のみ)
-        # ★★★ 最終修正: ソースを zmk/app に戻し、ボード/シールドを渡し直す ★★★
+        # ★★★ 最終修正: ZEPHYR_BASEとCMAKE_PREFIX_PATHを強制的に渡します ★★★
         west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD=prospector_scanner \
+          -DZEPHYR_BASE="$ZEPHYR_BASE_PATH" \
+          -DCMAKE_PREFIX_PATH="$ZEPHYR_PREFIX_PATH" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
         # 4. CMakeキャッシュを直接削除し、再コンパイルを強制
