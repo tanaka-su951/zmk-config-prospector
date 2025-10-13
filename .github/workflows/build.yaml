@@ -70,19 +70,22 @@ jobs:
         # 0. ビルドを強制するために、まずビルドディレクトリを完全にクリーンアップ
         rm -rf build/prospector_scanner
 
-        # ★★★ 最終手段: ファイルを変更し、コンパイルを強制する ★★★
-        # prj.conf に一時的な改行を追加し、コンパイルを強制
+        # ★★★ 最終修正: prj.conf がない場合に強制的に作成し、ビルドを強制する ★★★
         CONFIG_FILE="config/prj.conf"
-        if [ -f "$CONFIG_FILE" ]; then
-          echo "Forcing build by modifying $CONFIG_FILE..."
-          # 一時的に変更を加えて保存
-          echo "# Force rebuild at $(date +%s)" >> "$CONFIG_FILE"
-        else
-          echo "Warning: prj.conf not found at $CONFIG_FILE. Cannot force build."
+        echo "Forcing build by ensuring $CONFIG_FILE exists and modifying it..."
+        
+        # 既存のファイルがない場合は作成し、最低限のZMK設定を含める
+        if [ ! -f "$CONFIG_FILE" ]; then
+          echo "Creating missing $CONFIG_FILE with minimum required content."
+          mkdir -p config # configディレクトリがない場合に備えて作成
+          echo "# Minimum ZMK config to enable compilation" > "$CONFIG_FILE"
+          echo 'CONFIG_ZMK_KSCAN_MATRIX=y' >> "$CONFIG_FILE"
         fi
         
+        # 確実に変更があったと認識させるために、一時的な行を追加
+        echo "# Force rebuild at $(date +%s)" >> "$CONFIG_FILE"
+        
         # 1. west build に、設定とクリーンアップを強制実行させる（単一コマンド）
-        # ★★★ 最終修正: -t all を削除し、-p (pristine) のみで設定とビルドを強制 ★★★
         west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -p -- \
           -DSHIELD="prospector_scanner" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
@@ -110,4 +113,3 @@ jobs:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
         # 最終パス: build/prospector_scanner/zmk.uf2 をアップロード
         path: build/prospector_scanner/zmk.uf2
-
