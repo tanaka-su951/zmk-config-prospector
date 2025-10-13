@@ -67,6 +67,14 @@ jobs:
         source zmk-env/bin/activate
         west zephyr-export
         
+        # ★★★ 修正: ZEPHYR_BASE のパスを確実に取得する ★★★
+        # $PWDは/__w/zmk-config-prospector/zmk-config-prospectorを指す
+        ZEPHYR_BASE_PATH="$(dirname $(find $PWD/zephyr/share -name 'zephyr-package' -type d))"
+        if [ -z "$ZEPHYR_BASE_PATH" ]; then
+            echo "Error: ZEPHYR_BASE path could not be determined. Using fallback."
+            ZEPHYR_BASE_PATH="/__w/zmk-config-prospector/zmk-config-prospector/zephyr"
+        fi
+        
         # 0. クリーンアップ
         rm -rf build/prospector_scanner
 
@@ -96,16 +104,16 @@ jobs:
         # 2. CMakeLists.txt の正しい内容で上書き/作成
         echo "Overwriting $CMAKELIST with correct ZMK config content."
         echo "cmake_minimum_required(VERSION 3.20.0)" > "$CMAKELIST"
-        # HINTSに環境変数を指定することで、find_packageの成功率を最大化
-        echo "find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})" >> "$CMAKELIST"
+        # HINTSを削除し、純粋な find_package にする
+        echo "find_package(Zephyr REQUIRED)" >> "$CMAKELIST"
         echo "project(zmk-config-prospector LANGUAGES C)" >> "$CMAKELIST"
         echo "zephyr_library()" >> "$CMAKELIST"
         
         # 3. Configuration/Setup phase (設定のみ)
-        # ★★★ 最終修正: ZEPHYR_BASE を -DZEPHYR_BASE として渡す ★★★
+        # ★★★ 修正: 確実に取得した ZEPHYR_BASE_PATH を渡す ★★★
         west build -s config -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD=prospector_scanner \
-          -DZEPHYR_BASE=$ZEPHYR_BASE \
+          -DZEPHYR_BASE="$ZEPHYR_BASE_PATH" \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
         # 4. CMakeキャッシュを直接削除し、再コンパイルを強制
