@@ -11,11 +11,11 @@ jobs:
       options: --user root
 
     steps:
-    - name: Checkout ZMK Config (as custom_config)
+    - name: Checkout ZMK Config (Initial)
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        path: custom_config
+        path: . # ルートにチェックアウト
 
     - name: Install Python Venv
       run: |
@@ -40,24 +40,8 @@ jobs:
         echo "Exporting Zephyr environment variables..."
         west zephyr-export
         
-        # ZMK_EXTRA_MODULES を環境変数として設定し、カスタム設定の場所をwestに伝える
-        echo "Setting ZMK_EXTRA_MODULES environment variable..."
-        echo "ZMK_EXTRA_MODULES=custom_config" >> $GITHUB_ENV
-        
         echo "Verifying west environment..."
         west list
-      shell: bash
-
-    - name: Debug ZMK Source Location
-      run: |
-        echo "Workspace structure check:"
-        ls -F
-        echo "--- Custom Config structure ---"
-        ls -F custom_config || echo "Custom Config directory missing"
-        echo "--- ZMK structure ---"
-        ls -F zmk || echo "ZMK directory missing"
-        echo "--- Zephyr ---"
-        ls -F zephyr || echo "Zephyr directory missing"
       shell: bash
 
     - name: Set up Python Environment
@@ -78,40 +62,55 @@ jobs:
       run: |
         source zmk-env/bin/activate
         
-        # 環境変数の確認
+        # 環境変数の設定
         export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
         
-        echo "Building using ZMK_EXTRA_MODULES=$ZMK_EXTRA_MODULES"
-
         rm -rf build/prospector_scanner
 
-        # CONFIG_DIR は新しいパスを参照
-        CONFIG_DIR="custom_config"
-        SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
+        # ★★★ 修正: カスタム設定を ZMK ワークスペース内のモジュールとして作成する ★★★
+        CUSTOM_MODULE_DIR="zmk/prospector_module"
+        SHIELD_DIR="$CUSTOM_MODULE_DIR/boards/shields/prospector_scanner"
+        
+        # ルートの CMakeLists.txt を削除（ファイル衝突の回避）
+        ROOT_CMAKELIST="CMakeLists.txt"
+        rm -f "$ROOT_CMAKELIST"
         
         # 設定ファイルの作成
         mkdir -p $SHIELD_DIR
         
         echo "Ensuring ZMK configuration files exist..."
         
-        # prj.conf
-        echo "# Minimal ZMK config" > "$CONFIG_DIR/prj.conf"
-        echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_DIR/prj.conf"
+        # app.conf (メインの prj.conf に相当)
+        echo "# Minimal ZMK config" > "$CUSTOM_MODULE_DIR/app.conf"
+        echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CUSTOM_MODULE_DIR/app.conf"
 
         # Shield conf
         echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_DIR/prospector_scanner.conf"
-        echo '# Shield configs here' >> "$SHIELD_DIR/prospector_scanner.conf"
 
-        # Kconfig
-        echo '# Kconfig' > "$SHIELD_DIR/Kconfig"
+        # Kconfig (モジュールルートとシールドKconfigの両方を作成)
+        echo 'menu "Prospector Module"' > "$CUSTOM_MODULE_DIR/Kconfig"
+        echo 'source "boards/shields/prospector_scanner/Kconfig"' >> "$CUSTOM_MODULE_DIR/Kconfig"
+        
+        echo '# Kconfig for shield' > "$SHIELD_DIR/Kconfig"
         echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$SHIELD_DIR/Kconfig"
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
         echo '    default y' >> "$SHIELD_DIR/Kconfig"
         
-        echo "=== Starting ZMK Build (via west build) ==="
+        echo "=== Starting ZMK Build (via ZEPHYR_MODULES) ==="
         
-        # west build を実行し、ZMK_EXTRA_MODULES と custom_config を利用してビルド
-        west build -b seeeduino_xiao_ble -d build/prospector_scanner zmk/app -- -DSHIELD=prospector_scanner
+        # 1. CMake Configure Phase
+        # ZEPHYR_MODULES を使用し、カスタムモジュールの絶対パスを強制的に Zephyr に伝える
+        /usr/local/bin/cmake \
+          -Bbuild/prospector_scanner \
+          -GNinja \
+          -DBOARD=seeeduino_xiao_ble \
+          -DSHIELD=prospector_scanner \
+          -DZEPHYR_MODULES=$PWD/$CUSTOM_MODULE_DIR \
+          -DCMAKE_VERBOSE_MAKEFILE=ON \
+          -S $PWD/zmk/app
+
+        # 2. Ninja Compile Phase
+        /usr/bin/ninja -C build/prospector_scanner
 
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
