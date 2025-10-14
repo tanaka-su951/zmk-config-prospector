@@ -1,52 +1,40 @@
-name: Build Prospector Scanner Firmware
+name: Build Prospector Firmware (Local)
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: zmkfirmware/zmk-build-arm:stable
+      options: --user root
 
     steps:
-      # リポジトリをチェックアウト
-      - name: Checkout repository
+      - name: Checkout ZMK Config (as config)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: config
 
-      # 依存関係のインストール
-      - name: Install dependencies
+      - name: Install Required Tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y git cmake ninja-build gperf ccache dfu-util wget \
-            device-tree-compiler python3-pip python3-setuptools python3-wheel python3-venv
+          apt update
+          apt install -y python3-venv python3-pip git ninja-build wget unzip make gcc g++ cmake device-tree-compiler
 
-      # Python 仮想環境を作成
-      - name: Set up Python virtual environment
+      - name: Initialize west workspace
+        run: |
+          echo "=== Initializing west workspace ==="
+          rm -rf .west
+          west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
+          west update
+
+      - name: Set up Python Environment
         run: |
           python3 -m venv zmk-env
           source zmk-env/bin/activate
           pip install --upgrade pip
-          pip install west
+          pip install -r zmk/app/requirements.txt || echo "requirements.txt not found, continuing..."
 
-      # ZMK の west ワークスペースを初期化
-      - name: Initialize west workspace
-        run: |
-          rm -rf .west
-          west init -m https://github.com/zmkfirmware/zmk .
-          west update
-          west zephyr-export
-
-      # ZMK ツールチェーンのインストール
-      - name: Install Zephyr SDK
-        run: |
-          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.5/zephyr-sdk-0.16.5_linux-x86_64.tar.xz
-          tar xf zephyr-sdk-0.16.5_linux-x86_64.tar.xz
-          sudo mv zephyr-sdk-0.16.5 /opt/zephyr-sdk
-          /opt/zephyr-sdk/setup.sh -t arm-zephyr-eabi
-
-      # 設定ファイルを自動生成
       - name: Prepare Configuration
         run: |
           source zmk-env/bin/activate
@@ -57,7 +45,7 @@ jobs:
           # prj.conf
           if [ ! -f "$CONFIG_DIR/prj.conf" ]; then
             echo "Creating $CONFIG_DIR/prj.conf"
-cat <<'EOF' > "$CONFIG_DIR/prj.conf"
+            cat <<'EOF' > "$CONFIG_DIR/prj.conf"
 CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"
 CONFIG_ZMK_KSCAN_MATRIX=y
 CONFIG_ZMK_DISPLAY=y
@@ -67,36 +55,37 @@ EOF
           # shield config
           if [ ! -f "$SHIELD_DIR/prospector_scanner.conf" ]; then
             echo "Creating shield config"
-cat <<'EOF' > "$SHIELD_DIR/prospector_scanner.conf"
+            cat <<'EOF' > "$SHIELD_DIR/prospector_scanner.conf"
 CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"
 EOF
           fi
 
           # Kconfig
-cat <<'EOF' > "$SHIELD_DIR/Kconfig"
+          echo "Creating $SHIELD_DIR/Kconfig"
+          cat <<'EOF' > "$SHIELD_DIR/Kconfig"
 config SHIELD_PROSPECTOR_SCANNER
     bool "Prospector Scanner"
     default y
 EOF
 
           # CMakeLists.txt
-cat <<'EOF' > "$CONFIG_DIR/CMakeLists.txt"
+          echo "Overwriting $CONFIG_DIR/CMakeLists.txt"
+          cat <<'EOF' > "$CONFIG_DIR/CMakeLists.txt"
 cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(zmk-config-prospector)
 target_sources(app PRIVATE src/main.c)
 EOF
 
-      # ビルドを実行
-      - name: Build firmware
+      - name: Build Prospector Scanner firmware
         run: |
           source zmk-env/bin/activate
-          west build -s zmk/app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner -DZMK_CONFIG=config
+          echo "=== Starting ZMK Build ==="
+          west build -s zmk/app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner -DZMK_CONFIG=$PWD/config
+          echo "=== Build completed successfully ==="
 
-      # 成果物のアップロード
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
           name: prospector_scanner_firmware
           path: build/zephyr/zmk.uf2
-
