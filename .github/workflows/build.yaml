@@ -108,9 +108,9 @@ jobs:
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
         echo '    default y' >> "$SHIELD_DIR/Kconfig"
         
-        echo "=== Starting ZMK Build (via west build) ==-"
+        echo "=== Starting ZMK Build (via west build) ==="
         
-        # west build を実行し、ZMKのコアアプリケーションをソースとして指定する
+        # west build を実行し、ZMK_EXTRA_MODULES と custom_config を利用してビルド
         west build -b seeeduino_xiao_ble -d build/prospector_scanner zmk/app -- -DSHIELD=prospector_scanner
 
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
