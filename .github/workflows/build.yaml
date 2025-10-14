@@ -46,7 +46,7 @@ jobs:
 
     - name: Forcibly Remove CMakeLists.txt Conflict File (Clean-up old attempts)
       run: |
-        # 以前の削除アプローチの残骸をクリーンアップ (念のため)
+        # 以前の削除アプローチの残骸をクリーンアップ
         rm -f CMakeLists.txt
       shell: bash
 
@@ -70,17 +70,14 @@ jobs:
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
-        # ★★★ 新規追加: カスタム CMakeLists.txt の作成 (最重要ロジック) ★★★
+        # ★★★ 修正: カスタム CMakeLists.txt の内容を最小限に ★★★
         ROOT_CMAKELIST="CMakeLists.txt"
         echo "Creating custom root CMakeLists.txt to control build initiation."
         
-        # zmk/app をソースとして参照し、モジュールを定義する最小限のCMakelistsを作成
+        # 衝突回避のため、最小限のZephyrの要件とプロジェクト、zmk/appの参照のみを記述
         echo "cmake_minimum_required(VERSION 3.20.0)" > "$ROOT_CMAKELIST"
         echo "find_package(Zephyr REQUIRED)" >> "$ROOT_CMAKELIST"
         echo "project(zmk-config-prospector)" >> "$ROOT_CMAKELIST"
-        # カスタムモジュールパスの定義
-        echo "zephyr_include_directories(\"$PWD/zmk/prospector_module\")" >> "$ROOT_CMAKELIST"
-        # ZMKアプリケーションをサブディレクトリとして追加
         echo "add_subdirectory(zmk/app)" >> "$ROOT_CMAKELIST"
         
         source zmk-env/bin/activate
@@ -118,7 +115,7 @@ jobs:
         echo "=== Starting ZMK Build (via custom root CMakeLists.txt) ==="
         
         # 1. CMake Configure Phase
-        # ソースディレクトリをルート (.) に変更し、作成したカスタムCMakeLists.txtを実行させる
+        # ZEPHYR_MODULES を引数として渡すことで、カスタムモジュールを認識させる
         /usr/local/bin/cmake \
           -Bbuild/prospector_scanner \
           -GNinja \
@@ -131,7 +128,7 @@ jobs:
         # 2. Ninja Compile Phase
         /usr/bin/ninja -C build/prospector_scanner
 
-        # ★★★ 新規追加: クリーンアップ ★★★
+        # クリーンアップ
         echo "Cleaning up custom root CMakeLists.txt."
         rm -f "$ROOT_CMAKELIST"
 
