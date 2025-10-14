@@ -44,6 +44,13 @@ jobs:
         west list
       shell: bash
 
+    - name: Forcibly Remove CMakeLists.txt Conflict File
+      run: |
+        # ★★★ 新規追加: ファイル衝突を回避するための専用の削除ステップ ★★★
+        echo "Removing root CMakeLists.txt to prevent early Zephyr conflict."
+        rm -f CMakeLists.txt
+      shell: bash
+
     - name: Set up Python Environment
       run: |
         /usr/bin/python3 -m venv zmk-env
@@ -57,18 +64,13 @@ jobs:
           echo "Warning: requirements.txt not found!"
         fi
         
-        # PyYAMLとpykwalifyを明示的にインストールし、環境問題を解消
+        # Python依存関係を明示的にインストールし、環境問題を解消
         echo "Forcibly installing core dependencies (pyyaml, pykwalify)."
         pip install pyyaml pykwalify
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
-        # ★★★ 修正: ルートの CMakeLists.txt を削除（最重要） ★★★
-        ROOT_CMAKELIST="CMakeLists.txt"
-        echo "Forcibly removing old root CMakeLists.txt file to avoid conflicts."
-        rm -f "$ROOT_CMAKELIST"
-        
         source zmk-env/bin/activate
         
         # 環境変数の設定
@@ -135,3 +137,4 @@ jobs:
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
         path: build/prospector_scanner/zmk.uf2
+canner/zmk.uf2
