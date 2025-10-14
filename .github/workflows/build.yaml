@@ -22,19 +22,23 @@ jobs:
         apt install -y python3.12-venv || apt install -y python3-venv
       shell: bash
 
+    - name: Clone ZMK Firmware
+      run: |
+        # ZMK 本体を zmk/ に clone
+        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
+      shell: bash
+
     - name: Initialize and Update west workspace
       run: |
-        echo "=== Initializing west workspace ==="
-        west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
+        cd zmk
+        west init -l .
         west update
-        echo "Verifying west extensions..."
-        west list
-        west -vv status
+        west zephyr-export
       shell: bash
 
     - name: Force Workspace Cleanup
       run: |
-        rm -rf build zmk/.west modules *~
+        rm -rf ../build ../modules ../.west
       shell: bash
 
     - name: Debug ZMK Source Location
@@ -42,7 +46,7 @@ jobs:
         echo "Listing workspace root:"
         ls -F
         echo "Listing zmk/:"
-        ls -F zmk || echo "ZMK directory not found."
+        ls -F zmk
         echo "Listing modules/:"
         ls -F modules || echo "Modules directory not found."
         echo "Listing zephyr/:"
@@ -54,7 +58,7 @@ jobs:
         python3 -m venv zmk-env
         source zmk-env/bin/activate
 
-        REQUIREMENTS_FILE=$(find . -name "requirements.txt" -path "*zmk/app*" -print -quit)
+        REQUIREMENTS_FILE=$(find zmk -name "requirements.txt" -print -quit)
         if [ -f "$REQUIREMENTS_FILE" ]; then
           echo "Installing requirements from: $REQUIREMENTS_FILE"
           pip install -r "$REQUIREMENTS_FILE"
@@ -65,7 +69,6 @@ jobs:
 
     - name: Prepare Config Files
       run: |
-        echo "=== Ensuring ZMK configuration files exist ==="
         CONFIG_DIR="config"
         SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
         mkdir -p "$SHIELD_DIR"
@@ -73,23 +76,17 @@ jobs:
         # prj.conf
         PRJ_CONF="$CONFIG_DIR/prj.conf"
         if [ ! -f "$PRJ_CONF" ]; then
-          echo "Creating config/prj.conf"
-          echo "# Minimal ZMK config" > "$PRJ_CONF"
-          echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$PRJ_CONF"
+          echo "CONFIG_ZMK_KSCAN_MATRIX=y" > "$PRJ_CONF"
         fi
-        echo "# Updated at $(date +%s)" >> "$PRJ_CONF"
 
         # prospector_scanner.conf
         SHIELD_CONF="$SHIELD_DIR/prospector_scanner.conf"
         if [ ! -f "$SHIELD_CONF" ]; then
-          echo "Creating $SHIELD_CONF"
           echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF"
-          echo '# Additional Prospector Scanner settings' >> "$SHIELD_CONF"
         fi
 
         # Kconfig
         SHIELD_KCONFIG="$SHIELD_DIR/Kconfig"
-        echo "Creating $SHIELD_KCONFIG"
         echo 'config SHIELD_PROSPECTOR_SCANNER' > "$SHIELD_KCONFIG"
         echo '    bool "Prospector Scanner"' >> "$SHIELD_KCONFIG"
         echo '    default y' >> "$SHIELD_KCONFIG"
@@ -97,7 +94,6 @@ jobs:
         # カスタム CMakeLists.txt が存在する場合は削除
         CMAKELIST="$CONFIG_DIR/CMakeLists.txt"
         if [ -f "$CMAKELIST" ]; then
-          echo "Deleting custom CMakeLists.txt to avoid Zephyr find_package errors."
           rm -f "$CMAKELIST"
         fi
       shell: bash
@@ -106,16 +102,12 @@ jobs:
       run: |
         source zmk-env/bin/activate
 
-        # west と Zephyr 環境を正しく設定
-        west zephyr-export
         export ZEPHYR_BASE="$PWD/zephyr"
         export CMAKE_PREFIX_PATH="$PWD/zephyr/share"
         export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
 
-        # ビルド前キャッシュ削除
         rm -rf build/prospector_scanner
 
-        # ZMKビルド
         west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD=prospector_scanner \
           -DCMAKE_VERBOSE_MAKEFILE=ON
@@ -124,7 +116,6 @@ jobs:
         UF2_PATH="build/prospector_scanner/zmk.uf2"
 
         if [ -f "$BIN_PATH" ]; then
-          echo "Converting ELF to UF2..."
           python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
         else
           echo "FATAL ERROR: ELF not found."
@@ -133,8 +124,9 @@ jobs:
         fi
       shell: bash
 
-    - name: Archive production artifacts (Artifact Upload)
+    - name: Archive production artifacts
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
         path: build/prospector_scanner/zmk.uf2
+
