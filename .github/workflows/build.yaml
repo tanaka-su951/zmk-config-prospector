@@ -83,11 +83,16 @@ jobs:
         
         echo "Ensuring ZMK configuration files exist..."
         
-        # ★★★ 1. module.ymlを作成 (configディレクトリをカスタムモジュールとして定義) ★★★
+        # ★★★ 1. module.ymlを作成 (custom_boards_dirを設定) ★★★
         MODULE_YML="$CONFIG_DIR/module.yml"
-        echo "Creating module.yml to define the custom module structure."
+        echo "Creating module.yml to define the custom module structure and shield path."
         echo "name: prospector_module" > "$MODULE_YML"
         echo "build: true" >> "$MODULE_YML"
+        # custom_boards_dirを使って、シールドの定義場所を明示
+        echo "tools:" >> "$MODULE_YML"
+        echo "  cmake:" >> "$MODULE_YML"
+        echo "    custom_boards_dir: \${ZEPHYR_BASE}/../\${ZEPHYR_BASE}/../\${CONFIG_DIR}/boards" >> "$MODULE_YML"
+
 
         # 2. prj.conf (メイン設定ファイル)
         echo "# Minimal ZMK config" > "$CONFIG_DIR/prj.conf"
