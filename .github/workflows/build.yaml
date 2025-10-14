@@ -83,22 +83,28 @@ jobs:
         
         echo "Ensuring ZMK configuration files exist..."
         
-        # 1. prj.conf (メイン設定ファイル)
+        # ★★★ 1. module.ymlを作成 (configディレクトリをカスタムモジュールとして定義) ★★★
+        MODULE_YML="$CONFIG_DIR/module.yml"
+        echo "Creating module.yml to define the custom module structure."
+        echo "name: prospector_module" > "$MODULE_YML"
+        echo "build: true" >> "$MODULE_YML"
+
+        # 2. prj.conf (メイン設定ファイル)
         echo "# Minimal ZMK config" > "$CONFIG_DIR/prj.conf"
         echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_DIR/prj.conf"
         # キーボード名がZMKのキーマップモジュールで必要
         echo 'CONFIG_ZMK_KEYBOARD_NAME="prospector_scanner"' >> "$CONFIG_DIR/prj.conf"
 
-        # 2. Shield conf (シールド固有の設定)
+        # 3. Shield conf (シールド固有の設定)
         echo '' > "$SHIELD_DIR/prospector_scanner.conf"
 
-        # 3. Kconfig (シールド固有のKconfig)
+        # 4. Kconfig (シールド固有のKconfig)
         echo '# Kconfig' > "$SHIELD_DIR/Kconfig"
         echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$SHIELD_DIR/Kconfig"
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
         echo '    default y' >> "$SHIELD_DIR/Kconfig"
 
-        # 4. キーマップファイルを作成 (ZMKのキーマップモジュールに必須)
+        # 5. キーマップファイルを作成 (ZMKのキーマップモジュールに必須)
         KEYMAP_FILE="$CONFIG_DIR/prospector_scanner.keymap"
         echo "Creating minimal keymap file: $KEYMAP_FILE"
         echo "/ { keymap { compatible = \"zmk,keymap\"; default_layer { bindings = <&kp Q &kp W>; }; }; };" > "$KEYMAP_FILE"
