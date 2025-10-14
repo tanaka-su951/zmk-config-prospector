@@ -22,15 +22,10 @@ jobs:
         apt install -y python3.12-venv || apt install -y python3-venv
       shell: bash
 
-    - name: Clone ZMK Firmware
-      run: |
-        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
-      shell: bash
-
     - name: Initialize and Update west workspace
       run: |
-        # ローカル manifest を使用して west workspace を初期化
-        west init -l zmk
+        # トップレベルで west workspace を初期化（ZMK URL 指定）
+        west init -m https://github.com/zmkfirmware/zmk
         west update
         west zephyr-export
       shell: bash
@@ -45,11 +40,11 @@ jobs:
         echo "Workspace root:"
         ls -F
         echo "zmk/:"
-        ls -F zmk
+        ls -F zmk || echo "ZMK directory not found"
         echo "modules/:"
-        ls -F modules || echo "Modules directory not found."
+        ls -F modules || echo "Modules directory not found"
         echo "zephyr/:"
-        ls -F zephyr || echo "Zephyr directory not found."
+        ls -F zephyr || echo "Zephyr directory not found"
       shell: bash
 
     - name: Set up Python Environment
