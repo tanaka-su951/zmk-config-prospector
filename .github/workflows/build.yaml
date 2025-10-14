@@ -108,18 +108,18 @@ jobs:
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
         echo '    default y' >> "$SHIELD_DIR/Kconfig"
 
-        # CMakeLists.txt (カスタムファイルの内容を空にしてビルドの衝突を回避)
+        # ★★★ 修正: CMakeLists.txt ファイルを強制的に削除 ★★★
         ROOT_CMAKELIST="CMakeLists.txt"
         CONFIG_CMAKELIST="$CONFIG_DIR/CMakeLists.txt"
         
-        echo "Clearing custom CMakeLists.txt files to avoid conflicts."
-        echo "" > "$ROOT_CMAKELIST"    # ルートの CMakeLists.txt を空にする
-        echo "" > "$CONFIG_CMAKELIST"  # config ディレクトリの CMakeLists.txt を空にする
+        echo "Forcibly removing custom CMakeLists.txt files to avoid conflicts."
+        rm -f "$ROOT_CMAKELIST"    # ルートの CMakeLists.txt を削除
+        rm -f "$CONFIG_CMAKELIST"  # config ディレクトリの CMakeLists.txt を削除
         
         echo "=== Starting ZMK Build (via cmake/ninja) ==="
         
         # 1. CMake Configure Phase
-        # ZMKのアプリソース (-S zmk/app) を使用し、カスタム設定 (-DZEPHYR_EXTRA_MODULES=config) を渡す
+        # ソースディレクトリを絶対パスで指定
         /usr/local/bin/cmake \
           -Bbuild/prospector_scanner \
           -GNinja \
@@ -127,7 +127,7 @@ jobs:
           -DSHIELD=prospector_scanner \
           -DZEPHYR_EXTRA_MODULES=config \
           -DCMAKE_VERBOSE_MAKEFILE=ON \
-          -S zmk/app
+          -S $PWD/zmk/app
 
         # 2. Ninja Compile Phase
         /usr/bin/ninja -C build/prospector_scanner
@@ -150,3 +150,4 @@ jobs:
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
         path: build/prospector_scanner/zmk.uf2
+
