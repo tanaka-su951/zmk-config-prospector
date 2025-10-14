@@ -38,7 +38,6 @@ jobs:
         run: |
           /usr/bin/python3 -m venv zmk-env
           source zmk-env/bin/activate
-
           REQUIREMENTS_FILE=$(find . -name "requirements.txt" -path "*zmk*" -print -quit)
           if [ -n "$REQUIREMENTS_FILE" ]; then
               echo "Installing from $REQUIREMENTS_FILE"
