@@ -25,16 +25,18 @@ jobs:
 
     - name: Initialize and Update west workspace
       run: |
-        # 1. west init でワークスペース構造を作成
-        echo "Initializing west workspace..."
+        # 1. west init で ZMK のマニフェストを直接使用してワークスペースを初期化
+        echo "Initializing west workspace using ZMK's manifest..."
         rm -rf zmk zephyr modules .west
-        west init -l config
+        
+        # ZMK の標準マニフェストファイルを指定して初期化
+        west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
         
         # 2. west update で ZMK 本体と Zephyr をクローン
         echo "Updating west modules..."
         west update
         
-        # 3. zephyr-exportで必要な環境変数を設定 (buildは不安定なため使用しない)
+        # 3. zephyr-exportで必要な環境変数を設定
         echo "Exporting Zephyr environment variables..."
         west zephyr-export
         
@@ -104,7 +106,7 @@ jobs:
         echo '# Kconfig' > "$SHIELD_DIR/Kconfig"
         echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$SHIELD_DIR/Kconfig"
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
-        echo '  default y' >> "$SHIELD_KCONFIG" # Kconfig の変数を SHIELD_KCONFIG に修正
+        echo '  default y' >> "$SHIELD_DIR/Kconfig"
 
         # CMakeLists.txt (ZMKアプリの標準ロジックを使用)
         CMAKELIST="$CONFIG_DIR/CMakeLists.txt"
@@ -116,6 +118,7 @@ jobs:
         echo "=== Starting ZMK Build (via cmake/ninja) ==="
         
         # 1. CMake Configure Phase
+        # config/ ディレクトリをソースディレクトリとして使用
         /usr/local/bin/cmake \
           -Bbuild/prospector_scanner \
           -GNinja \
