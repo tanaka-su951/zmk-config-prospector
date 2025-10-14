@@ -57,13 +57,18 @@ jobs:
           echo "Warning: requirements.txt not found!"
         fi
         
-        # ★★★ 修正: PyYAMLとpykwalifyを明示的にインストールし、環境問題を解消 ★★★
+        # PyYAMLとpykwalifyを明示的にインストールし、環境問題を解消
         echo "Forcibly installing core dependencies (pyyaml, pykwalify)."
         pip install pyyaml pykwalify
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
+        # ★★★ 修正: ルートの CMakeLists.txt を削除（最重要） ★★★
+        ROOT_CMAKELIST="CMakeLists.txt"
+        echo "Forcibly removing old root CMakeLists.txt file to avoid conflicts."
+        rm -f "$ROOT_CMAKELIST"
+        
         source zmk-env/bin/activate
         
         # 環境変数の設定
@@ -74,10 +79,6 @@ jobs:
         # カスタム設定を ZMK ワークスペース内のモジュールとして作成する
         CUSTOM_MODULE_DIR="zmk/prospector_module"
         SHIELD_DIR="$CUSTOM_MODULE_DIR/boards/shields/prospector_scanner"
-        
-        # ルートの CMakeLists.txt を削除（ファイル衝突の回避）
-        ROOT_CMAKELIST="CMakeLists.txt"
-        rm -f "$ROOT_CMAKELIST"
         
         # 設定ファイルの作成
         mkdir -p $SHIELD_DIR
