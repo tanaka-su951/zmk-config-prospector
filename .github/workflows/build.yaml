@@ -26,7 +26,7 @@ jobs:
       run: |
         echo "=== Initializing west workspace ==="
         west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
-        west update --reset
+        west update
         echo "Verifying west extensions..."
         west list
         west -vv status
@@ -94,7 +94,7 @@ jobs:
         echo '    bool "Prospector Scanner"' >> "$SHIELD_KCONFIG"
         echo '    default y' >> "$SHIELD_KCONFIG"
 
-        # **重要:** カスタム CMakeLists.txt が存在する場合は削除
+        # カスタム CMakeLists.txt が存在する場合は削除
         CMAKELIST="$CONFIG_DIR/CMakeLists.txt"
         if [ -f "$CMAKELIST" ]; then
           echo "Deleting custom CMakeLists.txt to avoid Zephyr find_package errors."
