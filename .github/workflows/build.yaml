@@ -40,6 +40,10 @@ jobs:
         echo "Exporting Zephyr environment variables..."
         west zephyr-export
         
+        # ★★★ 修正: ZMK_EXTRA_MODULES を $GITHUB_ENV で設定し、以降のステップで確実に利用可能にする ★★★
+        echo "Setting ZMK_EXTRA_MODULES environment variable globally..."
+        echo "ZMK_EXTRA_MODULES=config" >> $GITHUB_ENV
+        
         echo "Verifying west environment..."
         west list
       shell: bash
@@ -64,10 +68,8 @@ jobs:
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
-        # ★★★ ZMK_EXTRA_MODULES を明示的に設定し、west buildに確実に伝える ★★★
-        echo "Setting ZMK_EXTRA_MODULES environment variable locally for west build..."
-        export ZMK_EXTRA_MODULES=config
-        
+        # ZMK_EXTRA_MODULES は $GITHUB_ENV で設定済み
+
         source zmk-env/bin/activate
         
         # 環境変数の設定
