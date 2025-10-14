@@ -70,12 +70,14 @@ jobs:
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
-        # ★★★ 修正: カスタム CMakeLists.txt の内容を最小限に ★★★
+        # ★★★ 修正: カスタム CMakeLists.txt の内容を ZEPHYR_EXTRA_MODULES の設定で再調整 ★★★
         ROOT_CMAKELIST="CMakeLists.txt"
-        echo "Creating custom root CMakeLists.txt to control build initiation."
+        CUSTOM_MODULE_PATH="$PWD/zmk/prospector_module"
+        echo "Creating custom root CMakeLists.txt to embed ZEPHYR_EXTRA_MODULES."
         
-        # 衝突回避のため、最小限のZephyrの要件とプロジェクト、zmk/appの参照のみを記述
+        # 1. find_package の前に ZEPHYR_EXTRA_MODULES を絶対パスで設定する
         echo "cmake_minimum_required(VERSION 3.20.0)" > "$ROOT_CMAKELIST"
+        echo "set(ZEPHYR_EXTRA_MODULES \"$CUSTOM_MODULE_PATH\")" >> "$ROOT_CMAKELIST"
         echo "find_package(Zephyr REQUIRED)" >> "$ROOT_CMAKELIST"
         echo "project(zmk-config-prospector)" >> "$ROOT_CMAKELIST"
         echo "add_subdirectory(zmk/app)" >> "$ROOT_CMAKELIST"
@@ -112,16 +114,15 @@ jobs:
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
         echo '    default y' >> "$SHIELD_DIR/Kconfig"
         
-        echo "=== Starting ZMK Build (via custom root CMakeLists.txt) ==="
+        echo "=== Starting ZMK Build (via embedded ZEPHYR_EXTRA_MODULES) ==="
         
         # 1. CMake Configure Phase
-        # ZEPHYR_MODULES を引数として渡すことで、カスタムモジュールを認識させる
+        # ソースディレクトリをルート (.) に変更。ZEPHYR_MODULESはCMakeLists.txt内で設定済み
         /usr/local/bin/cmake \
           -Bbuild/prospector_scanner \
           -GNinja \
           -DBOARD=seeeduino_xiao_ble \
           -DSHIELD=prospector_scanner \
-          -DZEPHYR_MODULES=$PWD/$CUSTOM_MODULE_DIR \
           -DCMAKE_VERBOSE_MAKEFILE=ON \
           -S . 
 
