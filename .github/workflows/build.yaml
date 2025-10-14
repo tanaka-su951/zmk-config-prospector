@@ -11,11 +11,11 @@ jobs:
       options: --user root
 
     steps:
-    - name: Checkout ZMK Config (as config)
+    - name: Checkout ZMK Config (Initial)
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        path: config # config ディレクトリにチェックアウト
+        path: . # ルートにチェックアウト
 
     - name: Install Python Venv
       run: |
@@ -57,13 +57,22 @@ jobs:
           echo "Warning: requirements.txt not found!"
         fi
         
-        # Python依存関係を明示的にインストール
+        # PyYAMLとpykwalifyを明示的にインストールし、環境問題を解消
         echo "Forcibly installing core dependencies (pyyaml, pykwalify)."
         pip install pyyaml pykwalify
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
+        # ★★★ 修正: 競合する可能性のある環境変数を全て解除する ★★★
+        # 古い ZMK_EXTRA_MODULES の設定が残っているとビルドが混乱するため解除
+        unset ZMK_EXTRA_MODULES
+        
+        # ルートの CMakeLists.txt を削除（最重要）
+        ROOT_CMAKELIST="CMakeLists.txt"
+        echo "Forcibly removing old root CMakeLists.txt file to avoid conflicts."
+        rm -f "$ROOT_CMAKELIST"
+        
         source zmk-env/bin/activate
         
         # 環境変数の設定
@@ -71,53 +80,46 @@ jobs:
         
         rm -rf build/prospector_scanner
 
-        # カスタム設定ディレクトリの定義
-        CONFIG_DIR="config"
-        SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
-        
-        # カスタムモジュールの絶対パスを定義 (west buildに直接渡すため)
-        CUSTOM_MODULE_ABS_PATH="$PWD/$CONFIG_DIR"
+        # カスタム設定を ZMK ワークスペース内のモジュールとして作成する
+        CUSTOM_MODULE_DIR="zmk/prospector_module"
+        SHIELD_DIR="$CUSTOM_MODULE_DIR/boards/shields/prospector_scanner"
         
         # 設定ファイルの作成
         mkdir -p $SHIELD_DIR
         
         echo "Ensuring ZMK configuration files exist..."
         
-        # ★★★ 1. module.ymlを作成 (custom_boards_dirを設定) ★★★
-        MODULE_YML="$CONFIG_DIR/module.yml"
-        echo "Creating module.yml to define the custom module structure and shield path."
-        echo "name: prospector_module" > "$MODULE_YML"
-        echo "build: true" >> "$MODULE_YML"
-        # custom_boards_dirを使って、シールドの定義場所を明示
-        echo "tools:" >> "$MODULE_YML"
-        echo "  cmake:" >> "$MODULE_YML"
-        echo "    custom_boards_dir: \${ZEPHYR_BASE}/../\${ZEPHYR_BASE}/../\${CONFIG_DIR}/boards" >> "$MODULE_YML"
+        # app.conf (メインの prj.conf に相当)
+        echo "# Minimal ZMK config" > "$CUSTOM_MODULE_DIR/app.conf"
+        echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CUSTOM_MODULE_DIR/app.conf"
 
+        # Shield conf
+        echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_DIR/prospector_scanner.conf"
 
-        # 2. prj.conf (メイン設定ファイル)
-        echo "# Minimal ZMK config" > "$CONFIG_DIR/prj.conf"
-        echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_DIR/prj.conf"
-        # キーボード名がZMKのキーマップモジュールで必要
-        echo 'CONFIG_ZMK_KEYBOARD_NAME="prospector_scanner"' >> "$CONFIG_DIR/prj.conf"
-
-        # 3. Shield conf (シールド固有の設定)
-        echo '' > "$SHIELD_DIR/prospector_scanner.conf"
-
-        # 4. Kconfig (シールド固有のKconfig)
-        echo '# Kconfig' > "$SHIELD_DIR/Kconfig"
+        # Kconfig (モジュールルートとシールドKconfigの両方を作成)
+        echo 'menu "Prospector Module"' > "$CUSTOM_MODULE_DIR/Kconfig"
+        echo 'source "boards/shields/prospector_scanner/Kconfig"' >> "$CUSTOM_MODULE_DIR/Kconfig"
+        
+        echo '# Kconfig for shield' > "$SHIELD_DIR/Kconfig"
         echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$SHIELD_DIR/Kconfig"
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
         echo '    default y' >> "$SHIELD_DIR/Kconfig"
+        
+        echo "=== Starting ZMK Build (via ZEPHYR_MODULES) ==="
+        
+        # 1. CMake Configure Phase
+        # ZEPHYR_MODULES を使用し、カスタムモジュールの絶対パスを強制的に Zephyr に伝える
+        /usr/local/bin/cmake \
+          -Bbuild/prospector_scanner \
+          -GNinja \
+          -DBOARD=seeeduino_xiao_ble \
+          -DSHIELD=prospector_scanner \
+          -DZEPHYR_MODULES=$PWD/$CUSTOM_MODULE_DIR \
+          -DCMAKE_VERBOSE_MAKEFILE=ON \
+          -S $PWD/zmk/app
 
-        # 5. キーマップファイルを作成 (ZMKのキーマップモジュールに必須)
-        KEYMAP_FILE="$CONFIG_DIR/prospector_scanner.keymap"
-        echo "Creating minimal keymap file: $KEYMAP_FILE"
-        echo "/ { keymap { compatible = \"zmk,keymap\"; default_layer { bindings = <&kp Q &kp W>; }; }; };" > "$KEYMAP_FILE"
-        
-        echo "=== Starting ZMK Build (via west build & EXTRA_ZEPHYR_DIRS) ==="
-        
-        # west build を実行。EXTRA_ZEPHYR_DIRS を使用して絶対パスを強制的に渡す
-        west build -b seeeduino_xiao_ble -d build/prospector_scanner zmk/app -- -DSHIELD=prospector_scanner -DEXTRA_ZEPHYR_DIRS="$CUSTOM_MODULE_ABS_PATH"
+        # 2. Ninja Compile Phase
+        /usr/bin/ninja -C build/prospector_scanner
 
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
