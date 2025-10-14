@@ -40,8 +40,6 @@ jobs:
         echo "Exporting Zephyr environment variables..."
         west zephyr-export
         
-        # ZMK_EXTRA_MODULES のグローバル設定は削除（EXTRA_ZEPHYR_DIRSを使用するため）
-        
         echo "Verifying west environment..."
         west list
       shell: bash
@@ -85,18 +83,25 @@ jobs:
         
         echo "Ensuring ZMK configuration files exist..."
         
-        # prj.conf (カスタムモジュールパス config/prj.conf)
+        # 1. prj.conf (メイン設定ファイル)
         echo "# Minimal ZMK config" > "$CONFIG_DIR/prj.conf"
         echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_DIR/prj.conf"
+        # キーボード名がZMKのキーマップモジュールで必要
+        echo 'CONFIG_ZMK_KEYBOARD_NAME="prospector_scanner"' >> "$CONFIG_DIR/prj.conf"
 
-        # Shield conf
-        echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_DIR/prospector_scanner.conf"
+        # 2. Shield conf (シールド固有の設定)
+        echo '' > "$SHIELD_DIR/prospector_scanner.conf"
 
-        # Kconfig (config/boards/shields/prospector_scanner/Kconfig)
+        # 3. Kconfig (シールド固有のKconfig)
         echo '# Kconfig' > "$SHIELD_DIR/Kconfig"
         echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$SHIELD_DIR/Kconfig"
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
         echo '    default y' >> "$SHIELD_DIR/Kconfig"
+
+        # 4. キーマップファイルを作成 (ZMKのキーマップモジュールに必須)
+        KEYMAP_FILE="$CONFIG_DIR/prospector_scanner.keymap"
+        echo "Creating minimal keymap file: $KEYMAP_FILE"
+        echo "/ { keymap { compatible = \"zmk,keymap\"; default_layer { bindings = <&kp Q &kp W>; }; }; };" > "$KEYMAP_FILE"
         
         echo "=== Starting ZMK Build (via west build & EXTRA_ZEPHYR_DIRS) ==="
         
