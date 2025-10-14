@@ -40,9 +40,7 @@ jobs:
         echo "Exporting Zephyr environment variables..."
         west zephyr-export
         
-        # ★★★ 修正: ZMK_EXTRA_MODULES を $GITHUB_ENV で設定し、以降のステップで確実に利用可能にする ★★★
-        echo "Setting ZMK_EXTRA_MODULES environment variable globally..."
-        echo "ZMK_EXTRA_MODULES=config" >> $GITHUB_ENV
+        # ZMK_EXTRA_MODULES のグローバル設定は削除（EXTRA_ZEPHYR_DIRSを使用するため）
         
         echo "Verifying west environment..."
         west list
@@ -68,8 +66,6 @@ jobs:
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
-        # ZMK_EXTRA_MODULES は $GITHUB_ENV で設定済み
-
         source zmk-env/bin/activate
         
         # 環境変数の設定
@@ -80,6 +76,9 @@ jobs:
         # カスタム設定ディレクトリの定義
         CONFIG_DIR="config"
         SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
+        
+        # カスタムモジュールの絶対パスを定義 (west buildに直接渡すため)
+        CUSTOM_MODULE_ABS_PATH="$PWD/$CONFIG_DIR"
         
         # 設定ファイルの作成
         mkdir -p $SHIELD_DIR
@@ -99,10 +98,10 @@ jobs:
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
         echo '    default y' >> "$SHIELD_DIR/Kconfig"
         
-        echo "=== Starting ZMK Build (via west build & ZMK_EXTRA_MODULES) ==="
+        echo "=== Starting ZMK Build (via west build & EXTRA_ZEPHYR_DIRS) ==="
         
-        # west build を実行。ZMKのコアアプリケーションをソースとして指定
-        west build -b seeeduino_xiao_ble -d build/prospector_scanner zmk/app -- -DSHIELD=prospector_scanner
+        # west build を実行。EXTRA_ZEPHYR_DIRS を使用して絶対パスを強制的に渡す
+        west build -b seeeduino_xiao_ble -d build/prospector_scanner zmk/app -- -DSHIELD=prospector_scanner -DEXTRA_ZEPHYR_DIRS="$CUSTOM_MODULE_ABS_PATH"
 
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
