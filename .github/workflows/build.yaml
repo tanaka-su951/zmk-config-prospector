@@ -29,8 +29,8 @@ jobs:
 
     - name: Initialize and Update west workspace
       run: |
-        # トップレベルで west workspace を初期化
-        west init -m zmk
+        # ローカル manifest を使用して west workspace を初期化
+        west init -l zmk
         west update
         west zephyr-export
       shell: bash
