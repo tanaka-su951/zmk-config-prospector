@@ -5,150 +5,119 @@ on: [push, pull_request, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
+
     container:
-      # ZMK標準ビルド環境コンテナ
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
     steps:
-    - name: Checkout ZMK Config (as custom_config)
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        # 構成ファイルを 'custom_config' ディレクトリにチェックアウト
-        path: custom_config
+      - name: Checkout ZMK Config (as config)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: config
 
-    - name: Install Python Venv
-      run: |
-        apt update
-        apt install -y python3.12-venv || apt install -y python3-venv
-      shell: bash
+      - name: Install Python Venv and Dependencies
+        run: |
+          apt update
+          apt install -y python3-venv python3-pip git cmake ninja-build g++ wget xz-utils file make
+          apt install -y device-tree-compiler || apt install -y dtc
+        shell: bash
 
-    - name: Initialize and Update west workspace
-      run: |
-        # 1. west init で ZMK のマニフェストを直接使用してワークスペースを初期化
-        echo "Initializing west workspace using ZMK's manifest..."
-        rm -rf zmk zephyr modules .west
-        
-        # ZMK の標準マニフェストファイルを指定して初期化
-        west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
-        
-        # 2. west update で ZMK 本体と Zephyr をクローン
-        echo "Updating west modules..."
-        west update
-        
-        # 3. zephyr-exportで必要な環境変数を設定
-        echo "Exporting Zephyr environment variables..."
-        west zephyr-export
-        
-        echo "Verifying west environment..."
-        west list
-      shell: bash
+      - name: Initialize west workspace
+        run: |
+          echo "=== Initializing west workspace ==="
+          rm -rf .west zmk
+          west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
+          west update
+          echo "=== West environment initialized ==="
+          ls -R zmk || echo "ZMK not found!"
+        shell: bash
 
-    - name: Debug ZMK Source Location
-      run: |
-        echo "Workspace structure check:"
-        ls -F
-        echo "--- Custom Config structure ---"
-        ls -F custom_config || echo "Custom Config directory missing"
-        echo "--- ZMK structure ---"
-        ls -F zmk || echo "ZMK directory missing"
-        echo "--- Zephyr ---"
-        ls -F zephyr || echo "Zephyr directory missing"
-      shell: bash
+      - name: Set up Python Environment
+        run: |
+          /usr/bin/python3 -m venv zmk-env
+          source zmk-env/bin/activate
+          REQUIREMENTS_FILE=$(find . -name "requirements.txt" -path "*zmk*" -print -quit)
+          if [ -n "$REQUIREMENTS_FILE" ]; then
+              echo "Installing from $REQUIREMENTS_FILE"
+              pip install -r "$REQUIREMENTS_FILE"
+          else
+              echo "No requirements.txt found, skipping pip install."
+          fi
+        shell: bash
 
-    - name: Set up Python Environment
-      run: |
-        /usr/bin/python3 -m venv zmk-env
-        source zmk-env/bin/activate
+      - name: Prepare Configuration
+        run: |
+          source zmk-env/bin/activate
+          CONFIG_DIR="config"
+          SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
+          mkdir -p "$SHIELD_DIR"
 
-        REQUIREMENTS_FILE=$(find zmk -name "requirements.txt" -print -quit)
-        if [ -n "$REQUIREMENTS_FILE" ]; then
-          echo "Installing dependencies from: $REQUIREMENTS_FILE"
-          pip install -r "$REQUIREMENTS_FILE"
-        else
-          echo "Warning: requirements.txt not found!"
-        fi
-      shell: bash
+          # prj.conf
+          if [ ! -f "$CONFIG_DIR/prj.conf" ]; then
+            echo "Creating $CONFIG_DIR/prj.conf"
+cat <<'EOF' > "$CONFIG_DIR/prj.conf"
+CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"
+CONFIG_ZMK_KSCAN_MATRIX=y
+CONFIG_ZMK_DISPLAY=y
+EOF
+          fi
 
-    - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
-      run: |
-        source zmk-env/bin/activate
-        
-        # 環境変数の設定
-        export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
-        if [ -z "$ZEPHYR_BASE" ]; then
-            export ZEPHYR_BASE="$PWD/zephyr"
-        fi
-        if [ -z "$CMAKE_PREFIX_PATH" ]; then
-            export CMAKE_PREFIX_PATH="$PWD/zephyr/share"
-        fi
+          # shield config
+          if [ ! -f "$SHIELD_DIR/prospector_scanner.conf" ]; then
+            echo "Creating shield config"
+cat <<'EOF' > "$SHIELD_DIR/prospector_scanner.conf"
+CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"
+EOF
+          fi
 
-        echo "ZEPHYR_BASE: $ZEPHYR_BASE"
-        echo "CMAKE_PREFIX_PATH: $CMAKE_PREFIX_PATH"
+          # overlay (必要)
+          if [ ! -f "$SHIELD_DIR/prospector_scanner.overlay" ]; then
+            echo "Creating shield overlay"
+cat <<'EOF' > "$SHIELD_DIR/prospector_scanner.overlay"
+/ {
+    compatible = "zmk,keyboard";
+    chosen {
+        zmk,kscan = &kscan0;
+    };
 
-        rm -rf build/prospector_scanner
+    kscan0: kscan {
+        compatible = "zmk,kscan-gpio-matrix";
+        row-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>, <&gpio0 11 GPIO_ACTIVE_LOW>;
+        col-gpios = <&gpio0 12 GPIO_ACTIVE_LOW>, <&gpio0 13 GPIO_ACTIVE_LOW>;
+    };
+};
+EOF
+          fi
 
-        # CONFIG_DIR は新しいパスを参照
-        CONFIG_DIR="custom_config"
-        SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
-        
-        # 設定ファイルの作成
-        mkdir -p $SHIELD_DIR
-        
-        echo "Ensuring ZMK configuration files exist..."
-        
-        # prj.conf
-        echo "# Minimal ZMK config" > "$CONFIG_DIR/prj.conf"
-        echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_DIR/prj.conf"
+          # Kconfig
+          echo "Creating $SHIELD_DIR/Kconfig"
+cat <<'EOF' > "$SHIELD_DIR/Kconfig"
+config SHIELD_PROSPECTOR_SCANNER
+    bool "Prospector Scanner"
+    default y
+EOF
 
-        # Shield conf
-        echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_DIR/prospector_scanner.conf"
-        echo '# Shield configs here' >> "$SHIELD_DIR/prospector_scanner.conf"
+          # CMakeLists.txt
+          echo "Overwriting $CONFIG_DIR/CMakeLists.txt"
+cat <<'EOF' > "$CONFIG_DIR/CMakeLists.txt"
+cmake_minimum_required(VERSION 3.20.0)
+find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+project(zmk-config-prospector)
+target_sources(app PRIVATE src/main.c)
+EOF
+        shell: bash
 
-        # Kconfig
-        echo '# Kconfig' > "$SHIELD_DIR/Kconfig"
-        echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$SHIELD_DIR/Kconfig"
-        echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
-        echo '    default y' >> "$SHIELD_DIR/Kconfig"
+      - name: Build Prospector Scanner
+        run: |
+          source zmk-env/bin/activate
+          echo "--- Building Prospector Scanner ---"
+          west build -s zmk/app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner -DZMK_CONFIG=../config
+        shell: bash
 
-        # CMakeLists.txt ファイルの強制削除
-        ROOT_CMAKELIST="CMakeLists.txt"
-        
-        echo "Forcibly removing old root CMakeLists.txt file to avoid conflicts."
-        rm -f "$ROOT_CMAKELIST"
-        
-        echo "=== Starting ZMK Build (via cmake/ninja) ==="
-        
-        # 1. CMake Configure Phase
-        # ZMKリポジトリの正しいアプリパス (-S $PWD/zmk/app) をソースとして指定
-        /usr/local/bin/cmake \
-          -Bbuild/prospector_scanner \
-          -GNinja \
-          -DBOARD=seeeduino_xiao_ble \
-          -DSHIELD=prospector_scanner \
-          -DZEPHYR_EXTRA_MODULES=custom_config \
-          -DCMAKE_VERBOSE_MAKEFILE=ON \
-          -S $PWD/zmk/app
-
-        # 2. Ninja Compile Phase
-        /usr/bin/ninja -C build/prospector_scanner
-
-        BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
-        UF2_PATH="build/prospector_scanner/zmk.uf2"
-
-        if [ -f "$BIN_PATH" ]; then
-          echo "Converting ELF → UF2"
-          python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
-        else
-          echo "FATAL: Build failed, zephyr.elf not found."
-          ls -R build/prospector_scanner
-          exit 1
-        fi
-      shell: bash
-
-    - name: Archive production artifacts (Artifact Upload)
-      uses: actions/upload-artifact@v4
-      with:
-        name: prospector_scanner-seeeduino_xiao_ble-zmk
-        path: build/prospector_scanner/zmk.uf2
+      - name: Upload Firmware Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prospector_scanner_firmware
+          path: build/zephyr/zmk.uf2
