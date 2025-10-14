@@ -36,7 +36,7 @@ jobs:
         echo "Updating west modules..."
         west update
         
-        # 3. zephyr-exportで必要な環境変数を設定 (ビルドは不安定なため、環境設定のみ)
+        # 3. zephyr-exportで必要な環境変数を設定
         echo "Exporting Zephyr environment variables..."
         west zephyr-export
         
@@ -108,17 +108,18 @@ jobs:
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
         echo '    default y' >> "$SHIELD_DIR/Kconfig"
 
-        # CMakeLists.txt
-        CMAKELIST="$CONFIG_DIR/CMakeLists.txt"
-        echo "Overwriting $CMAKELIST"
-        echo 'cmake_minimum_required(VERSION 3.20.0)' > "$CMAKELIST"
-        echo 'project(zmk-config-prospector LANGUAGES C)' >> "$CMAKELIST"
-        echo 'include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake)' >> "$CMAKELIST"
+        # CMakeLists.txt (カスタムファイルの内容を空にしてビルドの衝突を回避)
+        ROOT_CMAKELIST="CMakeLists.txt"
+        CONFIG_CMAKELIST="$CONFIG_DIR/CMakeLists.txt"
+        
+        echo "Clearing custom CMakeLists.txt files to avoid conflicts."
+        echo "" > "$ROOT_CMAKELIST"    # ルートの CMakeLists.txt を空にする
+        echo "" > "$CONFIG_CMAKELIST"  # config ディレクトリの CMakeLists.txt を空にする
         
         echo "=== Starting ZMK Build (via cmake/ninja) ==="
         
         # 1. CMake Configure Phase
-        # カスタム設定を認識させるため、ZEPHYR_EXTRA_MODULES=config を追加
+        # ZMKのアプリソース (-S zmk/app) を使用し、カスタム設定 (-DZEPHYR_EXTRA_MODULES=config) を渡す
         /usr/local/bin/cmake \
           -Bbuild/prospector_scanner \
           -GNinja \
@@ -126,7 +127,7 @@ jobs:
           -DSHIELD=prospector_scanner \
           -DZEPHYR_EXTRA_MODULES=config \
           -DCMAKE_VERBOSE_MAKEFILE=ON \
-          -Sconfig
+          -S zmk/app
 
         # 2. Ninja Compile Phase
         /usr/bin/ninja -C build/prospector_scanner
