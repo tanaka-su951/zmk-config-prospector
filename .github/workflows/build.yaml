@@ -137,4 +137,3 @@ jobs:
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
         path: build/prospector_scanner/zmk.uf2
-canner/zmk.uf2
