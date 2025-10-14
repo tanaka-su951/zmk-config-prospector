@@ -16,10 +16,12 @@ jobs:
           fetch-depth: 0
           path: config
 
-      - name: Install Required Tools
+      - name: Install Python Venv and Dependencies
         run: |
           apt update
-          apt install -y python3-venv python3-pip git ninja-build wget unzip make gcc g++ cmake device-tree-compiler
+          apt install -y python3-venv python3-pip git cmake ninja-build g++ wget xz-utils file make
+          apt install -y device-tree-compiler || apt install -y dtc
+        shell: bash
 
       - name: Initialize west workspace
         run: |
@@ -27,13 +29,23 @@ jobs:
           rm -rf .west
           west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
           west update
+          echo "=== West environment initialized ==="
+          ls -R zmk || echo "ZMK not found!"
+        shell: bash
 
       - name: Set up Python Environment
         run: |
-          python3 -m venv zmk-env
+          /usr/bin/python3 -m venv zmk-env
           source zmk-env/bin/activate
-          pip install --upgrade pip
-          pip install -r zmk/app/requirements.txt || echo "requirements.txt not found, continuing..."
+
+          REQUIREMENTS_FILE=$(find . -name "requirements.txt" -path "*zmk*" -print -quit)
+          if [ -n "$REQUIREMENTS_FILE" ]; then
+              echo "Installing from $REQUIREMENTS_FILE"
+              pip install -r "$REQUIREMENTS_FILE"
+          else
+              echo "No requirements.txt found, skipping pip install."
+          fi
+        shell: bash
 
       - name: Prepare Configuration
         run: |
@@ -76,16 +88,34 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(zmk-config-prospector)
 target_sources(app PRIVATE src/main.c)
 EOF
+        shell: bash
 
-      - name: Build Prospector Scanner firmware
+      - name: Build ZMK Firmware (seeeduino_xiao_ble)
         run: |
           source zmk-env/bin/activate
-          echo "=== Starting ZMK Build ==="
-          west build -s zmk/app -b seeeduino_xiao_ble -- -DSHIELD=prospector_scanner -DZMK_CONFIG=$PWD/config
-          echo "=== Build completed successfully ==="
+          export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
+          export ZEPHYR_BASE="$PWD/zephyr"
 
-      - name: Upload firmware artifact
+          echo "=== Starting ZMK Build ==="
+          west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
+            -DSHIELD=prospector_scanner \
+            -DCMAKE_VERBOSE_MAKEFILE=ON
+
+          echo "=== Build complete, converting to UF2 ==="
+          BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
+          UF2_PATH="build/prospector_scanner/zmk.uf2"
+
+          if [ -f "$BIN_PATH" ]; then
+            python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
+          else
+            echo "ERROR: ELF not found!"
+            ls -R build/prospector_scanner || true
+            exit 1
+          fi
+        shell: bash
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: prospector_scanner_firmware
-          path: build/zephyr/zmk.uf2
+          name: prospector_scanner-seeeduino_xiao_ble-zmk
+          path: build/prospector_scanner/zmk.uf2
