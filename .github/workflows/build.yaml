@@ -36,7 +36,7 @@ jobs:
         echo "Updating west modules..."
         west update
         
-        # 3. zephyr-exportで必要な環境変数を設定
+        # 3. zephyr-exportで必要な環境変数を設定 (ビルドは不安定なため、環境設定のみ)
         echo "Exporting Zephyr environment variables..."
         west zephyr-export
         
@@ -102,13 +102,13 @@ jobs:
         echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_DIR/prospector_scanner.conf"
         echo '# Shield configs here' >> "$SHIELD_DIR/prospector_scanner.conf"
 
-        # Kconfig (YAMLエラー回避のため echo で出力)
+        # Kconfig (インデントを正確に修正)
         echo '# Kconfig' > "$SHIELD_DIR/Kconfig"
         echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$SHIELD_DIR/Kconfig"
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
-        echo '  default y' >> "$SHIELD_DIR/Kconfig"
+        echo '    default y' >> "$SHIELD_DIR/Kconfig"
 
-        # CMakeLists.txt (ZMKアプリの標準ロジックを使用)
+        # CMakeLists.txt
         CMAKELIST="$CONFIG_DIR/CMakeLists.txt"
         echo "Overwriting $CMAKELIST"
         echo 'cmake_minimum_required(VERSION 3.20.0)' > "$CMAKELIST"
@@ -118,12 +118,13 @@ jobs:
         echo "=== Starting ZMK Build (via cmake/ninja) ==="
         
         # 1. CMake Configure Phase
-        # config/ ディレクトリをソースディレクトリとして使用
+        # カスタム設定を認識させるため、ZEPHYR_EXTRA_MODULES=config を追加
         /usr/local/bin/cmake \
           -Bbuild/prospector_scanner \
           -GNinja \
           -DBOARD=seeeduino_xiao_ble \
           -DSHIELD=prospector_scanner \
+          -DZEPHYR_EXTRA_MODULES=config \
           -DCMAKE_VERBOSE_MAKEFILE=ON \
           -Sconfig
 
