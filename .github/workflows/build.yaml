@@ -57,9 +57,9 @@ jobs:
           echo "Warning: requirements.txt not found!"
         fi
         
-        # ★★★ 修正: PyYAML を明示的にインストールし、環境問題を解消 ★★★
-        echo "Forcibly installing pyyaml dependency."
-        pip install pyyaml
+        # ★★★ 修正: PyYAMLとpykwalifyを明示的にインストールし、環境問題を解消 ★★★
+        echo "Forcibly installing core dependencies (pyyaml, pykwalify)."
+        pip install pyyaml pykwalify
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
