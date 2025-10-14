@@ -5,21 +5,18 @@ on: [push, pull_request, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: zmkfirmware/zmk-build-arm:stable
-      options: --user root
 
     steps:
-    - name: Checkout ZMK Config (as config)
+    - name: Checkout ZMK Config
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
         path: config
 
-    - name: Install Python Venv
+    - name: Install Required Packages
       run: |
-        apt update
-        apt install -y python3.12-venv || apt install -y python3-venv
+        sudo apt update
+        sudo apt install -y git python3 python3-pip python3-venv cmake ninja-build gperf ccache dfu-util device-tree-compiler dtc wget
       shell: bash
 
     - name: Clone ZMK Firmware
@@ -31,17 +28,26 @@ jobs:
       run: |
         python3 -m venv zmk-env
         source zmk-env/bin/activate
-
+        pip install --upgrade pip
         REQUIREMENTS_FILE=$(find zmk -name "requirements.txt" -print -quit)
         if [ -f "$REQUIREMENTS_FILE" ]; then
-          echo "Installing requirements from: $REQUIREMENTS_FILE"
           pip install -r "$REQUIREMENTS_FILE"
-        else
-          echo "No requirements.txt found. Skipping dependency install."
         fi
       shell: bash
 
-    - name: Prepare Config Files
+    - name: Install Zephyr SDK
+      run: |
+        ZEPHYR_DIR="$HOME/zephyr"
+        if [ ! -d "$ZEPHYR_DIR" ]; then
+          git clone --depth 1 https://github.com/zephyrproject-rtos/zephyr.git "$ZEPHYR_DIR"
+          cd "$ZEPHYR_DIR"
+          git submodule update --init --recursive
+        fi
+        source "$ZEPHYR_DIR/zephyr-env.sh"
+        echo "ZEPHYR_BASE=$ZEPHYR_BASE"
+      shell: bash
+
+    - name: Prepare ZMK Config
       run: |
         CONFIG_DIR="config"
         SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
@@ -49,16 +55,12 @@ jobs:
 
         # prj.conf
         PRJ_CONF="$CONFIG_DIR/prj.conf"
-        if [ ! -f "$PRJ_CONF" ]; then
-          echo "CONFIG_ZMK_KSCAN_MATRIX=y" > "$PRJ_CONF"
-        fi
+        echo "CONFIG_ZMK_KSCAN_MATRIX=y" > "$PRJ_CONF"
         echo "# Updated at $(date +%s)" >> "$PRJ_CONF"
 
-        # prospector_scanner.conf
+        # shield conf
         SHIELD_CONF="$SHIELD_DIR/prospector_scanner.conf"
-        if [ ! -f "$SHIELD_CONF" ]; then
-          echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF"
-        fi
+        echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF"
 
         # Kconfig
         SHIELD_KCONFIG="$SHIELD_DIR/Kconfig"
@@ -74,46 +76,35 @@ jobs:
         echo "include(\${ZEPHYR_BASE}/cmake/app/boilerplate.cmake)" >> "$CMAKELIST"
       shell: bash
 
-    - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
+    - name: Build Firmware
       run: |
         source zmk-env/bin/activate
-
-        # ✅ Zephyr 環境を source してパスを設定
-        if [ -f /opt/zephyr/zephyr-env.sh ]; then
-          source /opt/zephyr/zephyr-env.sh
-        elif [ -f /usr/share/zephyr/zephyr-env.sh ]; then
-          source /usr/share/zephyr/zephyr-env.sh
-        else
-          echo "ERROR: zephyr-env.sh not found!"
-          exit 1
-        fi
+        source "$HOME/zephyr/zephyr-env.sh"
 
         BUILD_DIR="build/prospector_scanner"
         rm -rf "$BUILD_DIR"
         mkdir -p "$BUILD_DIR"
 
-        # CMake configure
         cmake -B "$BUILD_DIR" -S zmk/app \
           -DBOARD=seeeduino_xiao_ble \
           -DSHIELD=prospector_scanner \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
-        # Build
         cmake --build "$BUILD_DIR"
 
-        # UF2 conversion
         BIN_PATH="$BUILD_DIR/zephyr/zephyr.elf"
         UF2_PATH="$BUILD_DIR/zmk.uf2"
+
         if [ -f "$BIN_PATH" ]; then
           python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
         else
-          echo "FATAL ERROR: ELF not found."
+          echo "FATAL ERROR: ELF file not found."
           ls -R "$BUILD_DIR"
           exit 1
         fi
       shell: bash
 
-    - name: Archive production artifacts
+    - name: Upload Firmware Artifact
       uses: actions/upload-artifact@v4
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
