@@ -24,32 +24,31 @@ jobs:
 
     - name: Clone ZMK Firmware
       run: |
-        # ZMK 本体を zmk/ に clone
         git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
       shell: bash
 
     - name: Initialize and Update west workspace
       run: |
-        cd zmk
-        west init -l .
+        # トップレベルで west workspace を初期化
+        west init -m zmk
         west update
         west zephyr-export
       shell: bash
 
     - name: Force Workspace Cleanup
       run: |
-        rm -rf ../build ../modules ../.west
+        rm -rf build modules .west
       shell: bash
 
     - name: Debug ZMK Source Location
       run: |
-        echo "Listing workspace root:"
+        echo "Workspace root:"
         ls -F
-        echo "Listing zmk/:"
+        echo "zmk/:"
         ls -F zmk
-        echo "Listing modules/:"
+        echo "modules/:"
         ls -F modules || echo "Modules directory not found."
-        echo "Listing zephyr/:"
+        echo "zephyr/:"
         ls -F zephyr || echo "Zephyr directory not found."
       shell: bash
 
@@ -78,6 +77,7 @@ jobs:
         if [ ! -f "$PRJ_CONF" ]; then
           echo "CONFIG_ZMK_KSCAN_MATRIX=y" > "$PRJ_CONF"
         fi
+        echo "# Updated at $(date +%s)" >> "$PRJ_CONF"
 
         # prospector_scanner.conf
         SHIELD_CONF="$SHIELD_DIR/prospector_scanner.conf"
@@ -129,4 +129,3 @@ jobs:
       with:
         name: prospector_scanner-seeeduino_xiao_ble-zmk
         path: build/prospector_scanner/zmk.uf2
-
