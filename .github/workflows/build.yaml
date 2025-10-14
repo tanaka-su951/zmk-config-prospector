@@ -78,10 +78,15 @@ jobs:
       run: |
         source zmk-env/bin/activate
 
-        # ✅ Zephyr SDK の正しいパス
-        export ZEPHYR_BASE=/opt/zephyr
-        export CMAKE_PREFIX_PATH=$ZEPHYR_BASE
-        export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
+        # ✅ Zephyr 環境を source してパスを設定
+        if [ -f /opt/zephyr/zephyr-env.sh ]; then
+          source /opt/zephyr/zephyr-env.sh
+        elif [ -f /usr/share/zephyr/zephyr-env.sh ]; then
+          source /usr/share/zephyr/zephyr-env.sh
+        else
+          echo "ERROR: zephyr-env.sh not found!"
+          exit 1
+        fi
 
         BUILD_DIR="build/prospector_scanner"
         rm -rf "$BUILD_DIR"
@@ -91,8 +96,6 @@ jobs:
         cmake -B "$BUILD_DIR" -S zmk/app \
           -DBOARD=seeeduino_xiao_ble \
           -DSHIELD=prospector_scanner \
-          -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH \
-          -DZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
         # Build
