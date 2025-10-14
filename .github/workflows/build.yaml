@@ -5,107 +5,147 @@ on: [push, pull_request, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      # ✅ ZMK公式ビルド環境
+      image: zmkfirmware/zmk-build-arm:stable
+      options: --user root
 
     steps:
-    - name: Checkout ZMK Config
+    # -------------------------------
+    # 1️⃣ ソースチェックアウト
+    # -------------------------------
+    - name: Checkout ZMK Config (as config)
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
         path: config
 
+    # -------------------------------
+    # 2️⃣ 依存パッケージのインストール
+    # -------------------------------
     - name: Install Required Packages
       run: |
-        sudo apt update
-        sudo apt install -y git python3 python3-pip python3-venv cmake ninja-build gperf ccache dfu-util device-tree-compiler dtc wget
+        apt update
+        apt install -y \
+          git \
+          python3 \
+          python3-pip \
+          python3-venv \
+          cmake \
+          ninja-build \
+          gperf \
+          ccache \
+          dfu-util \
+          device-tree-compiler \
+          wget
       shell: bash
 
-    - name: Clone ZMK Firmware
+    # -------------------------------
+    # 3️⃣ west workspace 初期化
+    # -------------------------------
+    - name: Initialize and Update west workspace
       run: |
-        git clone --depth 1 https://github.com/zmkfirmware/zmk zmk
+        echo "=== Initializing west workspace ==="
+        rm -rf .west zephyr zmk modules
+        west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
+        west update
+        west list
       shell: bash
 
+    # -------------------------------
+    # 4️⃣ Python環境セットアップ
+    # -------------------------------
     - name: Set up Python Environment
       run: |
         python3 -m venv zmk-env
         source zmk-env/bin/activate
         pip install --upgrade pip
-        REQUIREMENTS_FILE=$(find zmk -name "requirements.txt" -print -quit)
-        if [ -f "$REQUIREMENTS_FILE" ]; then
-          pip install -r "$REQUIREMENTS_FILE"
-        fi
+        pip install -r zmk/app/requirements.txt
       shell: bash
 
-    - name: Install Zephyr SDK
+    # -------------------------------
+    # 5️⃣ ZMK設定の検証・整備
+    # -------------------------------
+    - name: Prepare Configuration
       run: |
-        ZEPHYR_DIR="$HOME/zephyr"
-        if [ ! -d "$ZEPHYR_DIR" ]; then
-          git clone --depth 1 https://github.com/zephyrproject-rtos/zephyr.git "$ZEPHYR_DIR"
-          cd "$ZEPHYR_DIR"
-          git submodule update --init --recursive
-        fi
-        source "$ZEPHYR_DIR/zephyr-env.sh"
-        echo "ZEPHYR_BASE=$ZEPHYR_BASE"
-      shell: bash
-
-    - name: Prepare ZMK Config
-      run: |
+        source zmk-env/bin/activate
         CONFIG_DIR="config"
         SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
         mkdir -p "$SHIELD_DIR"
 
         # prj.conf
-        PRJ_CONF="$CONFIG_DIR/prj.conf"
-        echo "CONFIG_ZMK_KSCAN_MATRIX=y" > "$PRJ_CONF"
-        echo "# Updated at $(date +%s)" >> "$PRJ_CONF"
+        if [ ! -f "$CONFIG_DIR/prj.conf" ]; then
+          echo "Creating $CONFIG_DIR/prj.conf"
+          cat <<'EOF' > "$CONFIG_DIR/prj.conf"
+CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"
+CONFIG_ZMK_KSCAN_MATRIX=y
+CONFIG_ZMK_DISPLAY=y
+EOF
+        fi
 
-        # shield conf
-        SHIELD_CONF="$SHIELD_DIR/prospector_scanner.conf"
-        echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF"
+        # shield config
+        if [ ! -f "$SHIELD_DIR/prospector_scanner.conf" ]; then
+          echo "Creating shield config"
+          cat <<'EOF' > "$SHIELD_DIR/prospector_scanner.conf"
+CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"
+EOF
+        fi
 
         # Kconfig
-        SHIELD_KCONFIG="$SHIELD_DIR/Kconfig"
-        echo 'config SHIELD_PROSPECTOR_SCANNER' > "$SHIELD_KCONFIG"
-        echo '    bool "Prospector Scanner"' >> "$SHIELD_KCONFIG"
-        echo '    default y' >> "$SHIELD_KCONFIG"
+        cat <<'EOF' > "$SHIELD_DIR/Kconfig"
+config SHIELD_PROSPECTOR_SCANNER
+    bool "Prospector Scanner"
+    default y
+EOF
 
         # CMakeLists.txt
-        CMAKELIST="$CONFIG_DIR/CMakeLists.txt"
-        echo "cmake_minimum_required(VERSION 3.20.0)" > "$CMAKELIST"
-        echo "project(zmk-config-prospector LANGUAGES C)" >> "$CMAKELIST"
-        echo "find_package(Zephyr REQUIRED HINTS \$ENV{ZEPHYR_BASE})" >> "$CMAKELIST"
-        echo "include(\${ZEPHYR_BASE}/cmake/app/boilerplate.cmake)" >> "$CMAKELIST"
+        cat <<'EOF' > "$CONFIG_DIR/CMakeLists.txt"
+cmake_minimum_required(VERSION 3.20.0)
+find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+project(zmk-config-prospector)
+target_sources(app PRIVATE src/main.c)
+EOF
       shell: bash
 
-    - name: Build Firmware
+    # -------------------------------
+    # 6️⃣ ビルド実行
+    # -------------------------------
+    - name: Build Prospector Scanner Firmware
       run: |
         source zmk-env/bin/activate
-        source "$HOME/zephyr/zephyr-env.sh"
+        west zephyr-export
 
-        BUILD_DIR="build/prospector_scanner"
-        rm -rf "$BUILD_DIR"
-        mkdir -p "$BUILD_DIR"
-
-        cmake -B "$BUILD_DIR" -S zmk/app \
-          -DBOARD=seeeduino_xiao_ble \
+        echo "=== Starting ZMK Build ==="
+        west build -s zmk/app -d build/prospector_scanner -b seeeduino_xiao_ble -- \
           -DSHIELD=prospector_scanner \
           -DCMAKE_VERBOSE_MAKEFILE=ON
 
-        cmake --build "$BUILD_DIR"
+        echo "=== Build Finished ==="
+        ls -l build/prospector_scanner/zephyr || true
+      shell: bash
 
-        BIN_PATH="$BUILD_DIR/zephyr/zephyr.elf"
-        UF2_PATH="$BUILD_DIR/zmk.uf2"
-
-        if [ -f "$BIN_PATH" ]; then
-          python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
+    # -------------------------------
+    # 7️⃣ UF2変換
+    # -------------------------------
+    - name: Convert ELF to UF2
+      run: |
+        ELF="build/prospector_scanner/zephyr/zephyr.elf"
+        UF2="build/prospector_scanner/zmk.uf2"
+        if [ -f "$ELF" ]; then
+          python3 zmk/tools/uf2conv.py "$ELF" -c -o "$UF2"
+          echo "UF2 created at: $UF2"
         else
-          echo "FATAL ERROR: ELF file not found."
-          ls -R "$BUILD_DIR"
+          echo "❌ ERROR: ELF not found, build failed!"
           exit 1
         fi
       shell: bash
 
+    # -------------------------------
+    # 8️⃣ アーティファクト保存
+    # -------------------------------
     - name: Upload Firmware Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: prospector_scanner-seeeduino_xiao_ble-zmk
+        name: prospector_scanner-seeeduino_xiao_ble
         path: build/prospector_scanner/zmk.uf2
+
