@@ -15,7 +15,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        # ★★★ 修正: 構成ファイルを 'custom_config' ディレクトリにチェックアウト ★★★
+        # 構成ファイルを 'custom_config' ディレクトリにチェックアウト
         path: custom_config
 
     - name: Install Python Venv
@@ -121,7 +121,7 @@ jobs:
         echo "=== Starting ZMK Build (via cmake/ninja) ==="
         
         # 1. CMake Configure Phase
-        # ZMKリポジトリのルート (-S $PWD/zmk) をソースとして指定
+        # ZMKリポジトリの正しいアプリパス (-S $PWD/zmk/app) をソースとして指定
         /usr/local/bin/cmake \
           -Bbuild/prospector_scanner \
           -GNinja \
@@ -129,7 +129,7 @@ jobs:
           -DSHIELD=prospector_scanner \
           -DZEPHYR_EXTRA_MODULES=custom_config \
           -DCMAKE_VERBOSE_MAKEFILE=ON \
-          -S $PWD/zmk
+          -S $PWD/zmk/app
 
         # 2. Ninja Compile Phase
         /usr/bin/ninja -C build/prospector_scanner
