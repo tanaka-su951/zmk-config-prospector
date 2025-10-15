@@ -11,11 +11,11 @@ jobs:
       options: --user root
 
     steps:
-    - name: Checkout ZMK Config (Initial)
+    - name: Checkout ZMK Config (as config)
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        path: . # ルートにチェックアウト
+        path: config # カスタム設定を config ディレクトリにチェックアウト
 
     - name: Install Python Venv
       run: |
@@ -43,6 +43,17 @@ jobs:
         echo "Verifying west environment..."
         west list
       shell: bash
+      
+    # ★★★ 追加ステップ: ビルド競合ファイルを削除する ★★★
+    - name: Remove Root Conflict Files
+      run: |
+        # ルートリポジトリから衝突するファイル（CMakeLists.txtとKconfig）を削除
+        # これにより、west buildがクリーンな状態で起動できる
+        echo "Removing conflict files from the root directory."
+        rm -f CMakeLists.txt
+        rm -f Kconfig
+        rm -rf .git
+      shell: bash
 
     - name: Set up Python Environment
       run: |
@@ -64,14 +75,8 @@ jobs:
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
-        # ★★★ 修正: 競合する可能性のある環境変数を全て解除する ★★★
-        # 古い ZMK_EXTRA_MODULES の設定が残っているとビルドが混乱するため解除
+        # 競合する可能性のある環境変数を全て解除する
         unset ZMK_EXTRA_MODULES
-        
-        # ルートの CMakeLists.txt を削除（最重要）
-        ROOT_CMAKELIST="CMakeLists.txt"
-        echo "Forcibly removing old root CMakeLists.txt file to avoid conflicts."
-        rm -f "$ROOT_CMAKELIST"
         
         source zmk-env/bin/activate
         
@@ -80,47 +85,36 @@ jobs:
         
         rm -rf build/prospector_scanner
 
-        # カスタム設定を ZMK ワークスペース内のモジュールとして作成する
-        CUSTOM_MODULE_DIR="zmk/prospector_module"
-        SHIELD_DIR="$CUSTOM_MODULE_DIR/boards/shields/prospector_scanner"
+        # CONFIG_DIR は新しいパスを参照
+        CONFIG_DIR="config"
+        SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
         
         # 設定ファイルの作成
         mkdir -p $SHIELD_DIR
         
         echo "Ensuring ZMK configuration files exist..."
         
-        # app.conf (メインの prj.conf に相当)
-        echo "# Minimal ZMK config" > "$CUSTOM_MODULE_DIR/app.conf"
-        echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CUSTOM_MODULE_DIR/app.conf"
+        # prj.conf
+        echo "# Minimal ZMK config" > "$CONFIG_DIR/prj.conf"
+        echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_DIR/prj.conf"
 
         # Shield conf
         echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_DIR/prospector_scanner.conf"
 
-        # Kconfig (モジュールルートとシールドKconfigの両方を作成)
-        echo 'menu "Prospector Module"' > "$CUSTOM_MODULE_DIR/Kconfig"
-        echo 'source "boards/shields/prospector_scanner/Kconfig"' >> "$CUSTOM_MODULE_DIR/Kconfig"
-        
+        # Kconfig (シールドKconfigのみ)
         echo '# Kconfig for shield' > "$SHIELD_DIR/Kconfig"
         echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$SHIELD_DIR/Kconfig"
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
         echo '    default y' >> "$SHIELD_DIR/Kconfig"
         
-        echo "=== Starting ZMK Build (via ZEPHYR_MODULES) ==="
+        echo "=== Starting ZMK Build (via west build with CONFIG_ROOT) ==="
         
-        # 1. CMake Configure Phase
-        # ZEPHYR_MODULES を使用し、カスタムモジュールの絶対パスを強制的に Zephyr に伝える
-        /usr/local/bin/cmake \
-          -Bbuild/prospector_scanner \
-          -GNinja \
-          -DBOARD=seeeduino_xiao_ble \
+        # west build を実行し、ZMKコアアプリをソースとし、
+        # CONFIG_ROOT を明示的に指定してカスタム設定を参照させる
+        west build -b seeeduino_xiao_ble -d build/prospector_scanner zmk/app -- \
           -DSHIELD=prospector_scanner \
-          -DZEPHYR_MODULES=$PWD/$CUSTOM_MODULE_DIR \
-          -DCMAKE_VERBOSE_MAKEFILE=ON \
-          -S $PWD/zmk/app
-
-        # 2. Ninja Compile Phase
-        /usr/bin/ninja -C build/prospector_scanner
-
+          -DCONFIG_ROOT="$PWD/$CONFIG_DIR"
+        
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
 
