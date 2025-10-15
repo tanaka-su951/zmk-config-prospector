@@ -70,7 +70,7 @@ jobs:
           
           echo "Ensuring ZMK configuration files exist..."
           
-          # ★★★ 最終のファイルクリーンアップ: カスタムモジュールファイルをすべて削除 ★★★
+          # 過去のデバッグで作成されたカスタムモジュールファイルを全て削除
           rm -rf "$CONFIG_DIR/zephyr"
           rm -f "$CONFIG_DIR/CMakeLists.txt" 
           rm -f "$CONFIG_DIR/Kconfig" 
@@ -91,12 +91,13 @@ jobs:
           echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
           echo '    default y' >> "$KCONFIG_SHIELD_FILE"
           
-          echo "=== Starting ZMK Build (via west build, ZMK_CONFIG method) ==="
+          echo "=== Starting ZMK Build (via west build, ZMK_CONFIG + EXTRA_CONF_FILE) ==="
           
-          # ★★★ 最終のビルドコマンド: ZMK_CONFIG を使用し、Zephyr の複雑な引数をすべて削除 ★★★
+          # ★★★ 最終のビルドコマンド: ZMK_CONFIG と EXTRA_CONF_FILE を併用 ★★★
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
-            -DZMK_CONFIG="$PWD/$CONFIG_DIR"
+            -DZMK_CONFIG="$PWD/$CONFIG_DIR" \
+            -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE"
           
           BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
           UF2_PATH="build/prospector_scanner/zmk.uf2"
