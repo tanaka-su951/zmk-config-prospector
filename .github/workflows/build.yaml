@@ -6,7 +6,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      # ZMK標準ビルド環境コンテナ
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
@@ -66,6 +65,7 @@ jobs:
 
           CONFIG_DIR="app"
           SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
+          CUSTOM_MODULE_PATH="$PWD/$CONFIG_DIR" # カスタムモジュールパスを定義
           
           mkdir -p $SHIELD_DIR
           
@@ -96,25 +96,23 @@ jobs:
           echo '# Custom Kconfig for ZMK config' > "$CONFIG_DIR/Kconfig"
           echo 'source "boards/shields/prospector_scanner/Kconfig"' >> "$CONFIG_DIR/Kconfig"
           
-          # 5. ★★★ 最終修正: モジュール定義ファイル zephyr/module.yml を作成 ★★★
-          # app ディレクトリを有効なモジュールとして登録する
+          # 5. モジュール定義ファイル zephyr/module.yml を作成 (モジュール要件)
           mkdir -p "$CONFIG_DIR/zephyr"
           echo 'name: zmk-config-module' > "$CONFIG_DIR/zephyr/module.yml"
           echo 'build:' >> "$CONFIG_DIR/zephyr/module.yml"
           echo '  kconfig: Kconfig' >> "$CONFIG_DIR/zephyr/module.yml"
           
-          # 6. ★★★ 最終修正: app/CMakeLists.txt を再作成 (モジュールとして必須) ★★★
+          # 6. app/CMakeLists.txt を再作成 (モジュール要件)
           echo "cmake_minimum_required(VERSION 3.20.0)" > "$CONFIG_DIR/CMakeLists.txt"
           echo "project(zmk-config)" >> "$CONFIG_DIR/CMakeLists.txt"
 
-          echo "=== Starting ZMK Build (via west build, module definition) ==="
+          echo "=== Starting ZMK Build (via west build, forcing module path) ==="
           
-          # ★★★ ビルドコマンド修正: ZEPHYR_EXTRA_MODULES を使用し、Kconfig を自動ロードさせる ★★★
-          export ZEPHYR_EXTRA_MODULES="$PWD/$CONFIG_DIR"
-
+          # ★★★ 最終的なビルドコマンド: ZEPHYR_EXTRA_MODULES を cmake 引数として強制注入 ★★★
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
-            -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE"
+            -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE" \
+            -DZEPHYR_EXTRA_MODULES="$CUSTOM_MODULE_PATH"
           
           BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
           UF2_PATH="build/prospector_scanner/zmk.uf2"
