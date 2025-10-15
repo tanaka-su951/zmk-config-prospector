@@ -65,13 +65,12 @@ jobs:
 
           CONFIG_DIR="app"
           SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
-          CUSTOM_MODULE_PATH="$PWD/$CONFIG_DIR"
           
           mkdir -p $SHIELD_DIR
           
           echo "Ensuring ZMK configuration files exist..."
           
-          # 過去のデバッグで作成された衝突ファイルを削除 (app/CMakeLists.txt を完全に削除)
+          # ★★★ 最終のファイルクリーンアップ: カスタムモジュールファイルをすべて削除 ★★★
           rm -rf "$CONFIG_DIR/zephyr"
           rm -f "$CONFIG_DIR/CMakeLists.txt" 
           rm -f "$CONFIG_DIR/Kconfig" 
@@ -92,23 +91,12 @@ jobs:
           echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
           echo '    default y' >> "$KCONFIG_SHIELD_FILE"
           
-          # 4. app/Kconfig を作成し、シールドKconfigをインクルード
-          echo '# Custom Kconfig for ZMK config' > "$CONFIG_DIR/Kconfig"
-          echo 'source "boards/shields/prospector_scanner/Kconfig"' >> "$CONFIG_DIR/Kconfig"
+          echo "=== Starting ZMK Build (via west build, ZMK_CONFIG method) ==="
           
-          # 5. ★★★ 最終修正: module.yml から 'cmake' 行を削除 ★★★
-          mkdir -p "$CONFIG_DIR/zephyr"
-          echo 'name: zmk-config-module' > "$CONFIG_DIR/zephyr/module.yml"
-          echo 'build:' >> "$CONFIG_DIR/zephyr/module.yml"
-          echo '  kconfig: Kconfig' >> "$CONFIG_DIR/zephyr/module.yml" # Kconfigのみを参照
-
-          echo "=== Starting ZMK Build (via west build, final configuration) ==="
-          
-          # ★★★ ビルドコマンド: ZEPHYR_EXTRA_MODULES を cmake 引数として強制注入 ★★★
+          # ★★★ 最終のビルドコマンド: ZMK_CONFIG を使用し、Zephyr の複雑な引数をすべて削除 ★★★
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
-            -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE" \
-            -DZEPHYR_EXTRA_MODULES="$CUSTOM_MODULE_PATH"
+            -DZMK_CONFIG="$PWD/$CONFIG_DIR"
           
           BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
           UF2_PATH="build/prospector_scanner/zmk.uf2"
