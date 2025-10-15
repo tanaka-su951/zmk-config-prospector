@@ -71,33 +71,33 @@ jobs:
         echo "Ensuring ZMK configuration files exist..."
         
         # 1. prj.conf
-        echo "# Minimal ZMK config" > "$CONFIG_DIR/prj.conf"
+        CONFIG_PRJ_FILE="$CONFIG_DIR/prj.conf"
+        echo "# Minimal ZMK config" > "$CONFIG_PRJ_FILE"
         echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_DIR/prj.conf"
 
         # 2. Shield conf
-        echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_DIR/prospector_scanner.conf"
+        SHIELD_CONF_FILE="$SHIELD_DIR/prospector_scanner.conf"
+        echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF_FILE"
 
         # 3. Kconfig
-        echo '# Kconfig for shield' > "$SHIELD_DIR/Kconfig"
-        echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$SHIELD_DIR/Kconfig"
-        echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
-        echo '    default y' >> "$SHIELD_DIR/Kconfig"
+        KCONFIG_FILE="$SHIELD_DIR/Kconfig"
+        echo '# Kconfig for shield' > "$KCONFIG_FILE"
+        echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$KCONFIG_FILE"
+        echo '  bool "Prospector Scanner"' >> "$KCONFIG_FILE"
+        echo '    default y' >> "$KCONFIG_FILE"
         
-        # 4. CMakeLists.txt (アプリケーション定義)
-        echo "Creating minimal CMakeLists.txt in the source directory (app/CMakeLists.txt)."
-        echo "cmake_minimum_required(VERSION 3.20.0)" > "$CONFIG_DIR/CMakeLists.txt"
-        echo "find_package(Zephyr REQUIRED HINTS \$ENV{ZEPHYR_BASE})" >> "$CONFIG_DIR/CMakeLists.txt"
-        echo "project(zmk-config)" >> "$CONFIG_DIR/CMakeLists.txt"
-        echo "include(\"\${ZEPHYR_BASE}/cmake/app/boilerplate.cmake\")" >> "$CONFIG_DIR/CMakeLists.txt"
-
-        # ★★★ 最終修正: ZEPHYR_EXTRA_MODULES にカスタム設定ディレクトリを追加 ★★★
-        # これにより、カスタムシールドがZephyrによってモジュールとして認識される
-        export ZEPHYR_EXTRA_MODULES="$PWD/$CONFIG_DIR"
+        # 4. CMakeLists.txt (削除: 衝突を避ける)
+        rm -f "$CONFIG_DIR/CMakeLists.txt"
         
-        echo "=== Starting ZMK Build (via west build, final argument form) ==="
+        # ZEPHYR_EXTRA_MODULESは不要
         
-        # west build -s <app_dir> -b <board> -d <build_dir> -- -DSHIELD=<shield_name>
-        west build -s app -b seeeduino_xiao_ble -d build/prospector_scanner -- -DSHIELD=prospector_scanner 
+        echo "=== Starting ZMK Build (via west build, final configuration) ==="
+        
+        # ★★★ 最終的なビルドコマンド: ZMK コアソースをターゲットとし、カスタム設定ファイルを外部から注入する ★★★
+        west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
+          -DSHIELD=prospector_scanner \
+          -DEXTRA_KCONFIG_SOURCES="$PWD/$SHIELD_DIR" \
+          -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE"
         
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
