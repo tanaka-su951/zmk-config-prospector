@@ -83,12 +83,16 @@ jobs:
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
         echo '    default y' >> "$SHIELD_DIR/Kconfig"
         
-        # ★★★ 4. CMakeLists.txt (アプリケーション定義) ★★★
+        # 4. CMakeLists.txt (アプリケーション定義)
         echo "Creating minimal CMakeLists.txt in the source directory (app/CMakeLists.txt)."
         echo "cmake_minimum_required(VERSION 3.20.0)" > "$CONFIG_DIR/CMakeLists.txt"
         echo "find_package(Zephyr REQUIRED HINTS \$ENV{ZEPHYR_BASE})" >> "$CONFIG_DIR/CMakeLists.txt"
         echo "project(zmk-config)" >> "$CONFIG_DIR/CMakeLists.txt"
         echo "include(\"\${ZEPHYR_BASE}/cmake/app/boilerplate.cmake\")" >> "$CONFIG_DIR/CMakeLists.txt"
+
+        # ★★★ 最終修正: ZEPHYR_EXTRA_MODULES にカスタム設定ディレクトリを追加 ★★★
+        # これにより、カスタムシールドがZephyrによってモジュールとして認識される
+        export ZEPHYR_EXTRA_MODULES="$PWD/$CONFIG_DIR"
         
         echo "=== Starting ZMK Build (via west build, final argument form) ==="
         
