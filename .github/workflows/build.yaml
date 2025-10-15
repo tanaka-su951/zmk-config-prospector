@@ -6,7 +6,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      # ZMK標準ビルド環境コンテナ
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
@@ -15,7 +14,6 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        # カスタム設定ファイルを 'app' ディレクトリに直接チェックアウト
         path: app 
 
     - name: Install Python Venv
@@ -29,7 +27,6 @@ jobs:
         echo "Initializing west workspace using ZMK's manifest..."
         rm -rf zmk zephyr modules .west
         
-        # ZMK の標準マニフェストファイルを指定して初期化
         west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
         
         echo "Updating west modules..."
@@ -89,21 +86,28 @@ jobs:
         echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
         echo '    default y' >> "$KCONFIG_SHIELD_FILE"
         
-        # 4. ★★★ 必須: app/Kconfig を作成し、シールドKconfigをインクルード ★★★
-        # これにより、シールドの定義が Zephyr の設定フローに組み込まれる
+        # 4. app/Kconfig を作成し、シールドKconfigをインクルード
         echo '# Custom Kconfig for ZMK config' > "$CONFIG_DIR/Kconfig"
         echo 'source "boards/shields/prospector_scanner/Kconfig"' >> "$CONFIG_DIR/Kconfig"
 
-        # 5. CMakeLists.txt (衝突を避けるために削除)
-        rm -f "$CONFIG_DIR/CMakeLists.txt"
+        # 5. ★★★ 最終修正: モジュール定義ファイル zephyr/module.yml を作成 ★★★
+        mkdir -p "$CONFIG_DIR/zephyr"
+        echo 'name: zmk-config-module' > "$CONFIG_DIR/zephyr/module.yml"
+        echo 'build:' >> "$CONFIG_DIR/zephyr/module.yml"
+        echo '  kconfig: Kconfig' >> "$CONFIG_DIR/zephyr/module.yml"
+        echo '  cmake: CMakeLists.txt' >> "$CONFIG_DIR/zephyr/module.yml"
         
-        echo "=== Starting ZMK Build (via west build, final configuration) ==="
+        # 6. ★★★ 最終修正: app/CMakeLists.txt を再作成 (モジュールとして必須) ★★★
+        echo "cmake_minimum_required(VERSION 3.20.0)" > "$CONFIG_DIR/CMakeLists.txt"
+        echo "project(zmk-config)" >> "$CONFIG_DIR/CMakeLists.txt"
+
+        echo "=== Starting ZMK Build (via west build, module definition) ==="
         
-        # ZMK コアソースをターゲットとし、カスタム設定ファイルを外部から注入する
-        # EXTRA_ZEPHYR_DIRS を使用して、カスタム設定の場所を Zephyr に教える
+        # ★★★ ビルドコマンド修正: ZEPHYR_EXTRA_MODULES を使用し、EXTRA_ZEPHYR_DIRS を削除 ★★★
+        export ZEPHYR_EXTRA_MODULES="$PWD/$CONFIG_DIR"
+        
         west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
           -DSHIELD=prospector_scanner \
-          -DEXTRA_ZEPHYR_DIRS="$PWD/$CONFIG_DIR" \
           -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE"
         
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
