@@ -65,15 +65,15 @@ jobs:
 
           CONFIG_DIR="app"
           SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
-          CUSTOM_MODULE_PATH="$PWD/$CONFIG_DIR" # カスタムモジュールパスを定義
+          CUSTOM_MODULE_PATH="$PWD/$CONFIG_DIR"
           
           mkdir -p $SHIELD_DIR
           
           echo "Ensuring ZMK configuration files exist..."
           
-          # 過去のデバッグで作成された衝突ファイルを削除
+          # 過去のデバッグで作成された衝突ファイルを削除 (app/CMakeLists.txt を完全に削除)
           rm -rf "$CONFIG_DIR/zephyr"
-          rm -f "$CONFIG_DIR/CMakeLists.txt"
+          rm -f "$CONFIG_DIR/CMakeLists.txt" 
           rm -f "$CONFIG_DIR/Kconfig" 
           
           # 1. prj.conf
@@ -96,19 +96,15 @@ jobs:
           echo '# Custom Kconfig for ZMK config' > "$CONFIG_DIR/Kconfig"
           echo 'source "boards/shields/prospector_scanner/Kconfig"' >> "$CONFIG_DIR/Kconfig"
           
-          # 5. モジュール定義ファイル zephyr/module.yml を作成 (モジュール要件)
+          # 5. ★★★ 最終修正: module.yml から 'cmake' 行を削除 ★★★
           mkdir -p "$CONFIG_DIR/zephyr"
           echo 'name: zmk-config-module' > "$CONFIG_DIR/zephyr/module.yml"
           echo 'build:' >> "$CONFIG_DIR/zephyr/module.yml"
-          echo '  kconfig: Kconfig' >> "$CONFIG_DIR/zephyr/module.yml"
-          
-          # 6. app/CMakeLists.txt を再作成 (モジュール要件)
-          echo "cmake_minimum_required(VERSION 3.20.0)" > "$CONFIG_DIR/CMakeLists.txt"
-          echo "project(zmk-config)" >> "$CONFIG_DIR/CMakeLists.txt"
+          echo '  kconfig: Kconfig' >> "$CONFIG_DIR/zephyr/module.yml" # Kconfigのみを参照
 
-          echo "=== Starting ZMK Build (via west build, forcing module path) ==="
+          echo "=== Starting ZMK Build (via west build, final configuration) ==="
           
-          # ★★★ 最終的なビルドコマンド: ZEPHYR_EXTRA_MODULES を cmake 引数として強制注入 ★★★
+          # ★★★ ビルドコマンド: ZEPHYR_EXTRA_MODULES を cmake 引数として強制注入 ★★★
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
             -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE" \
