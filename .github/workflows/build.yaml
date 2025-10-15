@@ -11,11 +11,12 @@ jobs:
       options: --user root
 
     steps:
-    - name: Checkout ZMK Config (as config)
+    - name: Checkout ZMK Config (as app)
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        path: config # カスタム設定を config ディレクトリにチェックアウト
+        # カスタム設定ファイルを 'app' ディレクトリに直接チェックアウト
+        path: app 
 
     - name: Install Python Venv
       run: |
@@ -30,6 +31,7 @@ jobs:
         rm -rf zmk zephyr modules .west
         
         # ZMK の標準マニフェストファイルを指定して初期化
+        # ZMK 本体は 'zmk' ディレクトリにクローンされる
         west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
         
         # 2. west update で ZMK 本体と Zephyr をクローン
@@ -42,17 +44,6 @@ jobs:
         
         echo "Verifying west environment..."
         west list
-      shell: bash
-      
-    # ★★★ 追加ステップ: ビルド競合ファイルを削除する ★★★
-    - name: Remove Root Conflict Files
-      run: |
-        # ルートリポジトリから衝突するファイル（CMakeLists.txtとKconfig）を削除
-        # これにより、west buildがクリーンな状態で起動できる
-        echo "Removing conflict files from the root directory."
-        rm -f CMakeLists.txt
-        rm -f Kconfig
-        rm -rf .git
       shell: bash
 
     - name: Set up Python Environment
@@ -68,16 +59,12 @@ jobs:
           echo "Warning: requirements.txt not found!"
         fi
         
-        # PyYAMLとpykwalifyを明示的にインストールし、環境問題を解消
-        echo "Forcibly installing core dependencies (pyyaml, pykwalify)."
+        # 依存関係を明示的にインストール
         pip install pyyaml pykwalify
       shell: bash
 
     - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
       run: |
-        # 競合する可能性のある環境変数を全て解除する
-        unset ZMK_EXTRA_MODULES
-        
         source zmk-env/bin/activate
         
         # 環境変数の設定
@@ -85,8 +72,8 @@ jobs:
         
         rm -rf build/prospector_scanner
 
-        # CONFIG_DIR は新しいパスを参照
-        CONFIG_DIR="config"
+        # CONFIG_DIR はチェックアウトした 'app' ディレクトリ
+        CONFIG_DIR="app"
         SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
         
         # 設定ファイルの作成
@@ -95,6 +82,7 @@ jobs:
         echo "Ensuring ZMK configuration files exist..."
         
         # prj.conf
+        # ZMK 標準の app/prj.conf に直接書き込む
         echo "# Minimal ZMK config" > "$CONFIG_DIR/prj.conf"
         echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_DIR/prj.conf"
 
@@ -107,13 +95,11 @@ jobs:
         echo '  bool "Prospector Scanner"' >> "$SHIELD_DIR/Kconfig"
         echo '    default y' >> "$SHIELD_DIR/Kconfig"
         
-        echo "=== Starting ZMK Build (via west build with CONFIG_ROOT) ==="
+        echo "=== Starting ZMK Build (via west build, standard ZMK config) ==="
         
-        # west build を実行し、ZMKコアアプリをソースとし、
-        # CONFIG_ROOT を明示的に指定してカスタム設定を参照させる
-        west build -b seeeduino_xiao_ble -d build/prospector_scanner zmk/app -- \
-          -DSHIELD=prospector_scanner \
-          -DCONFIG_ROOT="$PWD/$CONFIG_DIR"
+        # west build を実行し、カスタム設定を含む 'app' ディレクトリをソースとして指定
+        west build -b seeeduino_xiao_ble -d build/prospector_scanner app -- \
+          -DSHIELD=prospector_scanner 
         
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
         UF2_PATH="build/prospector_scanner/zmk.uf2"
