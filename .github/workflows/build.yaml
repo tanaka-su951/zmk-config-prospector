@@ -110,7 +110,6 @@ jobs:
           echo "=== Starting ZMK Build (via west build, module definition) ==="
           
           # ★★★ ビルドコマンド修正: ZEPHYR_EXTRA_MODULES を使用し、Kconfig を自動ロードさせる ★★★
-          # Kconfigはモジュール定義ファイルによってロードされるため、EXTRA_KCONFIG_SOURCESは不要
           export ZEPHYR_EXTRA_MODULES="$PWD/$CONFIG_DIR"
 
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
