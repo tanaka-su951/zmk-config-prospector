@@ -6,6 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
+      # ZMK標準ビルド環境コンテナ
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
@@ -25,8 +26,10 @@ jobs:
     - name: Initialize and Update west workspace
       run: |
         echo "Initializing west workspace using ZMK's manifest..."
+        # 以前の ZMK/Zephyr/west のクローンを削除
         rm -rf zmk zephyr modules .west
         
+        # ZMK の標準マニフェストファイルを指定して初期化
         west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
         
         echo "Updating west modules..."
@@ -70,6 +73,12 @@ jobs:
         
         echo "Ensuring ZMK configuration files exist..."
         
+        # ★★★ 最終的なファイルクリーンアップ ★★★
+        # 以前のデバッグで作成された、衝突の原因となる可能性のあるファイルを削除
+        rm -f "$CONFIG_DIR/CMakeLists.txt"
+        rm -f "$CONFIG_DIR/zephyr/module.yml"
+        rm -f "$CONFIG_DIR/Kconfig" # app/Kconfig も削除し、KconfigはEXTRA_KCONFIG_SOURCESで注入
+
         # 1. prj.conf
         CONFIG_PRJ_FILE="$CONFIG_DIR/prj.conf"
         echo "# Minimal ZMK config" > "$CONFIG_PRJ_FILE"
@@ -80,34 +89,19 @@ jobs:
         echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF_FILE"
 
         # 3. Shield Kconfig (シールド定義)
-        KCONFIG_SHIELD_FILE="$SHIELD_DIR/Kconfig"
-        echo '# Kconfig for shield' > "$KCONFIG_SHIELD_FILE"
-        echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$KCONFIG_SHIELD_FILE"
-        echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
-        echo '    default y' >> "$KCONFIG_SHIELD_FILE"
+        KCONFIG_FILE="$SHIELD_DIR/Kconfig"
+        echo '# Kconfig for shield' > "$KCONFIG_FILE"
+        echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$KCONFIG_FILE"
+        echo '  bool "Prospector Scanner"' >> "$KCONFIG_FILE"
+        echo '    default y' >> "$KCONFIG_FILE"
         
-        # 4. app/Kconfig を作成し、シールドKconfigをインクルード
-        echo '# Custom Kconfig for ZMK config' > "$CONFIG_DIR/Kconfig"
-        echo 'source "boards/shields/prospector_scanner/Kconfig"' >> "$CONFIG_DIR/Kconfig"
-
-        # 5. ★★★ 最終修正: モジュール定義ファイル zephyr/module.yml を作成 ★★★
-        mkdir -p "$CONFIG_DIR/zephyr"
-        echo 'name: zmk-config-module' > "$CONFIG_DIR/zephyr/module.yml"
-        echo 'build:' >> "$CONFIG_DIR/zephyr/module.yml"
-        echo '  kconfig: Kconfig' >> "$CONFIG_DIR/zephyr/module.yml"
-        echo '  cmake: CMakeLists.txt' >> "$CONFIG_DIR/zephyr/module.yml"
+        echo "=== Starting ZMK Build (via west build, final clean configuration) ==="
         
-        # 6. ★★★ 最終修正: app/CMakeLists.txt を再作成 (モジュールとして必須) ★★★
-        echo "cmake_minimum_required(VERSION 3.20.0)" > "$CONFIG_DIR/CMakeLists.txt"
-        echo "project(zmk-config)" >> "$CONFIG_DIR/CMakeLists.txt"
-
-        echo "=== Starting ZMK Build (via west build, module definition) ==="
-        
-        # ★★★ ビルドコマンド修正: ZEPHYR_EXTRA_MODULES を使用し、EXTRA_ZEPHYR_DIRS を削除 ★★★
-        export ZEPHYR_EXTRA_MODULES="$PWD/$CONFIG_DIR"
-        
+        # ★★★ 最終的なビルドコマンド: Kconfigファイル単体を注入する最も単純なパターン ★★★
+        # このパターンで再度実行し、クリーンアップの効果を確認します。
         west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
           -DSHIELD=prospector_scanner \
+          -DEXTRA_KCONFIG_SOURCES="$PWD/$KCONFIG_FILE" \
           -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE"
         
         BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
