@@ -4,7 +4,7 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    # アクセス権限を明示的に付与
+    # 外部コンテンツへの読み取り権限を明示的に付与
     permissions:
       contents: read
     
@@ -12,6 +12,6 @@ jobs:
     uses: zmkfirmware/zmk-github-workflows/.github/workflows/build-user-config.yml@main 
     
     with:
-      # ボードとシールドの名前を引数として渡す
+      # 'with' ブロックは 'uses' と同じインデントレベルにする
       board: seeeduino_xiao_ble
       shield: prospector_scanner
