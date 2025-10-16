@@ -10,7 +10,7 @@ jobs:
       options: --user root
 
     steps:
-      - name: Checkout ZMK Config (as config) # ディレクトリ名を 'config' に変更
+      - name: Checkout ZMK Config (as config)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -27,8 +27,8 @@ jobs:
           echo "Initializing west workspace using ZMK's manifest..."
           rm -rf zmk zephyr modules .west
           
-          # west.yml は 'config' ディレクトリ内に存在すると想定
-          west init -m https://github.com/zmkfirmware/zmk --mf config/west.yml 
+          # ★★★ 最終修正: west init -l config でローカルの west.yml を使用 ★★★
+          west init -l config
           
           echo "Updating west modules..."
           west update
@@ -64,7 +64,6 @@ jobs:
           
           rm -rf build/prospector_scanner
 
-          # ★★★ CONFIG_DIR を 'config' に変更 ★★★
           CONFIG_DIR="config"
           SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
           
@@ -80,7 +79,7 @@ jobs:
           # 1. prj.conf
           CONFIG_PRJ_FILE="$CONFIG_DIR/prj.conf"
           echo "# Minimal ZMK config" > "$CONFIG_PRJ_FILE"
-          echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_DIR/prj.conf"
+          echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_PRJ_FILE"
 
           # 2. Shield conf
           SHIELD_CONF_FILE="$SHIELD_DIR/prospector_scanner.conf"
@@ -93,12 +92,11 @@ jobs:
           echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
           echo '    default y' >> "$KCONFIG_SHIELD_FILE"
           
-          # 4. app/Kconfig を作成し、シールドKconfigをインクルード
+          # 4. config/Kconfig を作成し、シールドKconfigをインクルード
           KCONFIG_SHIELD_ABSOLUTE_PATH="$PWD/$SHIELD_DIR/Kconfig"
           echo "Kconfig Abs Path: $KCONFIG_SHIELD_ABSOLUTE_PATH"
           
           echo '# Custom Kconfig for ZMK config' > "$CONFIG_DIR/Kconfig"
-          # 'source' の後に絶対パスを渡すことで、パス解決の問題を排除
           echo "source \"$KCONFIG_SHIELD_ABSOLUTE_PATH\"" >> "$CONFIG_DIR/Kconfig"
 
           echo "=== Starting ZMK Build (Final Directory Fix) ==="
