@@ -6,7 +6,18 @@ jobs:
   build:
     # ZMKの公式ワークフローを呼び出す（安定版のstableブランチを参照）
     uses: zmkfirmware/zmk-github-workflows/.github/workflows/build-user-config.yml@stable # <--- stableブランチに切り替え
-    with:
+ Check failure on line 8 in .github/workflows/build.yaml
+
+ 
+GitHub Actions
+/ .github/workflows/build.yaml
+
+Invalid workflow file
+error parsing called workflow
+".github/workflows/build.yaml"
+-> "zmkfirmware/zmk-github-workflows/.github/workflows/build-user-config.yml@stable"
+: workflow was not found. See https://docs.github.com/actions/learn-github-actions/reusing-workflows#access-to-reusable-workflows for more information.
+     with:
       # ビルドしたいボードとシールドをここに渡します
       board: seeeduino_xiao_ble
       shield: prospector_scanner
