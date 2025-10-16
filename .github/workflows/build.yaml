@@ -55,10 +55,17 @@ jobs:
           # ZEPHYR_MODULES をワークスペース内の ZMK に限定
           export ZEPHYR_MODULES="$PWD/zmk"
 
-          # ★★★ 最終の修正: GNU ARM Embedded Toolchain のパスを強制的にエクスポート ★★★
+          # ツールチェーンパスを強制的にエクスポート
           export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
           export GNUARMEMB_TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb"
           
+          # ★★★ 最終の修正: zephyr-env.sh を source してすべてのパスをロード ★★★
+          ZEPHYR_ENV_SCRIPT="$PWD/zephyr/zephyr-env.sh"
+          if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
+              echo "Sourcing $ZEPHYR_ENV_SCRIPT to finalize environment setup."
+              source "$ZEPHYR_ENV_SCRIPT"
+          fi
+
           # Python venv のセットアップ
           /usr/bin/python3 -m venv zmk-env
           source zmk-env/bin/activate
