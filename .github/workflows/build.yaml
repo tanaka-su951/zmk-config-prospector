@@ -64,7 +64,7 @@ jobs:
           echo "=== 2. Export Zephyr/ZMK Environment Variables to GITHUB_ENV ==="
           west zephyr-export
           
-          # ZMK_CONFIG でカスタム設定ディレクトリを指定 (シールド認識のため)
+          # ZMK_CONFIG でカスタム設定ディレクトリを指定
           echo "ZMK_CONFIG=$PWD/$CONFIG_DIR" >> $GITHUB_ENV
           echo "ZEPHYR_MODULES=$PWD/zmk" >> $GITHUB_ENV
           
@@ -92,7 +92,7 @@ jobs:
           # Python Venv のアクティベート
           source zmk-env/bin/activate
           
-          # zephyr-env.sh を source (ツールチェーンパスを設定)
+          # zephyr-env.sh を source (環境変数を設定)
           ZEPHYR_ENV_SCRIPT="$PWD/zephyr/zephyr-env.sh"
           if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
               echo "Sourcing $ZEPHYR_ENV_SCRIPT to finalize environment setup."
@@ -102,14 +102,15 @@ jobs:
           ZEPHYR_CMAKE_DIR="$PWD/zephyr/share/zephyr-package/cmake"
           ZEPHYR_ROOT_DIR="$PWD/zephyr"
           
-          echo "=== Starting ZMK Build (Zephyr Path Injection) ==="
+          echo "=== Starting ZMK Build (FULL Injection) ==="
           
-          # Zephyrのコアパスのみを引数としても渡す
+          # Zephyrのコアパスとツールチェーンパスをすべて引数として渡す
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
             -DZephyr_DIR="$ZEPHYR_CMAKE_DIR" \
-            -DZEPHYR_BASE="$ZEPHYR_ROOT_DIR"
-            # ツールチェーンのDオプションは削除
+            -DZEPHYR_BASE="$ZEPHYR_ROOT_DIR" \
+            -DZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb \
+            -DGNUARMEMB_TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb" # <-- ツールチェーンパスを再注入
           
           echo "=== Convert and Finalize ==="
 
