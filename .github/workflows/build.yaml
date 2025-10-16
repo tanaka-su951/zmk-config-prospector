@@ -4,29 +4,24 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    # Docker コンテナを削除し、標準ランナーに戻す
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout Custom Config
         uses: actions/checkout@v4
         with:
-          # config ディレクトリが ZMK_CONFIG として自動的に認識されるように
           path: config
 
-      # ★★★ 最終の変更: 公式のセットアップアクションを使用して環境を構築 ★★★
+      # ★★★ 修正済み: 正しい ZMK セットアップアクション名を使用 ★★★
       - name: Set up ZMK environment
-        uses: zmkfirmware/zmk-setup-action@v2 
-        # ZMK リポジトリは自動でクローンされ、west init/update も実行されます。
+        uses: zmkfirmware/setup-action@v2 
         
       - name: Perform ZMK Build
         run: |
-          CONFIG_DIR="config"
-          
           echo "=== Starting ZMK Build ==="
           
-          # ZMK_CONFIG はアクションによって設定されるため、ビルドコマンドはシンプルになります。
-          # -s $ZMK_HOME/app は、セットアップアクションによって設定された環境パスを使用します。
+          # ZMK_CONFIG はアクションによって自動で設定され、west update も完了しています。
+          # ビルドソースは zmk/app (zmk-setup-actionが自動でクローンしたパス) を使用します。
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner
           
