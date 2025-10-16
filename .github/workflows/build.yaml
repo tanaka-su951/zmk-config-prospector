@@ -14,7 +14,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          path: config # パスを 'config' に変更
+          path: config
 
       - name: Install Python Venv
         run: |
@@ -81,6 +81,7 @@ jobs:
 
           CONFIG_DIR="config"
           SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
+          CUSTOM_MODULE_PATH="$PWD/$CONFIG_DIR" # カスタム設定パス
           
           mkdir -p $SHIELD_DIR
           
@@ -89,9 +90,9 @@ jobs:
           # 過去のデバッグで作成されたカスタムモジュールファイルを全て削除
           rm -rf "$CONFIG_DIR/zephyr"
           rm -f "$CONFIG_DIR/CMakeLists.txt" 
-          rm -f "$CONFIG_DIR/Kconfig" # ★★★ config/Kconfig を削除 ★★★
-          
-          # 1. prj.conf (★★修正★★: Kconfigのsourceを追加)
+          rm -f "$CONFIG_DIR/Kconfig" # config/Kconfig は統合されたため削除
+
+          # 1. prj.conf (Kconfigのsourceを含む)
           CONFIG_PRJ_FILE="$CONFIG_DIR/prj.conf"
           echo "# Minimal ZMK config" > "$CONFIG_PRJ_FILE"
           # カスタムシールド Kconfig への相対パスを prj.conf から source する
@@ -109,10 +110,12 @@ jobs:
           echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
           echo '    default y' >> "$KCONFIG_SHIELD_FILE"
           
-          echo "=== Starting ZMK Build (The Simplest Kconfig/Conf Pattern) ==="
+          echo "=== Starting ZMK Build (Final ZEPHYR_EXTRA_MODULES) ==="
           
-          # ★★★ 最終のビルドコマンド: EXTRA_KCONFIG_SOURCES を削除 ★★★
-          # ZMK は prj.conf から Kconfig をロードし、EXTRA_CONF_FILE で prj.conf とシールド conf を注入
+          # ★★★ 最終の修正: ZEPHYR_EXTRA_MODULES を再エクスポート ★★★
+          export ZEPHYR_EXTRA_MODULES="$CUSTOM_MODULE_PATH"
+
+          # ビルドコマンド: EXTRA_KCONFIG_SOURCES は不要、conf ファイルのみ注入
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
             -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE" 
