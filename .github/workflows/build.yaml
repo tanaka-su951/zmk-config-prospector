@@ -1,4 +1,132 @@
 name: Build Prospector Firmware (Local)
+name: Build Prospector Firmware (Local)
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: zmkfirmware/zmk-build-arm:stable
+      options: --user root
+
+    steps:
+      - name: Install Python Venv (Separate for apt)
+        run: |
+          apt update
+          apt install -y python3.12-venv || apt install -y python3-venv
+        shell: bash
+
+      - name: Checkout ZMK Repository
+        uses: actions/checkout@v4
+        with:
+          repository: zmkfirmware/zmk
+          ref: main 
+          path: zmk
+
+      - name: Checkout Custom Config
+        uses: actions/checkout@v4
+        with:
+          path: config # カスタム設定を 'config' フォルダにチェックアウト
+
+      - name: Prepare Environment and Files
+        run: |
+          SHIELD_NAME="prospector_scanner"
+          CONFIG_DIR="config"
+
+          echo "=== 1. Setup west workspace and west.yml ==="
+          
+          # west.yml の書き込み
+          cat << EOF > $CONFIG_DIR/west.yml
+          manifest:
+            remotes:
+              - name: zmkfirmware
+                url-base: https://github.com/zmkfirmware
+            projects:
+              - name: zmk
+                remote: zmkfirmware
+                revision: main
+                import: app/west.yml
+            self:
+              path: config
+          EOF
+
+          # west init と update
+          west init -l $CONFIG_DIR
+          west update
+          
+          echo "=== 2. Export Zephyr/ZMK Environment Variables to GITHUB_ENV ==="
+          west zephyr-export
+          
+          # 環境変数を $GITHUB_ENV に永続化
+          ZEPHYR_MODULES_PATH="$PWD/zmk;$PWD/$CONFIG_DIR"
+          ZEPHYR_TOOLCHAIN_VARIANT_VAL="gnuarmemb"
+          GNUARMEMB_TOOLCHAIN_PATH_VAL="/opt/toolchains/gnuarmemb"
+          
+          echo "ZEPHYR_MODULES=$ZEPHYR_MODULES_PATH" >> $GITHUB_ENV
+          echo "ZEPHYR_TOOLCHAIN_VARIANT=$ZEPHYR_TOOLCHAIN_VARIANT_VAL" >> $GITHUB_ENV
+          echo "GNUARMEMB_TOOLCHAIN_PATH=$GNUARMEMB_TOOLCHAIN_PATH_VAL" >> $GITHUB_ENV
+          
+          # Python venv のセットアップ
+          /usr/bin/python3 -m venv zmk-env
+          
+          REQUIREMENTS_FILE=$(find zmk -name "requirements.txt" -print -quit)
+          if [ -n "$REQUIREMENTS_FILE" ]; then
+            source zmk-env/bin/activate
+            pip install -r "$REQUIREMENTS_FILE"
+            deactivate
+          fi
+          source zmk-env/bin/activate
+          pip install pyyaml pykwalify
+          deactivate
+
+        shell: bash
+
+      - name: Perform ZMK Build
+        run: |
+          # ★★★ $GITHUB_ENV からの継承を確認し、不安定な環境変数をシェルセッションの先頭で再エクスポート ★★★
+          export ZEPHYR_MODULES="$ZEPHYR_MODULES"
+          export ZEPHYR_TOOLCHAIN_VARIANT="$ZEPHYR_TOOLCHAIN_VARIANT"
+          export GNUARMEMB_TOOLCHAIN_PATH="$GNUARMEMB_TOOLCHAIN_PATH"
+
+          # Python Venv のアクティベート
+          source zmk-env/bin/activate
+          
+          # zephyr-env.sh を source 
+          ZEPHYR_ENV_SCRIPT="$PWD/zephyr/zephyr-env.sh"
+          if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
+              echo "Sourcing $ZEPHYR_ENV_SCRIPT to finalize environment setup."
+              source "$ZEPHYR_ENV_SCRIPT"
+          fi
+          
+          ZEPHYR_CMAKE_DIR="$PWD/zephyr/share/zephyr-package/cmake"
+          
+          echo "=== Starting ZMK Build ==="
+          
+          west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
+            -DSHIELD=prospector_scanner \
+            -DZephyr_DIR="$ZEPHYR_CMAKE_DIR"
+          
+          echo "=== Convert and Finalize ==="
+
+          BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
+          UF2_PATH="build/prospector_scanner/zmk.uf2"
+
+          if [ -f "$BIN_PATH" ]; then
+            echo "Converting ELF → UF2"
+            python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
+          else
+            echo "FATAL: Build failed, zephyr.elf not found."
+            ls -R build/prospector_scanner
+            exit 1
+          fi
+        shell: bash
+
+      - name: Archive production artifacts (Artifact Upload)
+        uses: actions/upload-artifact@v4
+        with:
+          name: prospector_scanner-seeeduino_xiao_ble-zmk
+          path: build/prospector_scanner/zmk.uf2
 
 on: [push, pull_request, workflow_dispatch]
 
