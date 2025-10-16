@@ -8,10 +8,11 @@ jobs:
     permissions:
       contents: read
     
-    # ZMKの公式ワークフローを呼び出す
-    uses: zmkfirmware/zmk-github-workflows/.github/workflows/build-user-config.yml@main 
+    # ★★★ ZMKメインリポジトリ内のビルドワークフローを直接呼び出す形式に変更 ★★★
+    # ZMKの最も安定した公式ビルド形式です。
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main 
     
     with:
-      # 'with' ブロックは 'uses' と同じインデントレベルにする
+      # ボードとシールドの名前を引数として渡す
       board: seeeduino_xiao_ble
       shield: prospector_scanner
