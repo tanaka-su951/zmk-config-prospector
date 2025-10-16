@@ -9,9 +9,10 @@ jobs:
       contents: read
     
     # ZMKメインリポジトリ内のビルドワークフローを呼び出す
-    # uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+    # uses と with は、ジョブ名 'build' の直下（同じインデントレベル）にある必要があります。
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main 
     
     with:
-      # ★★★ 修正: パラメータ名をキャメルケース形式で試行 ★★★
-      primaryBoard: seeeduino_xiao_ble # primary_board から変更
-      setShield: prospector_scanner    # set_shield から変更
+      # ZMKワークフローの入力パラメータ名を使用
+      primaryBoard: seeeduino_xiao_ble
+      setShield: prospector_scanner
