@@ -91,17 +91,21 @@ jobs:
           echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
           echo '    default y' >> "$KCONFIG_SHIELD_FILE"
           
-          # 4. app/Kconfig を作成し、シールドKconfigをインクルード (EXTRA_KCONFIG_SOURCES で参照するファイル)
-          echo '# Custom Kconfig for ZMK config' > "$CONFIG_DIR/Kconfig"
-          echo 'source "boards/shields/prospector_scanner/Kconfig"' >> "$CONFIG_DIR/Kconfig"
-
-          echo "=== Starting ZMK Build (The FINAL Attempt: EXTRA_KCONFIG_SOURCES) ==="
+          # 4. ★★★ 最終の修正: app/Kconfig 内で絶対パスを使用し、パスの競合を回避 ★★★
+          KCONFIG_SHIELD_ABSOLUTE_PATH="$PWD/$SHIELD_DIR/Kconfig"
+          echo "Kconfig Abs Path: $KCONFIG_SHIELD_ABSOLUTE_PATH"
           
-          # ★★★ 最終のビルドコマンド: Kconfigのルートパスを強制注入 ★★★
+          echo '# Custom Kconfig for ZMK config' > "$CONFIG_DIR/Kconfig"
+          # 'source' の後に絶対パスを渡すことで、パス解決の問題を排除
+          echo "source \"$KCONFIG_SHIELD_ABSOLUTE_PATH\"" >> "$CONFIG_DIR/Kconfig"
+
+          echo "=== Starting ZMK Build (The FINAL Absolute Path Fix) ==="
+          
+          # ビルドコマンド: Kconfigのルートパスを強制注入
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
             -DEXTRA_KCONFIG_SOURCES="$PWD/$CONFIG_DIR/Kconfig" \
-            -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE" # conf ファイルも忘れずに注入
+            -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE" 
           
           BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
           UF2_PATH="build/prospector_scanner/zmk.uf2"
