@@ -6,12 +6,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      # ★★★ ZMK ツールチェーンがプリインストールされた安定の Docker Hub イメージに戻す ★★★
+      # ZMK ツールチェーンがプリインストールされた安定の Docker Hub イメージを使用
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
     steps:
-      # 1. ディスク容量のクリーンアップ (安定のため再導入)
+      # 1. ディスク容量のクリーンアップ (安定のため)
       - name: Free Disk Space (Custom)
         run: |
           echo "Removing large packages and caches to free space..."
@@ -35,7 +35,7 @@ jobs:
           ref: main 
           path: zmk
 
-      # 3. west 初期化、アップデート、環境変数設定（すべてシェルで実行）
+      # 3. west 初期化、アップデート、環境変数設定
       - name: Initialize West and Update Modules
         run: |
           CONFIG_DIR="config"
@@ -62,34 +62,33 @@ jobs:
           west update
           
           echo "=== 2. Export ZMK_CONFIG Path ==="
-          # ZMK_CONFIG をシェル環境に直接エクスポート (シールド認識に必要)
-          export ZMK_CONFIG="$PWD/$CONFIG_DIR"
-          
-          # 環境変数として ZMK_CONFIG を次ステップに渡す
+          # ZMK_CONFIG を環境変数として次ステップに渡す
           echo "ZMK_CONFIG=$PWD/$CONFIG_DIR" >> $GITHUB_ENV
           
         shell: bash
 
-      # 4. ビルド実行とZephyrパスの強制注入
+      # 4. ビルド実行とすべてのパスの強制注入
       - name: Perform ZMK Build (FULL Path Injection)
         run: |
-          # ZMK_CONFIG をシェルにエクスポート
+          # 環境変数をシェルにエクスポート
           export ZMK_CONFIG="$ZMK_CONFIG" 
           
-          # Zephyr環境をsource (ツールチェーンパスを設定)
+          # Zephyr環境をsource
           source zephyr/zephyr-env.sh
           
-          # Zephyrの絶対パスとツールチェーンのパスを計算 (find_package回避のため)
+          # すべてのパスを計算
           ZEPHYR_CMAKE_DIR="$PWD/zephyr/share/zephyr-package/cmake"
           ZEPHYR_ROOT_DIR="$PWD/zephyr"
           TOOLCHAIN_VARIANT="gnuarmemb"
-          TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb" # Dockerイメージ内のパス
-
+          TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb"
+          CONFIG_ROOT="$PWD/config" # シールドパス計算用
+          
           echo "=== Starting ZMK Build ==="
           
           # すべてのパスを引数として強制注入
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
+            -DSHIELD_DIR="$CONFIG_ROOT/prospector_scanner" \
             -DZephyr_DIR="$ZEPHYR_CMAKE_DIR" \
             -DZEPHYR_BASE="$ZEPHYR_ROOT_DIR" \
             -DZEPHYR_TOOLCHAIN_VARIANT="$TOOLCHAIN_VARIANT" \
@@ -105,6 +104,7 @@ jobs:
             python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
           else
             echo "FATAL: Build failed, zephyr.elf not found."
+            ls -R build/prospector_scanner
             exit 1
           fi
         shell: bash
