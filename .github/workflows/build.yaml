@@ -1,48 +1,13 @@
-name: Build Prospector Firmware (Official ZMK Action)
+name: Build Prospector Firmware
 
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout Custom Config
-        uses: actions/checkout@v4
-        with:
-          path: config
-
-      # ★★★ 修正済み: 正しい ZMK セットアップアクション名を使用 ★★★
-      - name: Set up ZMK environment
-        uses: zmkfirmware/setup-action@v2 
-        
-      - name: Perform ZMK Build
-        run: |
-          echo "=== Starting ZMK Build ==="
-          
-          # ZMK_CONFIG はアクションによって自動で設定され、west update も完了しています。
-          # ビルドソースは zmk/app (zmk-setup-actionが自動でクローンしたパス) を使用します。
-          west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
-            -DSHIELD=prospector_scanner
-          
-          echo "=== Convert and Finalize ==="
-
-          BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
-          UF2_PATH="build/prospector_scanner/zmk.uf2"
-
-          if [ -f "$BIN_PATH" ]; then
-            echo "Converting ELF → UF2"
-            # ZMK のツールを使用して変換
-            python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
-          else
-            echo "FATAL: Build failed, zephyr.elf not found."
-            ls -R build/prospector_scanner
-            exit 1
-          fi
-        shell: bash
-
-      - name: Archive production artifacts (Artifact Upload)
-        uses: actions/upload-artifact@v4
-        with:
-          name: prospector_scanner-seeeduino_xiao_ble-zmk
-          path: build/prospector_scanner/zmk.uf2
+    # ZMKのメインリポジトリにあるビルドワークフローを呼び出す
+    # これにより、セットアップ、west init/update、ビルド、アーティファクト作成の全てが公式の安定したロジックで実行されます。
+    uses: zmkfirmware/zmk-github-workflows/.github/workflows/build-user-config.yml@main
+    with:
+      # ビルドしたいボードとシールドの名前を引数として渡す
+      board: seeeduino_xiao_ble
+      shield: prospector_scanner
