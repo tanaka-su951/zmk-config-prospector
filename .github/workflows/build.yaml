@@ -6,15 +6,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      # ★★★ ghcr.io/zephyrproject-rtos/zephyr-build:main に変更 ★★★
       image: ghcr.io/zephyrproject-rtos/zephyr-build:main
       options: --user root
 
     steps:
+      # ----------------------------------------------------
+      # ★★★ 1. ディスク容量の解放 ★★★
+      # ----------------------------------------------------
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+
       - name: Install Python Venv (Separate for apt)
         run: |
           apt update
-          # ghcr.io コンテナには既に python3-venv が含まれている可能性が高いですが、念のため実行します
           apt install -y python3.12-venv || apt install -y python3-venv
         shell: bash
 
@@ -56,7 +67,6 @@ jobs:
           west update
           
           echo "=== 2. Export Zephyr/ZMK Environment Variables to GITHUB_ENV ==="
-          # west zephyr-export は Zephyr SDK コンテナでは不要な場合があるが、念のため実行
           west zephyr-export
           
           # 環境変数を $GITHUB_ENV に永続化
@@ -97,7 +107,7 @@ jobs:
           
           echo "=== Starting ZMK Build ==="
           
-          # Zephyr_DIR と ZEPHYR_BASE を直接渡す最後の手段は維持
+          # Zephyr_DIR と ZEPHYR_BASE を直接渡す
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
             -DZephyr_DIR="$ZEPHYR_CMAKE_DIR" \
