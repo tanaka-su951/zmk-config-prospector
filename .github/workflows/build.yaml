@@ -27,7 +27,7 @@ jobs:
           echo "Initializing west workspace using ZMK's manifest..."
           rm -rf zmk zephyr modules .west
           
-          # 正しい west.yml の内容を強制的に書き込む (前回成功したステップ)
+          # west.yml の内容を強制的に書き込む (前回成功したステップ)
           cat << EOF > config/west.yml
           manifest:
             remotes:
@@ -91,11 +91,9 @@ jobs:
           rm -f "$CONFIG_DIR/CMakeLists.txt" 
           rm -f "$CONFIG_DIR/Kconfig" 
 
-          # 1. prj.conf (Kconfigのsourceを含む)
+          # 1. prj.conf (Kconfigのsourceを削除)
           CONFIG_PRJ_FILE="$CONFIG_DIR/prj.conf"
           echo "# Minimal ZMK config" > "$CONFIG_PRJ_FILE"
-          # カスタムシールド Kconfig への相対パスを prj.conf から source する
-          echo 'source "boards/shields/prospector_scanner/Kconfig"' >> "$CONFIG_PRJ_FILE"
           echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_PRJ_FILE"
 
           # 2. Shield conf
@@ -109,13 +107,16 @@ jobs:
           echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
           echo '    default y' >> "$KCONFIG_SHIELD_FILE"
           
-          echo "=== Starting ZMK Build (The ZMK Standard: ZMK_CONFIG) ==="
+          # シールド Kconfig の絶対パスを取得
+          KCONFIG_SHIELD_ABSOLUTE_PATH="$PWD/$KCONFIG_SHIELD_FILE"
+
+          echo "=== Starting ZMK Build (Final Last Attempt: Direct Kconfig Injection) ==="
           
-          # ★★★ 最終のビルドコマンド: ZMK_CONFIG を再導入 ★★★
-          # ZMK_CONFIG は ZMK のビルドツール自体がパスを解決するために使用される
+          # ★★★ 最終のビルドコマンド: ZMK_CONFIG と KCONFIG_SHIELD_FILE を両方注入 ★★★
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
             -DZMK_CONFIG="$PWD/$CONFIG_DIR" \
+            -DEXTRA_KCONFIG_SOURCES="$KCONFIG_SHIELD_ABSOLUTE_PATH" \
             -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE" 
           
           BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
