@@ -51,9 +51,9 @@ jobs:
           echo "Exporting Zephyr environment variables..."
           west zephyr-export
           
-          # ★★★ 最終の修正: 環境変数を手動でロード/エクスポート ★★★
-          source $(dirname $(find .west -name "west-shell.sh"))/west-shell.sh
+          # ★★★ 最終修正: Zephyr/ZMK のコアパスを明示的にエクスポート ★★★
           export ZEPHYR_BASE="$PWD/zephyr"
+          export ZEPHYR_MODULES="$PWD/zmk"
           
           echo "Verifying west environment..."
           west list
@@ -113,7 +113,7 @@ jobs:
           
           echo "=== Starting ZMK Build (The FINAL Minimalist Attempt) ==="
           
-          # ZMK_CONFIG のみを使用し、ZMK の自動解決ロジックに委ねる
+          # ZMK_CONFIG のみを使用
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
             -DZMK_CONFIG="$PWD/$CONFIG_DIR"
