@@ -10,9 +10,6 @@ jobs:
       options: --user root
 
     steps:
-      # ----------------------------------------------------
-      # 1. カスタム・ディスククリーンアップ
-      # ----------------------------------------------------
       - name: Free Disk Space (Custom)
         run: |
           echo "Removing large packages and caches to free space..."
@@ -67,7 +64,11 @@ jobs:
           echo "=== 2. Export Zephyr/ZMK Environment Variables to GITHUB_ENV ==="
           west zephyr-export
           
-          echo "ZEPHYR_MODULES=$PWD/zmk;$PWD/$CONFIG_DIR" >> $GITHUB_ENV
+          # ★★★ 修正: ZMK_CONFIG でカスタム設定ディレクトリを指定 ★★★
+          echo "ZMK_CONFIG=$PWD/$CONFIG_DIR" >> $GITHUB_ENV
+          
+          # ZEPHYR_MODULES は ZMK_CONFIG のために ZMK のみで十分
+          echo "ZEPHYR_MODULES=$PWD/zmk" >> $GITHUB_ENV
           
           # Python venv のセットアップ
           /usr/bin/python3 -m venv zmk-env
@@ -88,8 +89,9 @@ jobs:
         run: |
           # 環境変数をシェルで強制エクスポート
           export ZEPHYR_MODULES="$ZEPHYR_MODULES"
-          export ZEPHYR_TOOLCHAIN_VARIANT="gnuarmemb" # <-- ツールチェーン変数をシェルに設定
-          export GNUARMEMB_TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb" # <-- ツールチェーンパスをシェルに設定
+          export ZMK_CONFIG="$ZMK_CONFIG" # <-- ZMK_CONFIGをエクスポート
+          export ZEPHYR_TOOLCHAIN_VARIANT="gnuarmemb"
+          export GNUARMEMB_TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb"
           
           # Python Venv のアクティベート
           source zmk-env/bin/activate
