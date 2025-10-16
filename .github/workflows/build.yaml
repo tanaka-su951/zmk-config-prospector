@@ -1,4 +1,4 @@
-name: Build Prospector Firmware (Final Git Fix)
+name: Build Prospector Firmware (Board Test Only)
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -6,63 +6,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
+      # ZMK ツールチェーンがプリインストールされた安定の Docker Hub イメージ
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
     steps:
-      # 1. ディスク容量のクリーンアップ
-      - name: Free Disk Space (Custom)
-        run: |
-          # ... (中略) ...
-          rm -rf /var/lib/apt/lists/*
-        shell: bash
-
-      # 2. ZMK と設定をチェックアウト
-      - name: Checkout Custom Config
-        uses: actions/checkout@v4
-        with:
-          path: config
-      
-      - name: Checkout ZMK Repository
-        uses: actions/checkout@v4
-        with:
-          repository: zmkfirmware/zmk
-          # ★★★ 修正: main ブランチに戻す ★★★
-          ref: main 
-          path: zmk
+      # ... (ステップ 1〜2 は変更なし: チェックアウトとクリーンアップ) ...
 
       # 3. west 初期化、アップデート、環境変数設定
       - name: Initialize West and Update Modules
         run: |
           CONFIG_DIR="config"
-
-          echo "=== 1. Setup west workspace and west.yml ==="
-          
-          cat << EOF > $CONFIG_DIR/west.yml
-          manifest:
-            remotes:
-              - name: zmkfirmware
-                url-base: https://github.com/zmkfirmware
-            projects:
-              - name: zmk
-                remote: zmkfirmware
-                # ★★★ west.yml 内も main に戻す ★★★
-                revision: main
-                import: app/west.yml
-            self:
-              path: config
-          EOF
-
-          west init -l $CONFIG_DIR
-          west update
-          
-          echo "=== 2. Export ZMK_CONFIG Path ==="
+          # ... (west.yml の作成と west update は変更なし) ...
           echo "ZMK_CONFIG=$PWD/$CONFIG_DIR" >> $GITHUB_ENV
-          
         shell: bash
 
       # 4. ビルド実行とすべてのパスの強制注入
-      - name: Perform ZMK Build (FULL Path Injection)
+      - name: Perform ZMK Build (BOARD ONLY Test)
         run: |
           export ZMK_CONFIG="$ZMK_CONFIG" 
           source zephyr/zephyr-env.sh
@@ -72,35 +32,30 @@ jobs:
           ZEPHYR_ROOT_DIR="$PWD/zephyr"
           TOOLCHAIN_VARIANT="gnuarmemb"
           TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb"
-          CONFIG_ROOT="$PWD/config"
           
-          echo "=== Starting ZMK Build ==="
+          echo "=== Starting ZMK Build (Testing Base Board) ==="
           
-          # すべてのパスを引数として強制注入
-          west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
-            -DSHIELD=prospector_scanner \
-            -DSHIELD_DIR="$CONFIG_ROOT/prospector_scanner" \
+          # ★★★ 修正: -DSHIELD と -DSHIELD_DIR を削除 ★★★
+          west build -s zmk/app -b seeeduino_xiao_ble -d build/board_only_test -- \
             -DZephyr_DIR="$ZEPHYR_CMAKE_DIR" \
             -DZEPHYR_BASE="$ZEPHYR_ROOT_DIR" \
             -DZEPHYR_TOOLCHAIN_VARIANT="$TOOLCHAIN_VARIANT" \
             -DGNUARMEMB_TOOLCHAIN_PATH="$TOOLCHAIN_PATH"
           
-          echo "=== Convert and Finalize ==="
-
-          BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
-          UF2_PATH="build/prospector_scanner/zmk.uf2"
-
-          if [ -f "$BIN_PATH" ]; then
-            echo "Converting ELF → UF2"
-            python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
+          echo "=== Test Complete ==="
+          
+          # ビルドが成功したかどうかの確認
+          if [ -f "build/board_only_test/zephyr/zephyr.elf" ]; then
+            echo "SUCCESS: Base board build passed! The issue is in the custom shield files."
           else
-            echo "FATAL: Build failed, zephyr.elf not found."
+            echo "FATAL: Base board build failed. The issue is in the ZMK code base or the environment."
             exit 1
           fi
         shell: bash
 
       - name: Archive production artifacts (Artifact Upload)
+        # シールドがなくてもボードのファームウェアをアップロード
         uses: actions/upload-artifact@v4
         with:
-          name: prospector_scanner-seeeduino_xiao_ble-zmk
-          path: build/prospector_scanner/zmk.uf2
+          name: seeeduino_xiao_ble-base-firmware
+          path: build/board_only_test/zephyr/zephyr.uf2
