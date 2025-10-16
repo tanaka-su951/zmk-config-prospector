@@ -27,7 +27,7 @@ jobs:
           echo "Initializing west workspace using ZMK's manifest..."
           rm -rf zmk zephyr modules .west
           
-          # ★★★ 最終修正: 正しい west.yml の内容を強制的に書き込む ★★★
+          # 正しい west.yml の内容を強制的に書き込む
           cat << EOF > config/west.yml
           manifest:
             remotes:
@@ -89,11 +89,13 @@ jobs:
           # 過去のデバッグで作成されたカスタムモジュールファイルを全て削除
           rm -rf "$CONFIG_DIR/zephyr"
           rm -f "$CONFIG_DIR/CMakeLists.txt" 
-          rm -f "$CONFIG_DIR/Kconfig" 
+          rm -f "$CONFIG_DIR/Kconfig" # ★★★ config/Kconfig を削除 ★★★
           
-          # 1. prj.conf
+          # 1. prj.conf (★★修正★★: Kconfigのsourceを追加)
           CONFIG_PRJ_FILE="$CONFIG_DIR/prj.conf"
           echo "# Minimal ZMK config" > "$CONFIG_PRJ_FILE"
+          # カスタムシールド Kconfig への相対パスを prj.conf から source する
+          echo 'source "boards/shields/prospector_scanner/Kconfig"' >> "$CONFIG_PRJ_FILE"
           echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_PRJ_FILE"
 
           # 2. Shield conf
@@ -107,19 +109,12 @@ jobs:
           echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
           echo '    default y' >> "$KCONFIG_SHIELD_FILE"
           
-          # 4. config/Kconfig を作成し、シールドKconfigをインクルード
-          KCONFIG_SHIELD_ABSOLUTE_PATH="$PWD/$SHIELD_DIR/Kconfig"
-          echo "Kconfig Abs Path: $KCONFIG_SHIELD_ABSOLUTE_PATH"
+          echo "=== Starting ZMK Build (The Simplest Kconfig/Conf Pattern) ==="
           
-          echo '# Custom Kconfig for ZMK config' > "$CONFIG_DIR/Kconfig"
-          echo "source \"$KCONFIG_SHIELD_ABSOLUTE_PATH\"" >> "$CONFIG_DIR/Kconfig"
-
-          echo "=== Starting ZMK Build (Final Directory Fix) ==="
-          
-          # ビルドコマンド: Kconfigのルートパスを強制注入
+          # ★★★ 最終のビルドコマンド: EXTRA_KCONFIG_SOURCES を削除 ★★★
+          # ZMK は prj.conf から Kconfig をロードし、EXTRA_CONF_FILE で prj.conf とシールド conf を注入
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
-            -DEXTRA_KCONFIG_SOURCES="$PWD/$CONFIG_DIR/Kconfig" \
             -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE" 
           
           BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
