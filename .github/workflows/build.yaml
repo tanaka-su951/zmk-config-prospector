@@ -1,18 +1,28 @@
-name: Build Prospector Firmware
+name: Build Prospector Firmware (Shell Script Final)
 
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      # ★★★ ZMK ツールチェーンがプリインストールされた安定の Docker Hub イメージに戻す ★★★
+      image: zmkfirmware/zmk-build-arm:stable
+      options: --user root
 
     steps:
-      # 1. ZMKセットアップアクションを最初に実行
-      # ★★★ 修正: 正しいアクション名 zmk-setup-action を使用 ★★★
-      - name: Set up ZMK environment and Install Dependencies
-        uses: zmkfirmware/zmk-setup-action@v2 
-      
-      # 2. ワークスペースの依存関係をチェックアウト
+      # 1. ディスク容量のクリーンアップ (安定のため再導入)
+      - name: Free Disk Space (Custom)
+        run: |
+          echo "Removing large packages and caches to free space..."
+          rm -rf /usr/local/lib/android
+          rm -rf /usr/share/dotnet
+          apt clean
+          rm -rf /var/lib/apt/lists/*
+          echo "Disk space freed."
+        shell: bash
+
+      # 2. ZMK と設定をチェックアウト
       - name: Checkout Custom Config
         uses: actions/checkout@v4
         with:
@@ -25,11 +35,13 @@ jobs:
           ref: main 
           path: zmk
 
-      # 3. west初期化と依存関係の更新
+      # 3. west 初期化、アップデート、環境変数設定（すべてシェルで実行）
       - name: Initialize West and Update Modules
         run: |
           CONFIG_DIR="config"
 
+          echo "=== 1. Setup west workspace and west.yml ==="
+          
           # west.yml を作成
           cat << EOF > $CONFIG_DIR/west.yml
           manifest:
@@ -49,31 +61,39 @@ jobs:
           west init -l $CONFIG_DIR
           west update
           
-          # ZMK_CONFIG のエクスポート (シールド認識に必要)
+          echo "=== 2. Export ZMK_CONFIG Path ==="
+          # ZMK_CONFIG をシェル環境に直接エクスポート (シールド認識に必要)
+          export ZMK_CONFIG="$PWD/$CONFIG_DIR"
+          
+          # 環境変数として ZMK_CONFIG を次ステップに渡す
           echo "ZMK_CONFIG=$PWD/$CONFIG_DIR" >> $GITHUB_ENV
           
         shell: bash
 
       # 4. ビルド実行とZephyrパスの強制注入
-      - name: Perform ZMK Build (Path Injection)
+      - name: Perform ZMK Build (FULL Path Injection)
         run: |
           # ZMK_CONFIG をシェルにエクスポート
           export ZMK_CONFIG="$ZMK_CONFIG" 
           
-          # Zephyr環境をsource
+          # Zephyr環境をsource (ツールチェーンパスを設定)
           source zephyr/zephyr-env.sh
           
-          # Zephyrのパスを計算 (find_package回避のため)
+          # Zephyrの絶対パスとツールチェーンのパスを計算 (find_package回避のため)
           ZEPHYR_CMAKE_DIR="$PWD/zephyr/share/zephyr-package/cmake"
           ZEPHYR_ROOT_DIR="$PWD/zephyr"
-          
+          TOOLCHAIN_VARIANT="gnuarmemb"
+          TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb" # Dockerイメージ内のパス
+
           echo "=== Starting ZMK Build ==="
           
-          # Zephyrパスを引数として強制注入
+          # すべてのパスを引数として強制注入
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
             -DZephyr_DIR="$ZEPHYR_CMAKE_DIR" \
-            -DZEPHYR_BASE="$ZEPHYR_ROOT_DIR"
+            -DZEPHYR_BASE="$ZEPHYR_ROOT_DIR" \
+            -DZEPHYR_TOOLCHAIN_VARIANT="$TOOLCHAIN_VARIANT" \
+            -DGNUARMEMB_TOOLCHAIN_PATH="$TOOLCHAIN_PATH"
           
           echo "=== Convert and Finalize ==="
 
