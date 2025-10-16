@@ -27,7 +27,22 @@ jobs:
           echo "Initializing west workspace using ZMK's manifest..."
           rm -rf zmk zephyr modules .west
           
-          # ★★★ 最終修正: west init -l config でローカルの west.yml を使用 ★★★
+          # ★★★ 最終修正: 正しい west.yml の内容を強制的に書き込む ★★★
+          cat << EOF > config/west.yml
+          manifest:
+            remotes:
+              - name: zmkfirmware
+                url-base: https://github.com/zmkfirmware
+            projects:
+              - name: zmk
+                remote: zmkfirmware
+                revision: main
+                import: app/west.yml
+            self:
+              path: config
+          EOF
+
+          # west init -l config でローカルの west.yml を使用
           west init -l config
           
           echo "Updating west modules..."
