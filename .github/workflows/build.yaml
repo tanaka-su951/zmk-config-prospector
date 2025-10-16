@@ -4,17 +4,18 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    # ★★★ 変更点: ディスク容量が大きなランナーに変更 ★★★
-    runs-on: ubuntu-latest-large
+    # ★★★ 変更点: 標準の ubuntu-latest に戻す ★★★
+    runs-on: ubuntu-latest
     container:
+      # Zephyr 公式コンテナの使用は継続
       image: ghcr.io/zephyrproject-rtos/zephyr-build:main
       options: --user root
 
     steps:
       # ----------------------------------------------------
-      # ★★★ ディスククリーンアップは、大型ランナーでは不要になる可能性が高いですが、念のため残しておきます ★★★
+      # ★★★ ディスク容量の解放を最優先で実行 ★★★
       # ----------------------------------------------------
-      - name: Free Disk Space (Pre-emptive)
+      - name: Free Disk Space (Essential)
         uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
@@ -22,7 +23,7 @@ jobs:
           dotnet: true
           haskell: true
           large-packages: true
-          swap-storage: true
+          swap-storage: true # これにより、Zephyr SDKの解凍に必要なスペースを確保します。
 
       - name: Install Python Venv (Separate for apt)
         run: |
@@ -108,7 +109,7 @@ jobs:
           
           echo "=== Starting ZMK Build ==="
           
-          # Zephyr_DIR と ZEPHYR_BASE を直接渡す（以前の環境問題を回避するため）
+          # Zephyr_DIR と ZEPHYR_BASE を直接渡す
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
             -DZephyr_DIR="$ZEPHYR_CMAKE_DIR" \
