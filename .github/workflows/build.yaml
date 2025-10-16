@@ -52,11 +52,8 @@ jobs:
           echo "=== 2. Export Zephyr/ZMK Environment Variables ==="
           west zephyr-export
           
-          # ★★★ 最終の修正: SDK のセットアップスクリプトを強制的に source ★★★
-          if [ -f "/opt/zephyr-sdk/environment-setup.sh" ]; then
-              echo "Sourcing /opt/zephyr-sdk/environment-setup.sh"
-              source /opt/zephyr-sdk/environment-setup.sh
-          fi
+          # ★★★ 最終の修正: ZEPHYR_MODULES をワークスペース内の ZMK に限定 ★★★
+          export ZEPHYR_MODULES="$PWD/zmk"
 
           # ツールチェーン変数を再設定
           export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
