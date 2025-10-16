@@ -4,10 +4,9 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    # ZMKのメインリポジトリにあるビルドワークフローを呼び出す
-    # これにより、セットアップ、west init/update、ビルド、アーティファクト作成の全てが公式の安定したロジックで実行されます。
-    uses: zmkfirmware/zmk-github-workflows/.github/workflows/build-user-config.yml@main
+    # ZMKの公式ワークフローを呼び出す（安定版のstableブランチを参照）
+    uses: zmkfirmware/zmk-github-workflows/.github/workflows/build-user-config.yml@stable # <--- stableブランチに切り替え
     with:
-      # ビルドしたいボードとシールドの名前を引数として渡す
+      # ビルドしたいボードとシールドをここに渡します
       board: seeeduino_xiao_ble
       shield: prospector_scanner
