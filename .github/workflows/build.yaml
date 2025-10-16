@@ -4,16 +4,17 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # ★★★ 変更点: ディスク容量が大きなランナーに変更 ★★★
+    runs-on: ubuntu-latest-large
     container:
       image: ghcr.io/zephyrproject-rtos/zephyr-build:main
       options: --user root
 
     steps:
       # ----------------------------------------------------
-      # ★★★ 1. ディスク容量の解放 ★★★
+      # ★★★ ディスククリーンアップは、大型ランナーでは不要になる可能性が高いですが、念のため残しておきます ★★★
       # ----------------------------------------------------
-      - name: Free Disk Space
+      - name: Free Disk Space (Pre-emptive)
         uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
@@ -107,7 +108,7 @@ jobs:
           
           echo "=== Starting ZMK Build ==="
           
-          # Zephyr_DIR と ZEPHYR_BASE を直接渡す
+          # Zephyr_DIR と ZEPHYR_BASE を直接渡す（以前の環境問題を回避するため）
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
             -DZephyr_DIR="$ZEPHYR_CMAKE_DIR" \
