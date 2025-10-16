@@ -27,7 +27,7 @@ jobs:
           echo "Initializing west workspace using ZMK's manifest..."
           rm -rf zmk zephyr modules .west
           
-          # west.yml の内容を強制的に書き込む (前回成功したステップ)
+          # west.yml の内容を強制的に書き込む
           cat << EOF > config/west.yml
           manifest:
             remotes:
@@ -42,7 +42,7 @@ jobs:
               path: config
           EOF
 
-          # west init -l config でローカルの west.yml を使用 (前回成功したステップ)
+          # west init -l config でローカルの west.yml を使用
           west init -l config
           
           echo "Updating west modules..."
@@ -50,6 +50,10 @@ jobs:
           
           echo "Exporting Zephyr environment variables..."
           west zephyr-export
+          
+          # ★★★ 最終の修正: 環境変数を手動でロード/エクスポート ★★★
+          source $(dirname $(find .west -name "west-shell.sh"))/west-shell.sh
+          export ZEPHYR_BASE="$PWD/zephyr"
           
           echo "Verifying west environment..."
           west list
@@ -91,12 +95,12 @@ jobs:
           rm -f "$CONFIG_DIR/CMakeLists.txt" 
           rm -f "$CONFIG_DIR/Kconfig" 
           
-          # 1. prj.conf (Kconfigのsourceは不要、ZMKが自動的にロードするはず)
+          # 1. prj.conf
           CONFIG_PRJ_FILE="$CONFIG_DIR/prj.conf"
           echo "# Minimal ZMK config" > "$CONFIG_PRJ_FILE"
           echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_PRJ_FILE"
 
-          # 2. Shield conf (ZMKが自動的にロードするはず)
+          # 2. Shield conf
           SHIELD_CONF_FILE="$SHIELD_DIR/prospector_scanner.conf"
           echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF_FILE"
 
@@ -109,7 +113,7 @@ jobs:
           
           echo "=== Starting ZMK Build (The FINAL Minimalist Attempt) ==="
           
-          # ★★★ 最終のビルドコマンド: ZMK_CONFIG のみを使用し、ZMK の自動解決ロジックに委ねる ★★★
+          # ZMK_CONFIG のみを使用し、ZMK の自動解決ロジックに委ねる
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
             -DZMK_CONFIG="$PWD/$CONFIG_DIR"
