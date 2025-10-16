@@ -16,19 +16,22 @@ jobs:
           fetch-depth: 0
           path: config
 
-      - name: Install Python Venv
+      - name: Install Python Venv (Separate for apt)
         run: |
           apt update
           apt install -y python3.12-venv || apt install -y python3-venv
         shell: bash
 
-      - name: Initialize and Update west workspace
+      - name: Initialize and Build ZMK Firmware (Integrated)
         run: |
-          echo "Initializing west workspace using ZMK's manifest..."
+          CONFIG_DIR="config"
+          SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
+
+          echo "=== 1. Initialize west workspace ==="
           rm -rf zmk zephyr modules .west
           
           # west.yml の内容を強制的に書き込む
-          cat << EOF > config/west.yml
+          cat << EOF > $CONFIG_DIR/west.yml
           manifest:
             remotes:
               - name: zmkfirmware
@@ -42,62 +45,30 @@ jobs:
               path: config
           EOF
 
-          # west init -l config でローカルの west.yml を使用
-          west init -l config
-          
-          echo "Updating west modules..."
+          # west init と update
+          west init -l $CONFIG_DIR
           west update
           
-          echo "Exporting Zephyr environment variables..."
+          echo "=== 2. Export Zephyr/ZMK Environment Variables ==="
           west zephyr-export
           
-          # ★★★ 最終修正: 環境変数を $GITHUB_ENV に永続化 ★★★
-          ZEPHYR_BASE_PATH="$PWD/zephyr"
-          ZMK_PATH="$PWD/zmk"
-
-          echo "ZEPHYR_BASE=$ZEPHYR_BASE_PATH" >> $GITHUB_ENV
-          echo "ZEPHYR_MODULES=$ZMK_PATH" >> $GITHUB_ENV
-          echo "ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb" >> $GITHUB_ENV
-          
-          echo "Verifying west environment..."
-          west list
-        shell: bash
-
-      - name: Set up Python Environment
-        run: |
+          # ZMK のビルド環境をロード (同じシェルセッション内で必須)
+          # Python venv のセットアップ
           /usr/bin/python3 -m venv zmk-env
           source zmk-env/bin/activate
-
+          
           REQUIREMENTS_FILE=$(find zmk -name "requirements.txt" -print -quit)
           if [ -n "$REQUIREMENTS_FILE" ]; then
-            echo "Installing dependencies from: $REQUIREMENTS_FILE"
             pip install -r "$REQUIREMENTS_FILE"
-          else
-            echo "Warning: requirements.txt not found!"
           fi
-          
           pip install pyyaml pykwalify
-        shell: bash
 
-      - name: Build Shield:prospector_scanner (seeeduino_xiao_ble)
-        run: |
-          source zmk-env/bin/activate
+          # ツールチェーン変数を再確認 (ZMK ビルド環境コンテナでは gnuarmembが標準)
+          export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
           
-          # ZEPHYR_TOOLCHAIN_VARIANT は $GITHUB_ENV で設定済み
-          
+          echo "=== 3. Prepare Configuration Files ==="
           rm -rf build/prospector_scanner
-
-          CONFIG_DIR="config"
-          SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
-          
           mkdir -p $SHIELD_DIR
-          
-          echo "Ensuring ZMK configuration files exist..."
-          
-          # 過去のデバッグで作成されたカスタムモジュールファイルを全て削除
-          rm -rf "$CONFIG_DIR/zephyr"
-          rm -f "$CONFIG_DIR/CMakeLists.txt" 
-          rm -f "$CONFIG_DIR/Kconfig" 
           
           # 1. prj.conf
           CONFIG_PRJ_FILE="$CONFIG_DIR/prj.conf"
@@ -108,20 +79,22 @@ jobs:
           SHIELD_CONF_FILE="$SHIELD_DIR/prospector_scanner.conf"
           echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF_FILE"
 
-          # 3. Shield Kconfig (シールド定義)
+          # 3. Shield Kconfig
           KCONFIG_SHIELD_FILE="$SHIELD_DIR/Kconfig"
           echo '# Kconfig for shield' > "$KCONFIG_SHIELD_FILE"
           echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$KCONFIG_SHIELD_FILE"
           echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
           echo '    default y' >> "$KCONFIG_SHIELD_FILE"
           
-          echo "=== Starting ZMK Build (Final Environment Fix) ==="
+          echo "=== 4. Start ZMK Build ==="
           
           # ZMK_CONFIG のみを使用
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
             -DZMK_CONFIG="$PWD/$CONFIG_DIR"
           
+          echo "=== 5. Convert and Finalize ==="
+
           BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
           UF2_PATH="build/prospector_scanner/zmk.uf2"
 
