@@ -10,11 +10,11 @@ jobs:
       options: --user root
 
     steps:
-      - name: Checkout ZMK Config (as app)
+      - name: Checkout ZMK Config (as config) # ディレクトリ名を 'config' に変更
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          path: app 
+          path: config # パスを 'config' に変更
 
       - name: Install Python Venv
         run: |
@@ -27,7 +27,8 @@ jobs:
           echo "Initializing west workspace using ZMK's manifest..."
           rm -rf zmk zephyr modules .west
           
-          west init -m https://github.com/zmkfirmware/zmk --mf app/west.yml
+          # west.yml は 'config' ディレクトリ内に存在すると想定
+          west init -m https://github.com/zmkfirmware/zmk --mf config/west.yml 
           
           echo "Updating west modules..."
           west update
@@ -63,7 +64,8 @@ jobs:
           
           rm -rf build/prospector_scanner
 
-          CONFIG_DIR="app"
+          # ★★★ CONFIG_DIR を 'config' に変更 ★★★
+          CONFIG_DIR="config"
           SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
           
           mkdir -p $SHIELD_DIR
@@ -91,7 +93,7 @@ jobs:
           echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
           echo '    default y' >> "$KCONFIG_SHIELD_FILE"
           
-          # 4. ★★★ 最終の修正: app/Kconfig 内で絶対パスを使用し、パスの競合を回避 ★★★
+          # 4. app/Kconfig を作成し、シールドKconfigをインクルード
           KCONFIG_SHIELD_ABSOLUTE_PATH="$PWD/$SHIELD_DIR/Kconfig"
           echo "Kconfig Abs Path: $KCONFIG_SHIELD_ABSOLUTE_PATH"
           
@@ -99,7 +101,7 @@ jobs:
           # 'source' の後に絶対パスを渡すことで、パス解決の問題を排除
           echo "source \"$KCONFIG_SHIELD_ABSOLUTE_PATH\"" >> "$CONFIG_DIR/Kconfig"
 
-          echo "=== Starting ZMK Build (The FINAL Absolute Path Fix) ==="
+          echo "=== Starting ZMK Build (Final Directory Fix) ==="
           
           # ビルドコマンド: Kconfigのルートパスを強制注入
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
