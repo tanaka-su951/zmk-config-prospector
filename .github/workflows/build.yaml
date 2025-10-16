@@ -27,7 +27,7 @@ jobs:
           echo "Initializing west workspace using ZMK's manifest..."
           rm -rf zmk zephyr modules .west
           
-          # 正しい west.yml の内容を強制的に書き込む
+          # 正しい west.yml の内容を強制的に書き込む (前回成功したステップ)
           cat << EOF > config/west.yml
           manifest:
             remotes:
@@ -42,7 +42,7 @@ jobs:
               path: config
           EOF
 
-          # west init -l config でローカルの west.yml を使用
+          # west init -l config でローカルの west.yml を使用 (前回成功したステップ)
           west init -l config
           
           echo "Updating west modules..."
@@ -81,7 +81,6 @@ jobs:
 
           CONFIG_DIR="config"
           SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
-          CUSTOM_MODULE_PATH="$PWD/$CONFIG_DIR" # カスタム設定パス
           
           mkdir -p $SHIELD_DIR
           
@@ -90,7 +89,7 @@ jobs:
           # 過去のデバッグで作成されたカスタムモジュールファイルを全て削除
           rm -rf "$CONFIG_DIR/zephyr"
           rm -f "$CONFIG_DIR/CMakeLists.txt" 
-          rm -f "$CONFIG_DIR/Kconfig" # config/Kconfig は統合されたため削除
+          rm -f "$CONFIG_DIR/Kconfig" 
 
           # 1. prj.conf (Kconfigのsourceを含む)
           CONFIG_PRJ_FILE="$CONFIG_DIR/prj.conf"
@@ -110,14 +109,13 @@ jobs:
           echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
           echo '    default y' >> "$KCONFIG_SHIELD_FILE"
           
-          echo "=== Starting ZMK Build (Final ZEPHYR_EXTRA_MODULES) ==="
+          echo "=== Starting ZMK Build (The ZMK Standard: ZMK_CONFIG) ==="
           
-          # ★★★ 最終の修正: ZEPHYR_EXTRA_MODULES を再エクスポート ★★★
-          export ZEPHYR_EXTRA_MODULES="$CUSTOM_MODULE_PATH"
-
-          # ビルドコマンド: EXTRA_KCONFIG_SOURCES は不要、conf ファイルのみ注入
+          # ★★★ 最終のビルドコマンド: ZMK_CONFIG を再導入 ★★★
+          # ZMK_CONFIG は ZMK のビルドツール自体がパスを解決するために使用される
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
+            -DZMK_CONFIG="$PWD/$CONFIG_DIR" \
             -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE" 
           
           BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
