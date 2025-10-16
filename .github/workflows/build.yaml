@@ -28,14 +28,14 @@ jobs:
         with:
           path: config # カスタム設定を 'config' フォルダにチェックアウト
 
-      - name: Initialize and Build ZMK Firmware (Integrated)
+      - name: Prepare Environment and Files
         run: |
           SHIELD_NAME="prospector_scanner"
           CONFIG_DIR="config"
 
           echo "=== 1. Setup west workspace and west.yml ==="
           
-          # west init が config/west.yml を見つけられるように、これを config フォルダに書き込む
+          # west.yml の書き込み
           cat << EOF > $CONFIG_DIR/west.yml
           manifest:
             remotes:
@@ -50,41 +50,58 @@ jobs:
               path: config
           EOF
 
-          # west init -l config でローカルの west.yml を使用
+          # west init と update
           west init -l $CONFIG_DIR
           west update
           
-          echo "=== 2. Export Zephyr/ZMK Environment Variables ==="
+          echo "=== 2. Export Zephyr/ZMK Environment Variables to GITHUB_ENV ==="
           west zephyr-export
           
-          # 環境変数設定
-          export ZEPHYR_MODULES="$PWD/zmk;$PWD/$CONFIG_DIR" # ZMK とカスタム設定の両方をモジュールとして指定
-          export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
-          export GNUARMEMB_TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb"
+          # 環境変数を $GITHUB_ENV に永続化
+          ZEPHYR_MODULES_PATH="$PWD/zmk;$PWD/$CONFIG_DIR"
+          ZEPHYR_TOOLCHAIN_VARIANT_VAL="gnuarmemb"
+          GNUARMEMB_TOOLCHAIN_PATH_VAL="/opt/toolchains/gnuarmemb"
           
-          # zephyr-env.sh を source 
-          ZEPHYR_ENV_SCRIPT="$PWD/zephyr/zephyr-env.sh"
-          if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
-              source "$ZEPHYR_ENV_SCRIPT"
-          fi
-
+          echo "ZEPHYR_MODULES=$ZEPHYR_MODULES_PATH" >> $GITHUB_ENV
+          echo "ZEPHYR_TOOLCHAIN_VARIANT=$ZEPHYR_TOOLCHAIN_VARIANT_VAL" >> $GITHUB_ENV
+          echo "GNUARMEMB_TOOLCHAIN_PATH=$GNUARMEMB_TOOLCHAIN_PATH_VAL" >> $GITHUB_ENV
+          
           # Python venv のセットアップ
           /usr/bin/python3 -m venv zmk-env
-          source zmk-env/bin/activate
           
           REQUIREMENTS_FILE=$(find zmk -name "requirements.txt" -print -quit)
           if [ -n "$REQUIREMENTS_FILE" ]; then
+            source zmk-env/bin/activate
             pip install -r "$REQUIREMENTS_FILE"
+            deactivate
           fi
+          source zmk-env/bin/activate
           pip install pyyaml pykwalify
+          deactivate
+
+          echo "=== 3. Prepare Configuration Files (Final check) ==="
+          # このワークフローではファイルは既に適切な場所に存在するため、コピーは不要
+
+        shell: bash
+
+      - name: Perform ZMK Build
+        run: |
+          # 環境変数は $GITHUB_ENV から継承されている
+          source zmk-env/bin/activate
           
-          echo "=== 3. Start ZMK Build (ZEPHYR_EXTRA_MODULES style) ==="
+          # zephyr-env.sh を source してすべてのパスをロード
+          ZEPHYR_ENV_SCRIPT="$PWD/zephyr/zephyr-env.sh"
+          if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
+              echo "Sourcing $ZEPHYR_ENV_SCRIPT to finalize environment setup."
+              source "$ZEPHYR_ENV_SCRIPT"
+          fi
           
-          # ZMK_CONFIG は不要 (カスタム設定を ZEPHYR_MODULES 経由で渡すため)
+          echo "=== Starting ZMK Build ==="
+          
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
-            -DSHIELD=$SHIELD_NAME
+            -DSHIELD=prospector_scanner
           
-          echo "=== 4. Convert and Finalize ==="
+          echo "=== Convert and Finalize ==="
 
           BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
           UF2_PATH="build/prospector_scanner/zmk.uf2"
