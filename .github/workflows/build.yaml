@@ -9,9 +9,9 @@ jobs:
       contents: read
     
     # ZMKメインリポジトリ内のビルドワークフローを呼び出す
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main 
+    # uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
     
     with:
-      # ★★★ ZMKワークフローの入力パラメータ名に修正 ★★★
-      primary_board: seeeduino_xiao_ble
-      set_shield: prospector_scanner
+      # ★★★ 修正: パラメータ名をキャメルケース形式で試行 ★★★
+      primaryBoard: seeeduino_xiao_ble # primary_board から変更
+      setShield: prospector_scanner    # set_shield から変更
