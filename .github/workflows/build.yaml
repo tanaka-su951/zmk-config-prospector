@@ -90,13 +90,13 @@ jobs:
           rm -rf "$CONFIG_DIR/zephyr"
           rm -f "$CONFIG_DIR/CMakeLists.txt" 
           rm -f "$CONFIG_DIR/Kconfig" 
-
-          # 1. prj.conf (Kconfigのsourceを削除)
+          
+          # 1. prj.conf (Kconfigのsourceは不要、ZMKが自動的にロードするはず)
           CONFIG_PRJ_FILE="$CONFIG_DIR/prj.conf"
           echo "# Minimal ZMK config" > "$CONFIG_PRJ_FILE"
           echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_PRJ_FILE"
 
-          # 2. Shield conf
+          # 2. Shield conf (ZMKが自動的にロードするはず)
           SHIELD_CONF_FILE="$SHIELD_DIR/prospector_scanner.conf"
           echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF_FILE"
 
@@ -107,17 +107,12 @@ jobs:
           echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
           echo '    default y' >> "$KCONFIG_SHIELD_FILE"
           
-          # シールド Kconfig の絶対パスを取得
-          KCONFIG_SHIELD_ABSOLUTE_PATH="$PWD/$KCONFIG_SHIELD_FILE"
-
-          echo "=== Starting ZMK Build (Final Last Attempt: Direct Kconfig Injection) ==="
+          echo "=== Starting ZMK Build (The FINAL Minimalist Attempt) ==="
           
-          # ★★★ 最終のビルドコマンド: ZMK_CONFIG と KCONFIG_SHIELD_FILE を両方注入 ★★★
+          # ★★★ 最終のビルドコマンド: ZMK_CONFIG のみを使用し、ZMK の自動解決ロジックに委ねる ★★★
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
-            -DZMK_CONFIG="$PWD/$CONFIG_DIR" \
-            -DEXTRA_KCONFIG_SOURCES="$KCONFIG_SHIELD_ABSOLUTE_PATH" \
-            -DEXTRA_CONF_FILE="$PWD/$CONFIG_PRJ_FILE;$PWD/$SHIELD_CONF_FILE" 
+            -DZMK_CONFIG="$PWD/$CONFIG_DIR"
           
           BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
           UF2_PATH="build/prospector_scanner/zmk.uf2"
