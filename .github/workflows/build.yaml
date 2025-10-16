@@ -6,28 +6,30 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      # ★★★ 変更点: ZMK 公式コンテナに戻す ★★★
+      # ZMK 公式コンテナに戻した状態を維持
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
     steps:
       # ----------------------------------------------------
-      # ★★★ ディスク容量の解放を最優先で実行 ★★★
+      # ★★★ 1. カスタム・ディスククリーンアップに置き換え ★★★
       # ----------------------------------------------------
-      - name: Free Disk Space (Essential)
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          swap-storage: true # これにより、Zephyr SDKの解凍に必要なスペースを確保します。
-      
-      # ... (以下のステップはすべて、以前の環境問題を回避するために確立されたロジックを維持します)
+      - name: Free Disk Space (Custom)
+        run: |
+          echo "Removing large packages and caches to free space..."
+          # Android SDK、.NET Core SDKなど、ZMKビルドに不要な大きなディレクトリを削除
+          rm -rf /usr/local/lib/android
+          rm -rf /usr/share/dotnet
+          # 不要なaptキャッシュをクリーンアップ
+          apt clean
+          rm -rf /var/lib/apt/lists/*
+          echo "Disk space freed."
+        shell: bash
+
       - name: Install Python Venv (Separate for apt)
         run: |
           apt update
+          # python3-venv のインストール
           apt install -y python3.12-venv || apt install -y python3-venv
         shell: bash
 
