@@ -8,10 +8,11 @@ jobs:
     permissions:
       contents: read
     
-    # ZMKメインリポジトリ内のビルドワークフローを呼び出す
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main 
+    # ★★★ 修正: ZMK 公式テンプレートリポジトリのワークフローを参照 ★★★
+    # こちらのワークフローは、ユーザーの 'board' と 'shield' 入力に最適化されています。
+    uses: zmkfirmware/zmk-config-template/.github/workflows/build.yml@main 
     
     with:
-      # ★★★ 修正: パラメータ名を最もシンプルな形式に戻す ★★★
+      # パラメータ名は、このテンプレートワークフローに合わせてシンプルな形式に戻します。
       board: seeeduino_xiao_ble
       shield: prospector_scanner
