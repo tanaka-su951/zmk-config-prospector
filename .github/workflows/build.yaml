@@ -6,7 +6,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      # ZMK 公式コンテナに戻した状態を維持
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
@@ -65,10 +64,8 @@ jobs:
           echo "=== 2. Export Zephyr/ZMK Environment Variables to GITHUB_ENV ==="
           west zephyr-export
           
-          # ZMK_CONFIG でカスタム設定ディレクトリを指定 (シールド認識のため必須)
+          # ZMK_CONFIG でカスタム設定ディレクトリを指定 (シールド認識のため)
           echo "ZMK_CONFIG=$PWD/$CONFIG_DIR" >> $GITHUB_ENV
-          
-          # ZEPHYR_MODULES は ZMK_CONFIG のために ZMK のみで十分
           echo "ZEPHYR_MODULES=$PWD/zmk" >> $GITHUB_ENV
           
           # Python venv のセットアップ
@@ -91,23 +88,28 @@ jobs:
           # 環境変数をシェルで強制エクスポート
           export ZEPHYR_MODULES="$ZEPHYR_MODULES"
           export ZMK_CONFIG="$ZMK_CONFIG" 
-          # ツールチェーン変数は zephyr-env.sh に任せるため、削除
           
           # Python Venv のアクティベート
           source zmk-env/bin/activate
           
-          # zephyr-env.sh を source (環境変数を設定)
+          # zephyr-env.sh を source (ツールチェーンパスを設定)
           ZEPHYR_ENV_SCRIPT="$PWD/zephyr/zephyr-env.sh"
           if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
               echo "Sourcing $ZEPHYR_ENV_SCRIPT to finalize environment setup."
               source "$ZEPHYR_ENV_SCRIPT"
           fi
           
-          echo "=== Starting ZMK Build (Simplified) ==="
+          ZEPHYR_CMAKE_DIR="$PWD/zephyr/share/zephyr-package/cmake"
+          ZEPHYR_ROOT_DIR="$PWD/zephyr"
           
-          # DオプションをDSHIELD以外すべて削除
+          echo "=== Starting ZMK Build (Zephyr Path Injection) ==="
+          
+          # Zephyrのコアパスのみを引数としても渡す
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
-            -DSHIELD=prospector_scanner
+            -DSHIELD=prospector_scanner \
+            -DZephyr_DIR="$ZEPHYR_CMAKE_DIR" \
+            -DZEPHYR_BASE="$ZEPHYR_ROOT_DIR"
+            # ツールチェーンのDオプションは削除
           
           echo "=== Convert and Finalize ==="
 
