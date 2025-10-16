@@ -10,59 +10,45 @@ jobs:
       options: --user root
 
     steps:
-      - name: Checkout ZMK Config (as config)
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          path: config
-
       - name: Install Python Venv (Separate for apt)
         run: |
           apt update
           apt install -y python3.12-venv || apt install -y python3-venv
         shell: bash
 
+      - name: Checkout ZMK Repository
+        uses: actions/checkout@v4
+        with:
+          repository: zmkfirmware/zmk
+          ref: main 
+          path: zmk
+
+      - name: Checkout Custom Config (prospector)
+        uses: actions/checkout@v4
+        with:
+          path: prospector_config # カスタム設定リポジトリ
+
       - name: Initialize and Build ZMK Firmware (Integrated)
         run: |
-          CONFIG_DIR="config"
-          SHIELD_DIR="$CONFIG_DIR/boards/shields/prospector_scanner"
-
-          echo "=== 1. Initialize west workspace ==="
-          rm -rf zmk zephyr modules .west
+          SHIELD_NAME="prospector_scanner"
+          CONFIG_SRC="prospector_config"
           
-          # west.yml の内容を強制的に書き込む
-          cat << EOF > $CONFIG_DIR/west.yml
-          manifest:
-            remotes:
-              - name: zmkfirmware
-                url-base: https://github.com/zmkfirmware
-            projects:
-              - name: zmk
-                remote: zmkfirmware
-                revision: main
-                import: app/west.yml
-            self:
-              path: config
-          EOF
-
-          # west init と update
-          west init -l $CONFIG_DIR
+          echo "=== 1. Initialize west workspace ==="
+          # ZMK の公式 west.yml を使用して west init を実行
+          west init -l zmk
           west update
           
           echo "=== 2. Export Zephyr/ZMK Environment Variables ==="
           west zephyr-export
           
-          # ZEPHYR_MODULES をワークスペース内の ZMK に限定
+          # ZEPHYR_MODULES とツールチェーンパスを明示的にエクスポート
           export ZEPHYR_MODULES="$PWD/zmk"
-
-          # ツールチェーンパスを強制的にエクスポート
           export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
           export GNUARMEMB_TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb"
           
-          # ★★★ 最終の修正: zephyr-env.sh を source してすべてのパスをロード ★★★
+          # zephyr-env.sh を source 
           ZEPHYR_ENV_SCRIPT="$PWD/zephyr/zephyr-env.sh"
           if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
-              echo "Sourcing $ZEPHYR_ENV_SCRIPT to finalize environment setup."
               source "$ZEPHYR_ENV_SCRIPT"
           fi
 
@@ -76,32 +62,25 @@ jobs:
           fi
           pip install pyyaml pykwalify
           
-          echo "=== 3. Prepare Configuration Files ==="
+          echo "=== 3. Prepare Configuration Files (Copy into ZMK) ==="
           rm -rf build/prospector_scanner
-          mkdir -p $SHIELD_DIR
           
-          # 1. prj.conf
-          CONFIG_PRJ_FILE="$CONFIG_DIR/prj.conf"
-          echo "# Minimal ZMK config" > "$CONFIG_PRJ_FILE"
-          echo "CONFIG_ZMK_KSCAN_MATRIX=y" >> "$CONFIG_PRJ_FILE"
+          # 設定ファイルが ZMK の app/boards/shields の下にコピーされるように構造を作成
+          SHIELD_DEST="zmk/app/boards/shields/$SHIELD_NAME"
+          mkdir -p $SHIELD_DEST
+          
+          # シールド設定ファイルを ZMK の app/boards/shields の下にコピー
+          cp $CONFIG_SRC/boards/shields/$SHIELD_NAME/$SHIELD_NAME.conf $SHIELD_DEST/$SHIELD_NAME.conf
+          cp $CONFIG_SRC/boards/shields/$SHIELD_NAME/Kconfig $SHIELD_DEST/Kconfig
+          
+          # prj.conf を ZMK の app のルートにコピー
+          cp $CONFIG_SRC/prj.conf zmk/app/prj.conf 
 
-          # 2. Shield conf
-          SHIELD_CONF_FILE="$SHIELD_DIR/prospector_scanner.conf"
-          echo 'CONFIG_ZMK_KEYBOARD_NAME="Prospector Scanner"' > "$SHIELD_CONF_FILE"
-
-          # 3. Shield Kconfig
-          KCONFIG_SHIELD_FILE="$SHIELD_DIR/Kconfig"
-          echo '# Kconfig for shield' > "$KCONFIG_SHIELD_FILE"
-          echo 'config SHIELD_PROSPECTOR_SCANNER' >> "$KCONFIG_SHIELD_FILE"
-          echo '  bool "Prospector Scanner"' >> "$KCONFIG_SHIELD_FILE"
-          echo '    default y' >> "$KCONFIG_SHIELD_FILE"
+          echo "=== 4. Start ZMK Build (Official Structure) ==="
           
-          echo "=== 4. Start ZMK Build ==="
-          
-          # ZMK_CONFIG のみを使用
+          # ZMK_CONFIG も EXTRA_CONF_FILE も不要、ZMK の app ディレクトリと DSHIELD のみ
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
-            -DSHIELD=prospector_scanner \
-            -DZMK_CONFIG="$PWD/$CONFIG_DIR"
+            -DSHIELD=$SHIELD_NAME
           
           echo "=== 5. Convert and Finalize ==="
 
