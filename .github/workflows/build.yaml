@@ -4,12 +4,14 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    # ZMKの公式ワークフローを呼び出す。
-    # GitHub Actionsで最も参照が安定しているとされる 'main' ブランチを参照します。
+    # アクセス権限を明示的に付与
+    permissions:
+      contents: read
+    
+    # ZMKの公式ワークフローを呼び出す
     uses: zmkfirmware/zmk-github-workflows/.github/workflows/build-user-config.yml@main 
     
-    # 'with' ブロックは 'uses' と同じインデントレベルにする必要があります。
     with:
-      # ビルドしたいボードとシールドの名前を引数として渡す
+      # ボードとシールドの名前を引数として渡す
       board: seeeduino_xiao_ble
       shield: prospector_scanner
