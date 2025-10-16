@@ -79,9 +79,6 @@ jobs:
           pip install pyyaml pykwalify
           deactivate
 
-          echo "=== 3. Prepare Configuration Files (Final check) ==="
-          # このワークフローではファイルは既に適切な場所に存在するため、コピーは不要
-
         shell: bash
 
       - name: Perform ZMK Build
@@ -96,10 +93,13 @@ jobs:
               source "$ZEPHYR_ENV_SCRIPT"
           fi
           
+          ZEPHYR_CMAKE_DIR="$PWD/zephyr/share/zephyr-package/cmake"
+          
           echo "=== Starting ZMK Build ==="
           
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
-            -DSHIELD=prospector_scanner
+            -DSHIELD=prospector_scanner \
+            -DZephyr_DIR="$ZEPHYR_CMAKE_DIR" # <-- ZephyrConfig.cmake を見つけさせるための最終手段
           
           echo "=== Convert and Finalize ==="
 
