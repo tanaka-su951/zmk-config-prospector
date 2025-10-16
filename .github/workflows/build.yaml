@@ -8,11 +8,10 @@ jobs:
     permissions:
       contents: read
     
-    # ★★★ ZMKメインリポジトリ内のビルドワークフローを直接呼び出す形式に変更 ★★★
-    # ZMKの最も安定した公式ビルド形式です。
+    # ZMKメインリポジトリ内のビルドワークフローを呼び出す
     uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main 
     
     with:
-      # ボードとシールドの名前を引数として渡す
-      board: seeeduino_xiao_ble
-      shield: prospector_scanner
+      # ★★★ ZMKワークフローの入力パラメータ名に修正 ★★★
+      primary_board: seeeduino_xiao_ble
+      set_shield: prospector_scanner
