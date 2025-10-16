@@ -1,4 +1,4 @@
-name: Build Prospector Firmware (Local)
+name: Build Prospector Firmware (Official Template)
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -6,111 +6,43 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: zmkfirmware/zmk-build-arm:stable
+      # ★★★ 変更点 1: GHCR の公式 ZMK ビルドイメージを使用 ★★★
+      image: ghcr.io/zmkfirmware/zmk-build-arm:stable 
       options: --user root
 
     steps:
-      - name: Free Disk Space (Custom)
-        run: |
-          echo "Removing large packages and caches to free space..."
-          rm -rf /usr/local/lib/android
-          rm -rf /usr/share/dotnet
-          apt clean
-          rm -rf /var/lib/apt/lists/*
-          echo "Disk space freed."
-        shell: bash
-
-      - name: Install Python Venv (Separate for apt)
-        run: |
-          apt update
-          apt install -y python3.12-venv || apt install -y python3-venv
-        shell: bash
-
-      - name: Checkout ZMK Repository
-        uses: actions/checkout@v4
-        with:
-          repository: zmkfirmware/zmk
-          ref: main 
-          path: zmk
-
+      # ----------------------------------------------------
+      # ディスククリーンアップは削除 (公式コンテナは通常、サイズが適切に調整されているため)
+      # ----------------------------------------------------
+      
+      # ----------------------------------------------------
+      # ★★★ 変更点 2: ZMK および Zephyr のチェックアウトを簡素化 ★★★
+      # west update を実行しないことで、競合を避ける
+      # ----------------------------------------------------
       - name: Checkout Custom Config
         uses: actions/checkout@v4
         with:
+          # config ディレクトリのみをチェックアウト
           path: config
 
-      - name: Prepare Environment and Files
-        run: |
-          CONFIG_DIR="config"
-
-          echo "=== 1. Setup west workspace and west.yml ==="
-          
-          cat << EOF > $CONFIG_DIR/west.yml
-          manifest:
-            remotes:
-              - name: zmkfirmware
-                url-base: https://github.com/zmkfirmware
-            projects:
-              - name: zmk
-                remote: zmkfirmware
-                revision: main
-                import: app/west.yml
-            self:
-              path: config
-          EOF
-
-          west init -l $CONFIG_DIR
-          west update
-          
-          echo "=== 2. Export Zephyr/ZMK Environment Variables to GITHUB_ENV ==="
-          west zephyr-export
-          
-          # ZMK_CONFIG でカスタム設定ディレクトリを指定
-          echo "ZMK_CONFIG=$PWD/$CONFIG_DIR" >> $GITHUB_ENV
-          echo "ZEPHYR_MODULES=$PWD/zmk" >> $GITHUB_ENV
-          
-          # Python venv のセットアップ
-          /usr/bin/python3 -m venv zmk-env
-          
-          REQUIREMENTS_FILE=$(find zmk -name "requirements.txt" -print -quit)
-          if [ -n "$REQUIREMENTS_FILE" ]; then
-            source zmk-env/bin/activate
-            pip install -r "$REQUIREMENTS_FILE"
-            deactivate
-          fi
-          source zmk-env/bin/activate
-          pip install pyyaml pykwalify
-          deactivate
-
-        shell: bash
-
+      # ----------------------------------------------------
+      # ★★★ 変更点 3: 環境構築ステップを削除・簡素化 ★★★
+      # west init/update、venv のインストール/アクティベートは全てコンテナに任せる
+      # ----------------------------------------------------
+      
       - name: Perform ZMK Build
         run: |
-          # 環境変数をシェルで強制エクスポート
-          export ZEPHYR_MODULES="$ZEPHYR_MODULES"
-          export ZMK_CONFIG="$ZMK_CONFIG" 
+          CONFIG_DIR="config"
           
-          # Python Venv のアクティベート
-          source zmk-env/bin/activate
+          echo "=== Export ZMK_CONFIG Path ==="
+          # ZMK_CONFIG のみ、ビルド前にシェルにエクスポートする
+          export ZMK_CONFIG="$PWD/$CONFIG_DIR"
           
-          # zephyr-env.sh を source (環境変数を設定)
-          ZEPHYR_ENV_SCRIPT="$PWD/zephyr/zephyr-env.sh"
-          if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
-              echo "Sourcing $ZEPHYR_ENV_SCRIPT to finalize environment setup."
-              source "$ZEPHYR_ENV_SCRIPT"
-          fi
-          
-          ZEPHYR_CMAKE_DIR="$PWD/zephyr/share/zephyr-package/cmake"
-          ZEPHYR_ROOT_DIR="$PWD/zephyr"
-          
-          echo "=== Starting ZMK Build (FULL Injection) ==="
-          
-          # Zephyrのコアパスとツールチェーンパスをすべて引数として渡す
-          west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
-            -DSHIELD=prospector_scanner \
-            -DZephyr_DIR="$ZEPHYR_CMAKE_DIR" \
-            -DZEPHYR_BASE="$ZEPHYR_ROOT_DIR" \
-            -DZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb \
-            -DGNUARMEMB_TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb" # <-- ツールチェーンパスを再注入
+          # 環境変数 $ZMK_CONFIG を使用してビルドを実行
+          echo "=== Starting ZMK Build ==="
+          # west build -s $ZEPHYR_BASE/zmk/app -b ... の形式に変更し、コンテナの内部設定に依存
+          west build -s /opt/zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
+            -DSHIELD=prospector_scanner
           
           echo "=== Convert and Finalize ==="
 
@@ -119,7 +51,8 @@ jobs:
 
           if [ -f "$BIN_PATH" ]; then
             echo "Converting ELF → UF2"
-            python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
+            # ZMK ツールチェーンに存在する Python を使用
+            python3 /opt/zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
           else
             echo "FATAL: Build failed, zephyr.elf not found."
             ls -R build/prospector_scanner
