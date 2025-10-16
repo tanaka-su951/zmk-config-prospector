@@ -6,15 +6,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      # ★★★ ここを変更 ★★★
-      image: ghcr.io/zephyrproject-rtos/zephyr-build:latest
+      # ★★★ ghcr.io/zephyrproject-rtos/zephyr-build:main に変更 ★★★
+      image: ghcr.io/zephyrproject-rtos/zephyr-build:main
       options: --user root
 
     steps:
       - name: Install Python Venv (Separate for apt)
         run: |
-          # apt の環境が変わる可能性があるため、apt update は残します
           apt update
+          # ghcr.io コンテナには既に python3-venv が含まれている可能性が高いですが、念のため実行します
           apt install -y python3.12-venv || apt install -y python3-venv
         shell: bash
 
@@ -28,7 +28,7 @@ jobs:
       - name: Checkout Custom Config
         uses: actions/checkout@v4
         with:
-          path: config # カスタム設定を 'config' フォルダにチェックアウト
+          path: config
 
       - name: Prepare Environment and Files
         run: |
@@ -59,9 +59,8 @@ jobs:
           # west zephyr-export は Zephyr SDK コンテナでは不要な場合があるが、念のため実行
           west zephyr-export
           
-          # 環境変数を $GITHUB_ENV に永続化 (Zephyr SDK コンテナの環境変数に合わせます)
+          # 環境変数を $GITHUB_ENV に永続化
           echo "ZEPHYR_MODULES=$PWD/zmk;$PWD/$CONFIG_DIR" >> $GITHUB_ENV
-          # ZEPHYR_TOOLCHAIN_VARIANTとGNUARMEMB_TOOLCHAIN_PATHは Zephyr SDK コンテナが自動で設定するため、ここでは省略します。
           
           # Python venv のセットアップ
           /usr/bin/python3 -m venv zmk-env
@@ -80,14 +79,13 @@ jobs:
 
       - name: Perform ZMK Build
         run: |
-          # 環境変数をシェルで再エクスポート (Zephyr SDK コンテナ環境では、SDK初期化スクリプトが自動で実行されるため、ZEPHYR_MODULESのみを再設定します)
+          # 環境変数をシェルで再エクスポート
           export ZEPHYR_MODULES="$ZEPHYR_MODULES"
           
           # Python Venv のアクティベート
           source zmk-env/bin/activate
           
-          # Zephyr SDK コンテナでは、SDK環境変数は通常自動でロードされます。
-          # zephyr-env.sh は west update の結果であるため、引き続き source します。
+          # zephyr-env.sh を source 
           ZEPHYR_ENV_SCRIPT="$PWD/zephyr/zephyr-env.sh"
           if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
               echo "Sourcing $ZEPHYR_ENV_SCRIPT to finalize environment setup."
@@ -99,6 +97,7 @@ jobs:
           
           echo "=== Starting ZMK Build ==="
           
+          # Zephyr_DIR と ZEPHYR_BASE を直接渡す最後の手段は維持
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=prospector_scanner \
             -DZephyr_DIR="$ZEPHYR_CMAKE_DIR" \
