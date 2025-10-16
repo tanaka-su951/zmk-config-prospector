@@ -6,14 +6,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      # Docker Hub イメージを維持
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
     steps:
-      # ----------------------------------------------------
-      # 1. ディスククリーンアップ
-      # ----------------------------------------------------
       - name: Free Disk Space (Custom)
         run: |
           echo "Removing large packages and caches to free space..."
@@ -24,9 +20,6 @@ jobs:
           echo "Disk space freed."
         shell: bash
       
-      # ----------------------------------------------------
-      # 2. 依存関係のチェックアウトと west の初期化を復元
-      # ----------------------------------------------------
       - name: Checkout ZMK Repository
         uses: actions/checkout@v4
         with:
@@ -45,7 +38,6 @@ jobs:
 
           echo "=== 1. Setup west workspace and west.yml ==="
           
-          # west.yml の書き込み
           cat << EOF > $CONFIG_DIR/west.yml
           manifest:
             remotes:
@@ -60,21 +52,14 @@ jobs:
               path: config
           EOF
 
-          # west init と update を実行し、環境を構築
           west init -l $CONFIG_DIR
           west update
           
           echo "=== 2. Export ZMK_CONFIG Path ==="
-          # ZMK_CONFIG でカスタム設定ディレクトリを指定
           echo "ZMK_CONFIG=$PWD/$CONFIG_DIR" >> $GITHUB_ENV
-          
-          # venv のインストールを削除 (コンテナ内の Python に依存)
 
         shell: bash
 
-      # ----------------------------------------------------
-      # 3. ビルド実行
-      # ----------------------------------------------------
       - name: Perform ZMK Build
         run: |
           # ZMK_CONFIG をシェルにエクスポート
@@ -87,11 +72,16 @@ jobs:
               source "$ZEPHYR_ENV_SCRIPT"
           fi
           
-          echo "=== Starting ZMK Build ==="
+          ZEPHYR_CMAKE_DIR="$PWD/zephyr/share/zephyr-package/cmake"
+          ZEPHYR_ROOT_DIR="$PWD/zephyr"
           
-          # west build を実行。すべてのパスは west の初期化と source で設定される前提
+          echo "=== Starting ZMK Build (Zephyr Path Injection) ==="
+          
+          # Zephyrのコアパスを引数として注入
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
-            -DSHIELD=prospector_scanner
+            -DSHIELD=prospector_scanner \
+            -DZephyr_DIR="$ZEPHYR_CMAKE_DIR" \
+            -DZEPHYR_BASE="$ZEPHYR_ROOT_DIR" # <-- 再注入
           
           echo "=== Convert and Finalize ==="
 
@@ -100,7 +90,6 @@ jobs:
 
           if [ -f "$BIN_PATH" ]; then
             echo "Converting ELF → UF2"
-            # Python スクリプトはローカルにチェックアウトされた ZMK から実行
             python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "$UF2_PATH"
           else
             echo "FATAL: Build failed, zephyr.elf not found."
