@@ -2,34 +2,28 @@ name: Build Prospector Firmware (Official Template)
 
 on: [push, pull_request, workflow_dispatch]
 
+# ★★★ 認証権限の追加 ★★★
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      # ★★★ 変更点 1: GHCR の公式 ZMK ビルドイメージを使用 ★★★
       image: ghcr.io/zmkfirmware/zmk-build-arm:stable 
       options: --user root
 
     steps:
       # ----------------------------------------------------
-      # ディスククリーンアップは削除 (公式コンテナは通常、サイズが適切に調整されているため)
+      # ★★★ 前回提示した、クリーンで簡潔なZMK公式テンプレートのステップを使用します ★★★
       # ----------------------------------------------------
       
-      # ----------------------------------------------------
-      # ★★★ 変更点 2: ZMK および Zephyr のチェックアウトを簡素化 ★★★
-      # west update を実行しないことで、競合を避ける
-      # ----------------------------------------------------
       - name: Checkout Custom Config
         uses: actions/checkout@v4
         with:
-          # config ディレクトリのみをチェックアウト
           path: config
 
-      # ----------------------------------------------------
-      # ★★★ 変更点 3: 環境構築ステップを削除・簡素化 ★★★
-      # west init/update、venv のインストール/アクティベートは全てコンテナに任せる
-      # ----------------------------------------------------
-      
       - name: Perform ZMK Build
         run: |
           CONFIG_DIR="config"
