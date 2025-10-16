@@ -4,11 +4,10 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    # ★★★ 変更点: 標準の ubuntu-latest に戻す ★★★
     runs-on: ubuntu-latest
     container:
-      # Zephyr 公式コンテナの使用は継続
-      image: ghcr.io/zephyrproject-rtos/zephyr-build:main
+      # ★★★ 変更点: ZMK 公式コンテナに戻す ★★★
+      image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
     steps:
@@ -24,7 +23,8 @@ jobs:
           haskell: true
           large-packages: true
           swap-storage: true # これにより、Zephyr SDKの解凍に必要なスペースを確保します。
-
+      
+      # ... (以下のステップはすべて、以前の環境問題を回避するために確立されたロジックを維持します)
       - name: Install Python Venv (Separate for apt)
         run: |
           apt update
