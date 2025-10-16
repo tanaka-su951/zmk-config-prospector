@@ -23,26 +23,42 @@ jobs:
           ref: main 
           path: zmk
 
-      - name: Checkout Custom Config (prospector)
+      - name: Checkout Custom Config
         uses: actions/checkout@v4
         with:
-          path: prospector_config # カスタム設定リポジトリ
+          path: config # カスタム設定を 'config' フォルダにチェックアウト
 
       - name: Initialize and Build ZMK Firmware (Integrated)
         run: |
           SHIELD_NAME="prospector_scanner"
-          CONFIG_SRC="prospector_config"
+          CONFIG_DIR="config"
+
+          echo "=== 1. Setup west workspace and west.yml ==="
           
-          echo "=== 1. Initialize west workspace ==="
-          # ZMK の公式 west.yml を使用して west init を実行
-          west init -l zmk
+          # west init が config/west.yml を見つけられるように、これを config フォルダに書き込む
+          cat << EOF > $CONFIG_DIR/west.yml
+          manifest:
+            remotes:
+              - name: zmkfirmware
+                url-base: https://github.com/zmkfirmware
+            projects:
+              - name: zmk
+                remote: zmkfirmware
+                revision: main
+                import: app/west.yml
+            self:
+              path: config
+          EOF
+
+          # west init -l config でローカルの west.yml を使用
+          west init -l $CONFIG_DIR
           west update
           
           echo "=== 2. Export Zephyr/ZMK Environment Variables ==="
           west zephyr-export
           
-          # ZEPHYR_MODULES とツールチェーンパスを明示的にエクスポート
-          export ZEPHYR_MODULES="$PWD/zmk"
+          # 環境変数設定
+          export ZEPHYR_MODULES="$PWD/zmk;$PWD/$CONFIG_DIR" # ZMK とカスタム設定の両方をモジュールとして指定
           export ZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb
           export GNUARMEMB_TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb"
           
@@ -62,27 +78,13 @@ jobs:
           fi
           pip install pyyaml pykwalify
           
-          echo "=== 3. Prepare Configuration Files (Copy into ZMK) ==="
-          rm -rf build/prospector_scanner
+          echo "=== 3. Start ZMK Build (ZEPHYR_EXTRA_MODULES style) ==="
           
-          # 設定ファイルが ZMK の app/boards/shields の下にコピーされるように構造を作成
-          SHIELD_DEST="zmk/app/boards/shields/$SHIELD_NAME"
-          mkdir -p $SHIELD_DEST
-          
-          # シールド設定ファイルを ZMK の app/boards/shields の下にコピー
-          cp $CONFIG_SRC/boards/shields/$SHIELD_NAME/$SHIELD_NAME.conf $SHIELD_DEST/$SHIELD_NAME.conf
-          cp $CONFIG_SRC/boards/shields/$SHIELD_NAME/Kconfig $SHIELD_DEST/Kconfig
-          
-          # prj.conf を ZMK の app のルートにコピー
-          cp $CONFIG_SRC/prj.conf zmk/app/prj.conf 
-
-          echo "=== 4. Start ZMK Build (Official Structure) ==="
-          
-          # ZMK_CONFIG も EXTRA_CONF_FILE も不要、ZMK の app ディレクトリと DSHIELD のみ
+          # ZMK_CONFIG は不要 (カスタム設定を ZEPHYR_MODULES 経由で渡すため)
           west build -s zmk/app -b seeeduino_xiao_ble -d build/prospector_scanner -- \
             -DSHIELD=$SHIELD_NAME
           
-          echo "=== 5. Convert and Finalize ==="
+          echo "=== 4. Convert and Finalize ==="
 
           BIN_PATH="build/prospector_scanner/zephyr/zephyr.elf"
           UF2_PATH="build/prospector_scanner/zmk.uf2"
