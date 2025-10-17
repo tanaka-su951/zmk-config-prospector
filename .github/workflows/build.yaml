@@ -1,4 +1,4 @@
-name: Build Prospector Firmware (Final Working Template)
+name: Build Prospector Firmware (Final Working Solution with Path Prefix)
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -6,11 +6,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
+      # ZMK ツールチェーンがプリインストールされた安定の Docker Hub イメージを使用
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
     steps:
-      # 1. クリーンアップとチェックアウト
+      # 1. クリーンアップとチェックアウト (変更なし)
       - name: Free Disk Space (Custom)
         run: |
           rm -rf /usr/local/lib/android /usr/share/dotnet
@@ -21,9 +22,8 @@ jobs:
       - name: Checkout Custom Config
         uses: actions/checkout@v4
         with:
-          path: config # カスタム設定を config/ に配置
+          path: config
 
-      # ZMKリポジトリをチェックアウト
       - name: Checkout ZMK Repository
         uses: actions/checkout@v4
         with:
@@ -36,9 +36,6 @@ jobs:
         run: |
           CONFIG_DIR="config"
 
-          echo "=== 1. Setup west workspace and west.yml ==="
-          
-          # west.yml を作成
           cat << EOF > $CONFIG_DIR/west.yml
           manifest:
             remotes:
@@ -53,23 +50,20 @@ jobs:
               path: config
           EOF
 
-          # west init を ZMK ワークスペースのルート (./) で実行
           west init -l $CONFIG_DIR
           west update
           
-          # 環境変数を設定
           echo "ZMK_CONFIG=$PWD/$CONFIG_DIR" >> $GITHUB_ENV
-          echo "ZEPHYR_BASE=$PWD/zephyr" >> $GITHUB_ENV # west update が Zephyr をルートに配置すると仮定
+          echo "ZEPHYR_BASE=$PWD/zephyr" >> $GITHUB_ENV
           
         shell: bash
 
       # 3. ビルド実行と環境の初期化
-      - name: Perform ZMK Build (Final Build)
+      - name: Perform ZMK Build (Final Path Injection)
         run: |
           export ZMK_CONFIG="$ZMK_CONFIG" 
           export ZEPHYR_BASE="$ZEPHYR_BASE"
 
-          # zephyr-env.sh を source し、パスを環境変数にロード
           ZEPHYR_ENV_SCRIPT="$ZEPHYR_BASE/zephyr-env.sh"
           
           if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
@@ -80,12 +74,19 @@ jobs:
               exit 1
           fi
 
+          # ★★★ 修正: CMAKE_PREFIX_PATH を明示的に設定 ★★★
+          ZEPHYR_CMAKE_DIR="$ZEPHYR_BASE/share/zephyr-package/cmake"
+          export CMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH:$ZEPHYR_CMAKE_DIR"
+          
+          # 環境変数としてツールチェーンパスも設定（念のため）
+          export GNUARMEMB_TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb"
+
+
           echo "=== Starting ZMK Build ==="
           
           rm -rf build/final_attempt
 
-          # west build をシンプルな形で実行
-          # シールド設定なしで、ボード単体ビルドを試行
+          # west build をシンプルな形で実行 (パスはシェル環境変数から解決される)
           west build -s zmk/app -b seeeduino_xiao_ble -d build/final_attempt
           
           echo "=== Convert and Finalize ==="
