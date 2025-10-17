@@ -1,4 +1,4 @@
-name: Build Prospector Firmware (Final Working Solution - Command Fix)
+name: Build Prospector Firmware (Final Working Solution - Command Clean)
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -10,7 +10,7 @@ jobs:
       options: --user root
 
     steps:
-      # 1. クリーンアップとチェックアウト (省略)
+      # 1. クリーンアップとチェックアウト (変更なし)
       - name: Free Disk Space (Custom)
         run: |
           rm -rf /usr/local/lib/android /usr/share/dotnet
@@ -60,7 +60,14 @@ jobs:
           export ZEPHYR_BASE="$ZEPHYR_BASE"
 
           ZEPHYR_ENV_SCRIPT="$ZEPHYR_BASE/zephyr-env.sh"
-          source "$ZEPHYR_ENV_SCRIPT"
+          
+          if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
+              echo "SUCCESS: Zephyr environment script found. Sourcing..."
+              source "$ZEPHYR_ENV_SCRIPT"
+          else
+              echo "FATAL: zephyr-env.sh not found. west update failed to fetch Zephyr."
+              exit 1
+          fi
 
           # CMAKE_PREFIX_PATH を明示的に設定
           ZEPHYR_CMAKE_DIR="$ZEPHYR_BASE/share/zephyr-package/cmake"
@@ -72,8 +79,8 @@ jobs:
           
           rm -rf build/final_attempt
 
-          # ★★★ 修正: west build の -v オプションを先頭に移動 ★★★
-          west build -v -s zmk/app -b seeeduino_xiao_ble -d build/final_attempt
+          # ★★★ 修正: -v オプションを削除し、クリーンなコマンドを実行 ★★★
+          west build -s zmk/app -b seeeduino_xiao_ble -d build/final_attempt
           
           echo "=== Convert and Finalize ==="
 
@@ -82,9 +89,10 @@ jobs:
             echo "SUCCESS: Build completed! Converting to UF2..."
             python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "build/final_attempt/zephyr.uf2"
           else
-            echo "FATAL: Build failed. Showing logs for compile errors:"
-            # コンパイルエラーのログファイル（もしあれば）を表示する試み
+            echo "FATAL: Build failed. Showing logs for errors:"
+            # エラーログを表示
             cat build/final_attempt/CMakeFiles/CMakeError.log 2>/dev/null || true
+            cat build/final_attempt/zephyr/zephyr.log 2>/dev/null || true
             exit 1
           fi
         shell: bash
