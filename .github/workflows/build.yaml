@@ -1,4 +1,4 @@
-Name: Build Prospector Firmware (Final Solution - Stable ZMK)
+name: Build Prospector Firmware (Final Solution - Stable ZMK)
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: zmkfirmware/zmk
-          # ★ 修正: 存在しない v3.6.0 から安定ブランチ 'main' へ変更
+          # ★ 修正済み: 存在しないタグから安定版ブランチ 'main' へ変更
           ref: main 
           path: zmk
 
@@ -44,7 +44,7 @@ jobs:
             projects:
               - name: zmk
                 remote: zmkfirmware
-                # ★ 修正: チェックアウトと同じ 'main' に変更
+                # ★ 修正済み: チェックアウトと同じ 'main' に変更
                 revision: main
                 import: app/west.yml
             self:
