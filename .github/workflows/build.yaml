@@ -1,4 +1,4 @@
-name: Build Prospector Firmware (Final Manual Setup with Auth)
+name: Build Prospector Firmware (Final Manual Setup with Correct URL)
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -11,7 +11,7 @@ jobs:
       options: --user root
 
     steps:
-      # 1. クリーンアップとチェックアウト
+      # 1. クリーンアップとチェックアウト (変更なし)
       - name: Free Disk Space (Custom)
         run: |
           rm -rf /usr/local/lib/android /usr/share/dotnet
@@ -32,13 +32,14 @@ jobs:
         run: |
           echo "=== ZMK/Zephyr Manual Setup ==="
           
-          # ★★★ 修正: GITHUB_TOKEN を使用してクローン ★★★
-          # トークンをURLに埋め込むことで、認証を強制する
+          # ZMK リポジトリ (認証を使用)
           ZMK_REPO="https://x-access-token:$GH_TOKEN@github.com/zmkfirmware/zmk"
-          ZEPHYR_REPO="https://x-access-token:$GH_TOKEN@github.com/zephyrproject/zephyr"
+          # ★★★ 修正: Zephyr の URL を zephyrproject-rtos に変更 ★★★
+          ZEPHYR_REPO="https://x-access-token:$GH_TOKEN@github.com/zephyrproject-rtos/zephyr" 
 
           # ZMK と Zephyr のソースコードを Git で直接取得
           git clone --depth 1 -b main $ZMK_REPO zmk
+          # ZMK のメインブランチが参照する Zephyr の安定版 v3.5.0 を取得
           git clone --depth 1 -b v3.5.0 $ZEPHYR_REPO zephyr
 
           # ZMK のサブモジュールを更新 (west update の代わり)
@@ -46,7 +47,7 @@ jobs:
           git submodule update --init --recursive
           cd ..
           
-          # Zephyr 環境変数を設定 (ビルドに必須)
+          # Zephyr 環境変数を設定
           echo "ZEPHYR_BASE=$PWD/zephyr" >> $GITHUB_ENV
           
           # ZMK CONFIG パスを設定
@@ -67,7 +68,7 @@ jobs:
               echo "SUCCESS: Zephyr environment script found. Sourcing..."
               source "$ZEPHYR_ENV_SCRIPT"
           else
-              echo "FATAL: zephyr/zephyr-env.sh not found. This should not happen."
+              echo "FATAL: zephyr/zephyr-env.sh not found. Manual clone failed."
               exit 1
           fi
 
@@ -79,7 +80,7 @@ jobs:
           # west build をシンプルな形で実行
           west build -s zmk/app -b seeeduino_xiao_ble -d build/final_attempt
           
-          echo "=== Convert and Finalize ==ILING_DIR ==="
+          echo "=== Convert and Finalize ==="
 
           BIN_PATH="build/final_attempt/zephyr/zephyr.elf"
           if [ -f "$BIN_PATH" ]; then
