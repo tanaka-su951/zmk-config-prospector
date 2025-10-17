@@ -1,4 +1,4 @@
-name: Build Prospector Firmware (Final Solution - YAML Fix)
+name: Build Prospector Firmware (Final Working Solution - Command Fix)
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -6,12 +6,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      # ZMK ツールチェーンがプリインストールされた安定の Docker Hub イメージを使用
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
     steps:
-      # 1. クリーンアップとチェックアウト (変更なし)
+      # 1. クリーンアップとチェックアウト (省略)
       - name: Free Disk Space (Custom)
         run: |
           rm -rf /usr/local/lib/android /usr/share/dotnet
@@ -31,14 +30,10 @@ jobs:
           ref: main 
           path: zmk
 
-      # 2. west 初期化と依存関係の解決 (west.yml 修正)
-      - name: Initialize West and Update Modules (Fix west.yml)
+      # 2. west 初期化と依存関係の解決 (変更なし)
+      - name: Initialize West and Update Modules (Standard ZMK Flow)
         run: |
           CONFIG_DIR="config"
-
-          echo "=== 1. Setup west workspace and west.yml ==="
-          
-          # ★★★ 修正: manifest: キーをルートに追加し、構文を修正 ★★★
           cat << EOF > $CONFIG_DIR/west.yml
           manifest:
             remotes:
@@ -52,15 +47,10 @@ jobs:
             self:
               path: config
           EOF
-
-          # west init を ZMK ワークスペースのルート (./) で実行
           west init -l $CONFIG_DIR
           west update
-          
-          # 環境変数を設定
           echo "ZMK_CONFIG=$PWD/$CONFIG_DIR" >> $GITHUB_ENV
           echo "ZEPHYR_BASE=$PWD/zephyr" >> $GITHUB_ENV
-          
         shell: bash
 
       # 3. ビルド実行と環境の初期化
@@ -70,14 +60,7 @@ jobs:
           export ZEPHYR_BASE="$ZEPHYR_BASE"
 
           ZEPHYR_ENV_SCRIPT="$ZEPHYR_BASE/zephyr-env.sh"
-          
-          if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
-              echo "SUCCESS: Zephyr environment script found. Sourcing..."
-              source "$ZEPHYR_ENV_SCRIPT"
-          else
-              echo "FATAL: zephyr-env.sh not found. west update failed to fetch Zephyr."
-              exit 1
-          fi
+          source "$ZEPHYR_ENV_SCRIPT"
 
           # CMAKE_PREFIX_PATH を明示的に設定
           ZEPHYR_CMAKE_DIR="$ZEPHYR_BASE/share/zephyr-package/cmake"
@@ -89,8 +72,8 @@ jobs:
           
           rm -rf build/final_attempt
 
-          # west build を実行
-          west build -s zmk/app -b seeeduino_xiao_ble -d build/final_attempt -v
+          # ★★★ 修正: west build の -v オプションを先頭に移動 ★★★
+          west build -v -s zmk/app -b seeeduino_xiao_ble -d build/final_attempt
           
           echo "=== Convert and Finalize ==="
 
@@ -99,7 +82,9 @@ jobs:
             echo "SUCCESS: Build completed! Converting to UF2..."
             python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "build/final_attempt/zephyr.uf2"
           else
-            echo "FATAL: Build failed. Check logs carefully."
+            echo "FATAL: Build failed. Showing logs for compile errors:"
+            # コンパイルエラーのログファイル（もしあれば）を表示する試み
+            cat build/final_attempt/CMakeFiles/CMakeError.log 2>/dev/null || true
             exit 1
           fi
         shell: bash
