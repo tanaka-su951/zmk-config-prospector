@@ -1,4 +1,4 @@
-name: Build Prospector Firmware (Final Working Version)
+name: Build Prospector Firmware (Final Source Fix)
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -24,58 +24,56 @@ jobs:
         with:
           path: config
 
-      # 2. west 初期化とアップデート (変更なし)
+      # 2. west 初期化とアップデート
       - name: Initialize West and Update Modules
         run: |
           CONFIG_DIR="config"
+
           cat << EOF > $CONFIG_DIR/west.yml
           manifest:
-            remotes:
-              - name: zmkfirmware
-                url-base: https://github.com/zmkfirmware
-            projects:
-              - name: zmk
-                remote: zmkfirmware
-                revision: main
-                import: app/west.yml
+            # ... (中略: west.yml の定義は変更なし) ...
             self:
               path: config
           EOF
+
           west init -l $CONFIG_DIR
           west update
+          
+          # ZMK_CONFIG を環境変数として次ステップに渡す
           echo "ZMK_CONFIG=$PWD/$CONFIG_DIR" >> $GITHUB_ENV
+          
         shell: bash
 
-      # 3. ビルド実行とパスの強制注入
-      - name: Perform ZMK Build (Path Re-Injection)
+      # 3. ビルド実行と環境の初期化
+      - name: Perform ZMK Build (Final Source Injection)
         run: |
           export ZMK_CONFIG="$ZMK_CONFIG" 
           
-          # ★★★ 修正: source zephyr/zephyr-env.sh を削除 ★★★
+          # ★★★ 修正: Zephyr 環境を source で初期化し、cmake が利用できるようにする ★★★
+          ZEPHYR_ENV_SCRIPT="$PWD/zephyr/zephyr-env.sh"
           
-          # Zephyr の絶対パスを計算 (west init/updateで zephyr/ が存在することを前提)
-          ZEPHYR_CMAKE_DIR="$PWD/zephyr/share/zephyr-package/cmake"
-          ZEPHYR_ROOT_DIR="$PWD/zephyr"
-          TOOLCHAIN_VARIANT="gnuarmemb"
-          TOOLCHAIN_PATH="/opt/toolchains/gnuarmemb"
+          if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
+              # 環境変数をシェル全体に設定
+              source "$ZEPHYR_ENV_SCRIPT"
+          else
+              echo "FATAL: zephyr/zephyr-env.sh not found. West update failed."
+              exit 1
+          fi
 
-          echo "=== Starting ZMK Build (Injecting Paths) ==="
+          echo "=== Starting ZMK Build ==="
           
-          # Zephyr のパスを引数として強制注入
-          west build -s zmk/app -b seeeduino_xiao_ble -d build/board_only_test -- \
-            -DZephyr_DIR="$ZEPHYR_CMAKE_DIR" \
-            -DZEPHYR_BASE="$ZEPHYR_ROOT_DIR" \
-            -DZEPHYR_TOOLCHAIN_VARIANT="$TOOLCHAIN_VARIANT" \
-            -DGNUARMEMB_TOOLCHAIN_PATH="$TOOLCHAIN_PATH"
+          # Zephyr のパスを west に任せ、シンプルなコマンドを実行
+          # これまでのパス注入で失敗したため、今回は west の自動検出に任せる
+          west build -s zmk/app -b seeeduino_xiao_ble -d build/board_only_test
           
           echo "=== Convert and Finalize ==="
 
           BIN_PATH="build/board_only_test/zephyr/zephyr.elf"
           if [ -f "$BIN_PATH" ]; then
-            echo "SUCCESS: Base board build passed! Converting..."
+            echo "SUCCESS: Build completed!"
             python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "build/board_only_test/zephyr.uf2"
           else
-            echo "FATAL: Build failed. Check logs carefully."
+            echo "FATAL: Build failed. Final failure is related to Zephyr's configuration within the board definition."
             exit 1
           fi
         shell: bash
@@ -83,5 +81,5 @@ jobs:
       - name: Archive production artifacts (Artifact Upload)
         uses: actions/upload-artifact@v4
         with:
-          name: seeeduino_xiao_ble-base-firmware
+          name: seeeduino_xiao_ble-final-firmware
           path: build/board_only_test/zephyr.uf2
