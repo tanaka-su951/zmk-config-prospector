@@ -1,4 +1,4 @@
-name: Build Prospector Firmware (Final Manual Setup)
+name: Build Prospector Firmware (Final Manual Setup with Auth)
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -11,7 +11,7 @@ jobs:
       options: --user root
 
     steps:
-      # 1. ディスク容量のクリーンアップ (変更なし)
+      # 1. クリーンアップとチェックアウト
       - name: Free Disk Space (Custom)
         run: |
           rm -rf /usr/local/lib/android /usr/share/dotnet
@@ -19,21 +19,27 @@ jobs:
           rm -rf /var/lib/apt/lists/*
         shell: bash
 
-      # 2. カスタム設定をワークスペースのルートにチェックアウト
       - name: Checkout Custom Config
         uses: actions/checkout@v4
         with:
           path: config
 
-      # 3. ZMK 環境の手動セットアップ (west を使わない)
+      # 2. ZMK 環境の手動セットアップと認証の組み込み
       - name: Manual ZMK/Zephyr Setup
+        env:
+          # GITHUB_TOKEN を環境変数として利用可能にする
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "=== ZMK/Zephyr Manual Setup ==="
+          
+          # ★★★ 修正: GITHUB_TOKEN を使用してクローン ★★★
+          # トークンをURLに埋め込むことで、認証を強制する
+          ZMK_REPO="https://x-access-token:$GH_TOKEN@github.com/zmkfirmware/zmk"
+          ZEPHYR_REPO="https://x-access-token:$GH_TOKEN@github.com/zephyrproject/zephyr"
 
           # ZMK と Zephyr のソースコードを Git で直接取得
-          # ZMK のメインブランチが参照する安定した Zephyr v3.5.0 を取得
-          git clone --depth 1 -b main https://github.com/zmkfirmware/zmk zmk
-          git clone --depth 1 -b v3.5.0 https://github.com/zephyrproject/zephyr zephyr
+          git clone --depth 1 -b main $ZMK_REPO zmk
+          git clone --depth 1 -b v3.5.0 $ZEPHYR_REPO zephyr
 
           # ZMK のサブモジュールを更新 (west update の代わり)
           cd zmk
@@ -48,20 +54,20 @@ jobs:
           
         shell: bash
 
-      # 4. ビルド実行と環境の初期化
+      # 3. ビルド実行と環境の初期化
       - name: Perform ZMK Build (Source and Build)
         run: |
           export ZMK_CONFIG="$ZMK_CONFIG" 
           export ZEPHYR_BASE="$ZEPHYR_BASE"
 
-          # ★★★ 修正: zephyr-env.sh を source し、パスを環境変数にロード ★★★
+          # zephyr-env.sh を source し、パスを環境変数にロード
           ZEPHYR_ENV_SCRIPT="$ZEPHYR_BASE/zephyr-env.sh"
           
           if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
               echo "SUCCESS: Zephyr environment script found. Sourcing..."
               source "$ZEPHYR_ENV_SCRIPT"
           else
-              echo "FATAL: zephyr/zephyr-env.sh not found, despite manual clone."
+              echo "FATAL: zephyr/zephyr-env.sh not found. This should not happen."
               exit 1
           fi
 
@@ -70,10 +76,10 @@ jobs:
           # ビルドディレクトリをクリーンアップ
           rm -rf build/final_attempt
 
-          # west build をシンプルな形で実行 (環境変数が設定されているため、パス注入は不要)
+          # west build をシンプルな形で実行
           west build -s zmk/app -b seeeduino_xiao_ble -d build/final_attempt
           
-          echo "=== Convert and Finalize ==="
+          echo "=== Convert and Finalize ==ILING_DIR ==="
 
           BIN_PATH="build/final_attempt/zephyr/zephyr.elf"
           if [ -f "$BIN_PATH" ]; then
