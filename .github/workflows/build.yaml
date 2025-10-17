@@ -1,4 +1,4 @@
-name: Build Prospector Firmware (Final Working Version)
+name: Build Prospector Firmware (Final Working Template)
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -6,12 +6,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      # ZMK ツールチェーンがプリインストールされた安定の Docker Hub イメージを使用
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
     steps:
-      # 1. クリーンアップとチェックアウト (変更なし)
+      # 1. クリーンアップとチェックアウト
       - name: Free Disk Space (Custom)
         run: |
           rm -rf /usr/local/lib/android /usr/share/dotnet
@@ -24,37 +23,43 @@ jobs:
         with:
           path: config # カスタム設定を config/ に配置
 
-      # 2. ZMK 環境の手動セットアップ (west init の代わり)
-      - name: Manual ZMK/Zephyr Setup
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # ZMKリポジトリをチェックアウト
+      - name: Checkout ZMK Repository
+        uses: actions/checkout@v4
+        with:
+          repository: zmkfirmware/zmk
+          ref: main 
+          path: zmk
+
+      # 2. west 初期化と依存関係の解決 (標準フロー)
+      - name: Initialize West and Update Modules (Standard ZMK Flow)
         run: |
-          echo "=== ZMK/Zephyr Manual Setup ==="
+          CONFIG_DIR="config"
+
+          echo "=== 1. Setup west workspace and west.yml ==="
           
-          # Git Clone URLs
-          ZMK_REPO="https://x-access-token:$GH_TOKEN@github.com/zmkfirmware/zmk"
-          ZEPHYR_REPO="https://x-access-token:$GH_TOKEN@github.com/zephyrproject-rtos/zephyr" 
+          # west.yml を作成
+          cat << EOF > $CONFIG_DIR/west.yml
+          manifest:
+            remotes:
+              - name: zmkfirmware
+                url-base: https://github.com/zmkfirmware
+            projects:
+              - name: zmk
+                remote: zmkfirmware
+                revision: main
+                import: app/west.yml
+            self:
+              path: config
+          EOF
 
-          # ZMK と Zephyr を現在のディレクトリにクローン
-          git clone --depth 1 -b main $ZMK_REPO zmk
-          git clone --depth 1 -b v3.5.0 $ZEPHYR_REPO zephyr
-
-          # ZMK のサブモジュールを更新 (ZMK 依存関係の処理)
-          cd zmk
-          git submodule update --init --recursive
-          cd ..
+          # west init を ZMK ワークスペースのルート (./) で実行
+          west init -l $CONFIG_DIR
+          west update
           
           # 環境変数を設定
-          echo "ZEPHYR_BASE=$PWD/zephyr" >> $GITHUB_ENV
-          echo "ZMK_CONFIG=$PWD/config" >> $GITHUB_ENV
-          
-          # west がワークスペースを認識するための最小限の .west/ フォルダを作成
-          # ZMK の公式アクションがこの方法でワークスペースを認識させます。
-          mkdir .west
-          touch .west/config
-          
-          # west update を実行し、環境設定を完了
-          west update
+          echo "ZMK_CONFIG=$PWD/$CONFIG_DIR" >> $GITHUB_ENV
+          echo "ZEPHYR_BASE=$PWD/zephyr" >> $GITHUB_ENV # west update が Zephyr をルートに配置すると仮定
           
         shell: bash
 
@@ -68,9 +73,10 @@ jobs:
           ZEPHYR_ENV_SCRIPT="$ZEPHYR_BASE/zephyr-env.sh"
           
           if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
+              echo "SUCCESS: Zephyr environment script found. Sourcing..."
               source "$ZEPHYR_ENV_SCRIPT"
           else
-              echo "FATAL: zephyr-env.sh not found."
+              echo "FATAL: zephyr-env.sh not found. west update failed to fetch Zephyr."
               exit 1
           fi
 
@@ -79,6 +85,7 @@ jobs:
           rm -rf build/final_attempt
 
           # west build をシンプルな形で実行
+          # シールド設定なしで、ボード単体ビルドを試行
           west build -s zmk/app -b seeeduino_xiao_ble -d build/final_attempt
           
           echo "=== Convert and Finalize ==="
