@@ -1,4 +1,4 @@
-name: Build Prospector Firmware (Final Manual Setup with Correct URL)
+name: Build Prospector Firmware (Final Working Version)
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -22,41 +22,44 @@ jobs:
       - name: Checkout Custom Config
         uses: actions/checkout@v4
         with:
-          path: config
+          path: config # カスタム設定を config/ に配置
 
-      # 2. ZMK 環境の手動セットアップと認証の組み込み
+      # 2. ZMK 環境の手動セットアップ (west init の代わり)
       - name: Manual ZMK/Zephyr Setup
         env:
-          # GITHUB_TOKEN を環境変数として利用可能にする
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "=== ZMK/Zephyr Manual Setup ==="
           
-          # ZMK リポジトリ (認証を使用)
+          # Git Clone URLs
           ZMK_REPO="https://x-access-token:$GH_TOKEN@github.com/zmkfirmware/zmk"
-          # ★★★ 修正: Zephyr の URL を zephyrproject-rtos に変更 ★★★
           ZEPHYR_REPO="https://x-access-token:$GH_TOKEN@github.com/zephyrproject-rtos/zephyr" 
 
-          # ZMK と Zephyr のソースコードを Git で直接取得
+          # ZMK と Zephyr を現在のディレクトリにクローン
           git clone --depth 1 -b main $ZMK_REPO zmk
-          # ZMK のメインブランチが参照する Zephyr の安定版 v3.5.0 を取得
           git clone --depth 1 -b v3.5.0 $ZEPHYR_REPO zephyr
 
-          # ZMK のサブモジュールを更新 (west update の代わり)
+          # ZMK のサブモジュールを更新 (ZMK 依存関係の処理)
           cd zmk
           git submodule update --init --recursive
           cd ..
           
-          # Zephyr 環境変数を設定
+          # 環境変数を設定
           echo "ZEPHYR_BASE=$PWD/zephyr" >> $GITHUB_ENV
-          
-          # ZMK CONFIG パスを設定
           echo "ZMK_CONFIG=$PWD/config" >> $GITHUB_ENV
+          
+          # west がワークスペースを認識するための最小限の .west/ フォルダを作成
+          # ZMK の公式アクションがこの方法でワークスペースを認識させます。
+          mkdir .west
+          touch .west/config
+          
+          # west update を実行し、環境設定を完了
+          west update
           
         shell: bash
 
       # 3. ビルド実行と環境の初期化
-      - name: Perform ZMK Build (Source and Build)
+      - name: Perform ZMK Build (Final Build)
         run: |
           export ZMK_CONFIG="$ZMK_CONFIG" 
           export ZEPHYR_BASE="$ZEPHYR_BASE"
@@ -65,16 +68,14 @@ jobs:
           ZEPHYR_ENV_SCRIPT="$ZEPHYR_BASE/zephyr-env.sh"
           
           if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
-              echo "SUCCESS: Zephyr environment script found. Sourcing..."
               source "$ZEPHYR_ENV_SCRIPT"
           else
-              echo "FATAL: zephyr/zephyr-env.sh not found. Manual clone failed."
+              echo "FATAL: zephyr-env.sh not found."
               exit 1
           fi
 
           echo "=== Starting ZMK Build ==="
           
-          # ビルドディレクトリをクリーンアップ
           rm -rf build/final_attempt
 
           # west build をシンプルな形で実行
