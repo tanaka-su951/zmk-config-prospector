@@ -79,7 +79,7 @@ jobs:
           
           rm -rf build/final_attempt
 
-          # ★★★ 修正: -v オプションを削除し、クリーンなコマンドを実行 ★★★
+          # west build をシンプルな形で実行
           west build -s zmk/app -b seeeduino_xiao_ble -d build/final_attempt
           
           echo "=== Convert and Finalize ==="
@@ -90,7 +90,7 @@ jobs:
             python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "build/final_attempt/zephyr.uf2"
           else
             echo "FATAL: Build failed. Showing logs for errors:"
-            # エラーログを表示
+            # エラーログを表示 (次回はこの内容が必要です)
             cat build/final_attempt/CMakeFiles/CMakeError.log 2>/dev/null || true
             cat build/final_attempt/zephyr/zephyr.log 2>/dev/null || true
             exit 1
