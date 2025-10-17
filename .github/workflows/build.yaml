@@ -1,4 +1,4 @@
-name: Build Prospector Firmware (Final Working Version)
+name: Build Prospector Firmware (Final Working Solution)
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -11,7 +11,7 @@ jobs:
       options: --user root
 
     steps:
-      # 1. ディスク容量のクリーンアップ (変更なし)
+      # 1. クリーンアップとチェックアウト (変更なし)
       - name: Free Disk Space (Custom)
         run: |
           rm -rf /usr/local/lib/android /usr/share/dotnet
@@ -19,70 +19,75 @@ jobs:
           rm -rf /var/lib/apt/lists/*
         shell: bash
 
-      # 2. カスタム設定をワークスペースのルートにチェックアウト
       - name: Checkout Custom Config
         uses: actions/checkout@v4
         with:
-          # ★★★ 修正: path: config を削除。設定ファイルをルートに置く ★★★
           path: . 
-          
-      # 3. west 初期化とアップデート
+
+      # 2. west 初期化とアップデート
       - name: Initialize West and Update Modules
         run: |
-          CONFIG_DIR="." # config はルート (./) にある
+          CONFIG_DIR="."
 
           echo "=== 1. Setup west workspace and west.yml ==="
           
-          # west.yml は config/west.yml ではなく、./west.yml に配置
+          # ★★★ 修正: Zephyr プロジェクトを明示的に追加 ★★★
           cat << EOF > west.yml
           manifest:
             remotes:
               - name: zmkfirmware
                 url-base: https://github.com/zmkfirmware
+              - name: zephyr
+                url-base: https://github.com/zephyrproject
             projects:
+              - name: zephyr # ★★★ Zephyr を追加 ★★★
+                remote: zephyr
+                # ZMK の main ブランチが参照する安定した Zephyr バージョンを指定
+                revision: zephyr-v3.5.0
               - name: zmk
                 remote: zmkfirmware
                 revision: main
                 import: app/west.yml
             self:
-              path: . # ワークスペースのルートに配置
+              path: .
           EOF
 
-          # west init をワークスペースのルートで実行
           west init -l . 
           west update
           
-          # ZMK_CONFIG を環境変数として次ステップに渡す
           echo "ZMK_CONFIG=$PWD" >> $GITHUB_ENV
           
         shell: bash
 
-      # 4. ビルド実行と環境の初期化
-      - name: Perform ZMK Build (Source Check)
+      # 3. ビルド実行と環境の初期化
+      - name: Perform ZMK Build (Source and Build)
         run: |
           export ZMK_CONFIG="$ZMK_CONFIG" 
           
           # Zephyr 環境を source で初期化
           ZEPHYR_ENV_SCRIPT="$PWD/zephyr/zephyr-env.sh"
           
-          # ★★★ 最終チェック: zephyr/ ディレクトリのリスト表示を追加 ★★★
-          echo "Listing files in root directory:"
-          ls -F $PWD
-          echo "Listing files in zephyr directory:"
-          ls -F $PWD/zephyr || true
-          
           if [ -f "$ZEPHYR_ENV_SCRIPT" ]; then
-              echo "SUCCESS: zephyr-env.sh found. Starting build..."
+              echo "SUCCESS: Zephyr environment script found. Starting build..."
               source "$ZEPHYR_ENV_SCRIPT"
           else
-              echo "FATAL: zephyr/zephyr-env.sh not found. This is the last possible cause."
+              echo "FATAL: zephyr/zephyr-env.sh not found after west update. Final attempt failed."
               exit 1
           fi
 
           # west build をシンプルな形で実行
           west build -s zmk/app -b seeeduino_xiao_ble -d build/final_attempt
           
-          # ... (後略: uf2 変換とアップロード)
+          echo "=== Convert and Finalize ==="
+
+          BIN_PATH="build/final_attempt/zephyr/zephyr.elf"
+          if [ -f "$BIN_PATH" ]; then
+            echo "SUCCESS: Build completed! Converting to UF2..."
+            python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "build/final_attempt/zephyr.uf2"
+          else
+            echo "FATAL: Build failed."
+            exit 1
+          fi
         shell: bash
 
       - name: Archive production artifacts (Artifact Upload)
