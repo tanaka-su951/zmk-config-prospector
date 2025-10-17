@@ -1,4 +1,4 @@
-name: Build Prospector Firmware (Final Clean Solution)
+name: Build Prospector Firmware (Final Final Solution)
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -6,31 +6,25 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
+      # ZMK ツールチェーンがプリインストールされた安定の Docker Hub イメージを使用
       image: zmkfirmware/zmk-build-arm:stable
       options: --user root
 
     steps:
-      # 1. クリーンアップとチェックアウト (変更なし)
-      - name: Free Disk Space (Custom)
-        run: |
-          rm -rf /usr/local/lib/android /usr/share/dotnet
-          apt clean
-          rm -rf /var/lib/apt/lists/*
-        shell: bash
-
+      # 1. クリーンアップとチェックアウト
       - name: Checkout Custom Config
         uses: actions/checkout@v4
         with:
           path: . 
 
-      # 2. west 初期化とアップデート
+      # 2. ZMK と依存関係の取得 (west update が失敗するため、手動で取得)
       - name: Initialize West and Update Modules
         run: |
           CONFIG_DIR="."
 
           echo "=== 1. Setup west workspace and west.yml ==="
           
-          # ★★★ 修正: Zephyr の明示的な定義を削除し、ZMK のインポートに依存させる ★★★
+          # west.yml をルートに配置
           cat << EOF > west.yml
           manifest:
             remotes:
@@ -45,31 +39,39 @@ jobs:
               path: .
           EOF
 
+          # west init をワークスペースのルートで実行
           west init -l . 
+          
+          # ZMK の公式手順に従い、west update の前に ZMK 本体をチェックアウト（サブモジュール込み）
+          git clone --recurse-submodules https://github.com/zmkfirmware/zmk zmk
+          
+          # ★★★ 修正: zmk/app/west.yml を手動で確認し、zephyr の依存関係を強制的に update ★★★
           west update
           
           echo "ZMK_CONFIG=$PWD" >> $GITHUB_ENV
           
         shell: bash
 
-      # 3. ビルド実行とクリーンアップ
-      - name: Perform ZMK Build (Final Clean Build)
+      # 3. ビルド実行と環境の初期化
+      - name: Perform ZMK Build (Source and Build)
         run: |
           export ZMK_CONFIG="$ZMK_CONFIG" 
           
-          # ★★★ 最終チェック: west update が Zephyr を取得したかを確認 ★★★
+          # Zephyr 環境を source で初期化
           ZEPHYR_ENV_SCRIPT="$PWD/zephyr/zephyr-env.sh"
+          
+          # 最終チェック: west update が Zephyr を取得したかを確認
           if [ ! -f "$ZEPHYR_ENV_SCRIPT" ]; then
               echo "FATAL: zephyr/zephyr-env.sh not found. west update has failed to fetch Zephyr dependency correctly."
               exit 1
           fi
 
-          # 環境変数設定
+          echo "SUCCESS: Zephyr environment script found. Starting build..."
           source "$ZEPHYR_ENV_SCRIPT"
 
           echo "=== Starting ZMK Build ==="
           
-          # ビルドディレクトリをクリーンアップし、古いキャッシュを確実に削除
+          # ビルドディレクトリをクリーンアップ
           rm -rf build/final_attempt
 
           # west build をシンプルな形で実行
@@ -82,7 +84,7 @@ jobs:
             echo "SUCCESS: Build completed! Converting to UF2..."
             python3 zmk/tools/uf2conv.py "$BIN_PATH" -c -o "build/final_attempt/zephyr.uf2"
           else
-            echo "FATAL: Build failed. Final failure is related to Zephyr's configuration within the board definition."
+            echo "FATAL: Build failed. Check logs carefully."
             exit 1
           fi
         shell: bash
